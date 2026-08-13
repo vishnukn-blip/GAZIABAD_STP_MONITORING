@@ -46,7 +46,7 @@ const getItemTimestamp = (path: string): number => {
   return 0;
 };
 
-export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, deviceName }) => {
+export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('5grouter');
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
   const [activeSnapshotIdx, setActiveSnapshotIdx] = useState<number>(0);
