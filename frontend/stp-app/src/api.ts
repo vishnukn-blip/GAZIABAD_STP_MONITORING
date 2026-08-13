@@ -12,6 +12,7 @@ const getApiBaseUrl = (port: string) => {
 // ── Frappe API (Auth + Admin Config: Users, Devices, Tanks, Motors) ─────────
 export const FrappeAPI = axios.create({
   baseURL: getApiBaseUrl('8000'),
+  timeout: 2500, // 2.5s timeout: if Frappe port 8000 is unreachable, fail fast & login instantly
   withCredentials: true,  // uses Frappe session cookie
 });
 
@@ -32,6 +33,7 @@ FrappeAPI.interceptors.request.use(config => {
 // ── FastAPI (Telemetry only: Nimblevision real-time data) ────────────────────
 export const TelemetryAPI = axios.create({
   baseURL: getApiBaseUrl('8001'),  // FastAPI dynamically targeting host on port 8001
+  timeout: 5000,
 });
 
 TelemetryAPI.interceptors.request.use(config => {
