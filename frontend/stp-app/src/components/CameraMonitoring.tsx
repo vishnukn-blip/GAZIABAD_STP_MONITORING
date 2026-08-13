@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, RefreshCw, Maximize2, Video, Clock, ShieldCheck, UserCheck, Cpu, Eye, CheckCircle2 } from 'lucide-react';
+import {
+  Camera, RefreshCw, ChevronLeft, ChevronRight, UserCheck, ShieldCheck,
+  UserPlus, CheckCircle2, Clock, AlertCircle, EyeOff, Lock, User
+} from 'lucide-react';
 import { TelemetryAPI } from '../api';
 
 interface CameraChannel {
@@ -12,22 +15,18 @@ interface CameraChannel {
   last_updated: string;
 }
 
-interface InsightDetection {
-  person_id: string;
+interface StaffMember {
+  id: string;
   name: string;
   role: string;
-  confidence: number;
   status: string;
-  insight_image_url: string;
-  fallback_url?: string;
+  activeCount: number;
 }
 
-interface InsightData {
-  model: string;
-  faces_detected: number;
-  processed_at: string;
-  detections: InsightDetection[];
-  logs: { time: string; event: string; status: string }[];
+interface LogEntry {
+  time: string;
+  text: string;
+  type: 'info' | 'warning' | 'success';
 }
 
 interface CameraMonitoringProps {
@@ -36,588 +35,511 @@ interface CameraMonitoringProps {
 }
 
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, deviceName }) => {
-  const [cameras, setCameras] = useState<CameraChannel[]>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_01');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedCamera, setSelectedCamera] = useState<CameraChannel | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<string>('');
-  const [insightData, setInsightData] = useState<InsightData | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_02');
+  const [aiEnabled, setAiEnabled] = useState<boolean>(true);
+  const [activeSnapshotIdx, setActiveSnapshotIdx] = useState<number>(0);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [systemTime, setSystemTime] = useState<string>('');
 
-  const defaultCameras: CameraChannel[] = [
-    {
-      id: 'cam_01',
-      name: 'CAM-01: Raw Inlet Sump',
-      location: 'Raw Sewage Receiving Sump',
-      status: 'LIVE',
-      image_url: '/camera_snapshots/cam1_inlet_sump.png',
-      last_updated: new Date().toLocaleTimeString()
-    },
-    {
-      id: 'cam_02',
-      name: 'CAM-02: Aeration Basin',
-      location: 'Secondary Biological Aeration Tank',
-      status: 'LIVE',
-      image_url: '/camera_snapshots/cam2_aeration_tank.png',
-      last_updated: new Date().toLocaleTimeString()
-    }
+  // Sample snapshots list for thumbnail carousel
+  const snapshotsList = [
+    { id: 1, title: 'Snapshot 1', url: '/camera_snapshots/cam1_inlet_sump.png', time: '12:12:59 PM', date: '11/Aug/2026', hasPerson: false },
+    { id: 2, title: 'Snapshot 2', url: '/camera_snapshots/cam2_aeration_tank.png', time: '12:12:45 PM', date: '11/Aug/2026', hasPerson: true, personName: 'Saguaru', personRole: 'Visitor' },
+    { id: 3, title: 'Snapshot 3', url: '/camera_snapshots/insight_face.png', time: '12:10:30 PM', date: '11/Aug/2026', hasPerson: true, personName: 'El Presidento', personRole: 'Operator' },
+    { id: 4, title: 'Snapshot 4', url: '/camera_snapshots/cam3_filter_room.png', time: '12:05:12 PM', date: '11/Aug/2026', hasPerson: false },
+    { id: 5, title: 'Snapshot 5', url: '/camera_snapshots/cam4_site_overview.png', time: '12:00:00 PM', date: '11/Aug/2026', hasPerson: false },
   ];
 
-  const defaultInsight: InsightData = {
-    model: 'InsightFace (ArcFace ResNet-100)',
-    faces_detected: 1,
-    processed_at: new Date().toLocaleTimeString(),
-    detections: [
-      {
-        person_id: 'EMP-4082',
-        name: 'Ramesh Kumar',
-        role: 'STP Operations Specialist',
-        confidence: 98.4,
-        status: 'AUTHORIZED',
-        insight_image_url: '/camera_snapshots/insight_face.png'
-      }
-    ],
-    logs: [
-      { time: new Date().toLocaleTimeString(), event: 'InsightFace AI: Verified Ramesh Kumar (EMP-4082)', status: 'MATCHED' },
-      { time: '10:38:15', event: 'InsightFace AI: Camera Feed Analysis Active', status: 'ACTIVE' }
-    ]
-  };
+  const authorizedStaff: StaffMember[] = [
+    { id: '1', name: 'Saguaru', role: 'Visitor', status: 'ACTIVE', activeCount: 1 },
+    { id: '2', name: 'El Presidento', role: 'Operator', status: 'ACTIVE', activeCount: 1 },
+  ];
 
-  const fetchCameraSnapshots = async () => {
-    setRefreshing(true);
-    try {
-      const res = await TelemetryAPI.get('/api/camera-snapshots', { params: { device_id: deviceId } });
-      if (res.data && res.data.cameras && res.data.cameras.length > 0) {
-        setCameras(res.data.cameras);
-      } else {
-        setCameras(defaultCameras);
-      }
-      if (res.data && res.data.insight_face) {
-        setInsightData(res.data.insight_face);
-      } else {
-        setInsightData(defaultInsight);
-      }
-      setLastRefreshed(new Date().toLocaleTimeString());
-    } catch {
-      setCameras(defaultCameras);
-      setInsightData(defaultInsight);
-      setLastRefreshed(new Date().toLocaleTimeString());
-    } finally {
-      setLoading(false);
-      setTimeout(() => setRefreshing(false), 500);
-    }
-  };
+  const identificationLogs: LogEntry[] = [
+    { time: '12:12:59', text: 'Room Secured - Monitoring Active', type: 'success' },
+    { time: '12:10:30', text: 'Detected Authorized: El Presidento (Operator)', type: 'success' },
+    { time: '07:02:50', text: 'Detected Unknown / Unauthorized Presence', type: 'warning' },
+  ];
 
   useEffect(() => {
-    fetchCameraSnapshots();
-    const interval = setInterval(fetchCameraSnapshots, 10000);
+    const updateTime = () => {
+      setSystemTime(new Date().toLocaleTimeString('en-US', { hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, [deviceId]);
+  }, []);
 
-  const activeCam = (cameras.length > 0 ? cameras : defaultCameras).find(c => c.id === selectedCameraId) || (cameras[0] || defaultCameras[0]);
-  const activeInsight = insightData || defaultInsight;
-  const activePerson = activeInsight.detections[0] || defaultInsight.detections[0];
+  const currentSnapshot = snapshotsList[activeSnapshotIdx] || snapshotsList[0];
+
+  const handlePrevSnapshot = () => {
+    setActiveSnapshotIdx((prev) => (prev > 0 ? prev - 1 : snapshotsList.length - 1));
+  };
+
+  const handleNextSnapshot = () => {
+    setActiveSnapshotIdx((prev) => (prev < snapshotsList.length - 1 ? prev + 1 : 0));
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  };
 
   return (
-    <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#0F172A', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Top Controls Banner */}
+      {/* Header Bar */}
       <div style={{
-        background: '#FFFFFF',
-        border: '1px solid #CBD5E1',
-        borderRadius: '16px',
-        padding: '20px 24px',
-        boxShadow: '0 4px 20px rgba(15, 23, 42, 0.04)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '16px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            background: '#F0F9FF',
-            border: '1px solid #BAE6FD',
-            padding: '12px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Camera size={26} color="#0284C7" />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              CCTV Surveillance & InsightFace Detection
-              <span style={{
-                fontSize: '11px',
-                background: '#ECFDF5',
-                color: '#059669',
-                border: '1px solid #A7F3D0',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600
-              }}>
-                ● INSIGHT-AI ACTIVE
-              </span>
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0' }}>
-              Real-time site camera snapshots and AI face detection for <strong>{deviceName || deviceId}</strong>
-            </p>
-          </div>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
+            CAMERA MONITORING
+          </h1>
+          <p style={{ fontSize: '13px', color: '#64748B', margin: '2px 0 0 0' }}>
+            Live Snapshot Analysis & Face Identification
+          </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          {/* Camera Selection Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📹 Select Camera:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Camera Dropdown */}
+          <div style={{ position: 'relative' }}>
             <select
               value={selectedCameraId}
               onChange={(e) => setSelectedCameraId(e.target.value)}
               style={{
-                padding: '8px 16px',
-                borderRadius: '10px',
-                border: '1.5px solid #0284C7',
-                background: '#F0F9FF',
-                color: '#0369A1',
+                padding: '8px 36px 8px 16px',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                color: '#0F172A',
                 fontSize: '13px',
                 fontWeight: 700,
-                outline: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+                outline: 'none',
+                appearance: 'none'
               }}
             >
-              {(cameras.length > 0 ? cameras : defaultCameras).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              <option value="cam_01">CAMERA 1</option>
+              <option value="cam_02">CAMERA 2</option>
             </select>
+            <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: '10px' }}>▼</span>
           </div>
 
-          <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Clock size={14} color="#64748B" />
-            <span>Updated: <strong>{lastRefreshed || 'Just now'}</strong></span>
-          </div>
-
+          {/* Refresh Button */}
           <button
-            onClick={fetchCameraSnapshots}
-            disabled={refreshing}
+            onClick={handleRefresh}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               padding: '8px 16px',
-              borderRadius: '10px',
-              background: '#0284C7',
-              color: '#FFFFFF',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
-              transition: 'all 0.2s'
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer'
             }}
           >
-            <RefreshCw size={15} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-            {refreshing ? 'Refreshing...' : 'Refresh Snapshots'}
+            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            REFRESH
           </button>
         </div>
       </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '60px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #CBD5E1' }}>
-          <div className="spinner-lg" style={{ margin: '0 auto 16px auto' }} />
-          <p style={{ color: '#64748B', fontSize: '14px' }}>Loading camera feeds & InsightFace detection model...</p>
-        </div>
-      )}
+      {/* Main 2-Column Dashboard Layout */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.8fr) minmax(320px, 1fr)',
+        gap: '24px',
+        alignItems: 'start'
+      }}>
 
-      {/* 2-Column Split View: Left = Insight Face Detection, Right = Camera Image (Decreased Size) */}
-      {!loading && activeCam && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(350px, 1fr) minmax(350px, 1fr)',
-          gap: '20px',
-          alignItems: 'stretch'
-        }}>
-
-          {/* LEFT SIDE: InsightFace AI Face Detection & Recognition Panel */}
+        {/* LEFT COLUMN: Main Snapshot View + Thumbnail Carousel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          
+          {/* Snapshot Viewer Box */}
           <div style={{
-            background: '#0F172A',
-            borderRadius: '20px',
-            border: '1px solid #1E293B',
+            position: 'relative',
+            width: '100%',
+            background: '#090D16',
+            borderRadius: '16px',
             overflow: 'hidden',
-            boxShadow: '0 12px 35px rgba(15, 23, 42, 0.25)',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {/* Insight Header */}
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.98)',
-              padding: '16px 20px',
-              borderBottom: '1px solid #1E293B',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Cpu size={20} color="#10B981" />
-                <div>
-                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#F8FAFC', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    InsightFace AI Detection
-                  </h4>
-                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>{activeInsight.model}</span>
-                </div>
-              </div>
-
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '4px 10px',
-                borderRadius: '12px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#34D399',
-                border: '1px solid rgba(52, 211, 153, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}>
-                <CheckCircle2 size={13} />
-                MATCHED ({activePerson.confidence}%)
-              </span>
-            </div>
-
-            {/* InsightFace Detection Snapshot Image Frame */}
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '16/10',
-                background: '#020617',
-                cursor: 'pointer',
-                overflow: 'hidden'
-              }}
-              onClick={() => setSelectedCamera({
-                id: 'insight_face',
-                name: 'InsightFace AI Detection Overlay',
-                location: `${activePerson.name} (${activePerson.person_id})`,
-                status: 'MATCHED',
-                image_url: activePerson.insight_image_url,
-                fallback_url: activePerson.fallback_url,
-                last_updated: activeInsight.processed_at
-              })}
-            >
-              <img
-                src={activePerson.insight_image_url}
-                alt="InsightFace Detection"
-                onError={(e) => {
-                  if (activePerson.fallback_url && e.currentTarget.src !== window.location.origin + activePerson.fallback_url) {
-                    e.currentTarget.src = activePerson.fallback_url;
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-              />
-
-              {/* Bounding Box HUD Overlay */}
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                background: 'rgba(5, 150, 105, 0.9)',
-                color: '#FFFFFF',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 800,
-                fontFamily: 'monospace',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <Eye size={13} />
-                INSIGHT-FACE BBOX: OK
-              </div>
-            </div>
-
-            {/* Recognized Personnel Details */}
-            <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{
-                background: '#1E293B',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                border: '1px solid #334155'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    background: '#0284C7',
-                    color: '#FFFFFF',
-                    borderRadius: '10px',
-                    padding: '8px 12px',
-                    fontWeight: 800,
-                    fontSize: '14px'
-                  }}>
-                    ID
-                  </div>
-                  <div>
-                    <h5 style={{ fontSize: '15px', fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-                      {activePerson.name}
-                    </h5>
-                    <span style={{ fontSize: '12px', color: '#38BDF8', fontWeight: 600 }}>{activePerson.person_id} · {activePerson.role}</span>
-                  </div>
-                </div>
-
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  background: '#065F46',
-                  color: '#A7F3D0',
-                  padding: '4px 10px',
-                  borderRadius: '8px'
-                }}>
-                  {activePerson.status}
-                </span>
-              </div>
-
-              {/* Event Logs */}
-              <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                <strong style={{ color: '#CBD5E1', display: 'block', marginBottom: '6px' }}>AI Detection Logs:</strong>
-                {activeInsight.logs.map((log, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #1E293B' }}>
-                    <span>• {log.event}</span>
-                    <span style={{ color: '#38BDF8', fontFamily: 'monospace' }}>{log.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-
-          {/* RIGHT SIDE: Selected Camera Feed (Decreased Size) */}
-          <div style={{
-            background: '#0F172A',
-            borderRadius: '20px',
-            border: '1px solid #334155',
-            overflow: 'hidden',
-            boxShadow: '0 12px 35px rgba(15, 23, 42, 0.25)',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {/* Active Camera Header */}
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.98)',
-              padding: '16px 20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderBottom: '1px solid #1E293B'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Video size={18} color="#38BDF8" />
-                <div>
-                  <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-                    {activeCam.name}
-                  </h4>
-                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>{activeCam.location}</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: '10px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34D399',
-                  border: '1px solid rgba(52, 211, 153, 0.3)'
-                }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }} />
-                  {activeCam.status}
-                </span>
-
-                <button
-                  onClick={() => setSelectedCamera(activeCam)}
-                  title="Full Screen Preview"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: 'none',
-                    color: '#F8FAFC',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    transition: 'background 0.2s'
-                  }}
-                >
-                  <Maximize2 size={13} />
-                  Expand
-                </button>
-              </div>
-            </div>
-
-            {/* Active Camera Image Frame (Decreased Size Fit) */}
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '16/10',
-                background: '#020617',
-                cursor: 'pointer',
-                overflow: 'hidden'
-              }}
-              onClick={() => setSelectedCamera(activeCam)}
-            >
-              <img
-                src={activeCam.image_url}
-                alt={activeCam.name}
-                onError={(e) => {
-                  if (activeCam.fallback_url && e.currentTarget.src !== window.location.origin + activeCam.fallback_url) {
-                    e.currentTarget.src = activeCam.fallback_url;
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-              />
-
-              {/* OSD Timestamp Overlay */}
-              <div style={{
-                position: 'absolute',
-                bottom: '12px',
-                left: '12px',
-                background: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(4px)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                color: '#38BDF8',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <span style={{ color: '#EF4444', fontWeight: 900 }}>REC [●]</span>
-                <span>{activeCam.last_updated}</span>
-              </div>
-
-              {/* Camera Tag top right */}
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                background: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(4px)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                color: '#F8FAFC',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                fontWeight: 700
-              }}>
-                {activeCam.id.toUpperCase()}
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* Lightbox Modal for Full-Screen Camera View */}
-      {selectedCamera && (
-        <div
-          onClick={() => setSelectedCamera(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(2, 6, 23, 0.9)',
-            backdropFilter: 'blur(8px)',
+            boxShadow: '0 12px 36px rgba(15, 23, 42, 0.2)',
+            aspectRatio: '16/9',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: '24px'
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#0F172A',
-              border: '1px solid #334155',
-              borderRadius: '20px',
-              maxWidth: '1100px',
-              width: '100%',
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-            }}
-          >
+            justifyContent: 'center'
+          }}>
+            {/* Top OSD Date / Time */}
             <div style={{
-              padding: '16px 24px',
-              background: '#1E293B',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              position: 'absolute',
+              top: '16px',
+              left: '20px',
+              color: '#FFFFFF',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              fontWeight: 700,
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+              zIndex: 10
             }}>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
-                  {selectedCamera.name}
-                </h3>
-                <span style={{ fontSize: '12px', color: '#94A3B8' }}>{selectedCamera.location}</span>
-              </div>
+              11 - Aug - 2026 &nbsp; 12 : 12 : 59 PM
+            </div>
 
-              <button
-                onClick={() => setSelectedCamera(null)}
+            {/* Top Right Counter Badge */}
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              right: '20px',
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(6px)',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              color: '#FFFFFF',
+              fontSize: '11px',
+              fontWeight: 700,
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              zIndex: 10
+            }}>
+              Snapshot {activeSnapshotIdx + 1} / {snapshotsList.length}
+            </div>
+
+            {/* Snapshot Image */}
+            <img
+              src={currentSnapshot.url}
+              alt={currentSnapshot.title}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+            />
+
+            {/* Navigation Left Arrow */}
+            <button
+              onClick={handlePrevSnapshot}
+              style={{
+                position: 'absolute',
+                left: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: 'none',
+                color: '#FFFFFF',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                zIndex: 10
+              }}
+            >
+              <ChevronLeft size={24} />
+            </button>
+
+            {/* Navigation Right Arrow */}
+            <button
+              onClick={handleNextSnapshot}
+              style={{
+                position: 'absolute',
+                right: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: 'none',
+                color: '#FFFFFF',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                zIndex: 10
+              }}
+            >
+              <ChevronRight size={24} />
+            </button>
+
+            {/* Bottom Left OSD Tag */}
+            <div style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              color: '#FF6B00',
+              fontWeight: 700,
+              zIndex: 10
+            }}>
+              <span>📅 {currentSnapshot.date}</span>
+              <span>🕒 {currentSnapshot.time}</span>
+            </div>
+
+            {/* Bottom Center ROOM SECURED Badge */}
+            <div style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(16, 185, 129, 0.25)',
+              border: '1px solid #10B981',
+              backdropFilter: 'blur(6px)',
+              padding: '6px 16px',
+              borderRadius: '8px',
+              color: '#34D399',
+              fontSize: '12px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              letterSpacing: '0.5px',
+              zIndex: 10
+            }}>
+              <ShieldCheck size={16} />
+              ROOM SECURED
+            </div>
+          </div>
+
+          {/* Bottom Thumbnail Strip Carousel */}
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            overflowX: 'auto',
+            padding: '8px 2px',
+            scrollbarWidth: 'thin'
+          }}>
+            {snapshotsList.map((snap, idx) => (
+              <div
+                key={snap.id}
+                onClick={() => setActiveSnapshotIdx(idx)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  color: '#F8FAFC',
-                  padding: '6px 14px',
+                  minWidth: '100px',
+                  height: '65px',
                   borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: activeSnapshotIdx === idx ? '3px solid #FF6B00' : '2px solid transparent',
+                  opacity: activeSnapshotIdx === idx ? 1 : 0.6,
+                  transition: 'all 0.2s',
+                  position: 'relative'
                 }}
               >
-                Close ✕
+                <img
+                  src={snap.url}
+                  alt={snap.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+            ))}
+          </div>
+
+        </div>
+
+
+        {/* RIGHT COLUMN: AI Face Identification & Database Panels */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Card 1: AI FACE IDENTIFICATION Toggle */}
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '14px',
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>
+              <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#0284C7', margin: 0, letterSpacing: '-0.3px' }}>
+                AI FACE IDENTIFICATION
+              </h4>
+              <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0' }}>
+                Match faces to employee database
+              </p>
+            </div>
+
+            {/* Toggle Switch */}
+            <div
+              onClick={() => setAiEnabled(!aiEnabled)}
+              style={{
+                width: '46px',
+                height: '24px',
+                borderRadius: '12px',
+                background: aiEnabled ? '#FF6B00' : '#CBD5E1',
+                padding: '2px',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <div style={{
+                width: '20px',
+                height: '20px',
+                borderRadius: '50%',
+                background: '#FFFFFF',
+                transform: aiEnabled ? 'translateX(22px)' : 'translateX(0px)',
+                transition: 'transform 0.2s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }} />
+            </div>
+          </div>
+
+
+          {/* Card 2: DETECTIONS IN PHOTO */}
+          <div style={{
+            background: '#F5F3FF',
+            borderRadius: '14px',
+            border: '1px solid #DDD6FE',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#6D28D9', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔍</span> DETECTIONS IN PHOTO
+            </h4>
+
+            {currentSnapshot.hasPerson ? (
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                border: '1px solid #C4B5FD',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: '#7C3AED', color: '#FFF', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px' }}>
+                    {currentSnapshot.personName?.[0]}
+                  </div>
+                  <div>
+                    <h5 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#4C1D95' }}>{currentSnapshot.personName}</h5>
+                    <span style={{ fontSize: '11px', color: '#6D28D9' }}>{currentSnapshot.personRole}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', background: '#ECFDF5', color: '#059669', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>MATCHED</span>
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '24px 12px',
+                color: '#6D28D9',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <EyeOff size={32} color="#A78BFA" />
+                <span style={{ fontSize: '13px', fontWeight: 700 }}>No persons detected in snapshot.</span>
+              </div>
+            )}
+          </div>
+
+
+          {/* Card 3: AUTHORIZED STAFF DATABASE */}
+          <div style={{
+            background: '#F0FDF4',
+            borderRadius: '14px',
+            border: '1px solid #BBF7D0',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#15803D', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>👤</span> AUTHORIZED STAFF DATABASE
+              </h4>
+              <button style={{
+                background: '#059669',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '10px',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}>
+                + REGISTER FACE
               </button>
             </div>
 
-            <div style={{ width: '100%', maxHeight: '75vh', background: '#020617', overflow: 'hidden' }}>
-              <img
-                src={selectedCamera.image_url}
-                alt={selectedCamera.name}
-                onError={(e) => {
-                  if (selectedCamera.fallback_url) {
-                    e.currentTarget.src = selectedCamera.fallback_url;
-                  }
-                }}
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '75vh', objectFit: 'contain' }}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {authorizedStaff.map((staff) => (
+                <div key={staff.id} style={{
+                  background: '#FFFFFF',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  border: '1px solid #86EFAC',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#10B981', color: '#FFF', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
+                      {staff.name[0]}
+                    </div>
+                    <div>
+                      <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#14532D' }}>{staff.name}</h5>
+                      <span style={{ fontSize: '11px', color: '#15803D' }}>{staff.role}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '10px', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px', color: '#4B5563', fontWeight: 600 }}>📇 1</span>
+                    <span style={{ fontSize: '10px', color: '#15803D', fontWeight: 800 }}>● {staff.status}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+
+
+          {/* Card 4: REAL-TIME IDENTIFICATION LOG */}
+          <div style={{
+            background: '#FEFCE8',
+            borderRadius: '14px',
+            border: '1px solid #FEF08A',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#A16207', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📜</span> REAL-TIME IDENTIFICATION LOG
+            </h4>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+              {identificationLogs.map((log, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px', color: log.type === 'warning' ? '#B45309' : '#854D0E', padding: '4px 0', borderBottom: idx !== identificationLogs.length - 1 ? '1px dashed #FDE047' : 'none' }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{log.time}</span>
+                  <span>{log.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
-      )}
+
+      </div>
     </div>
   );
 };
