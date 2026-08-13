@@ -127,14 +127,12 @@ async def health():
 @app.get("/api/camera-snapshots")
 async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
     """
-    Fetch live camera snapshot feeds and metadata for the active STP device.
-    Reads images directly from AWS instance (13.200.3.124) directories:
+    Fetch live camera snapshot feeds directly from AWS instance (13.200.3.124) directories:
     - CAM 1: /home/routeruser/5grouter_images (http://13.200.3.124/5grouter_images/)
     - CAM 2: /home/routeruser/cam2images (http://13.200.3.124/cam2images/)
     """
     dev_id = device_id or "863110085106451"
     aws_host = "http://13.200.3.124"
-    local_base = "http://localhost:8001/static/camera_snapshots"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     time_str = datetime.now().strftime("%H:%M:%S")
 
@@ -153,8 +151,7 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                     "role": "STP Operations Specialist",
                     "confidence": 98.4,
                     "status": "AUTHORIZED",
-                    "insight_image_url": f"{local_base}/insight_face.png",
-                    "fallback_url": "/camera_snapshots/insight_face.png"
+                    "insight_image_url": f"{aws_host}/5grouter_images/insight_face.jpg"
                 }
             ],
             "logs": [
@@ -169,8 +166,7 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                 "location": "/home/routeruser/5grouter_images",
                 "aws_path": f"{aws_host}/5grouter_images/",
                 "status": "LIVE",
-                "image_url": f"{aws_host}/5grouter_images/latest.jpg",
-                "fallback_url": f"{local_base}/cam1_inlet_sump.png",
+                "image_url": f"{aws_host}/5grouter_images/image.jpg",
                 "last_updated": time_str
             },
             {
@@ -179,8 +175,7 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                 "location": "/home/routeruser/cam2images",
                 "aws_path": f"{aws_host}/cam2images/",
                 "status": "LIVE",
-                "image_url": f"{aws_host}/cam2images/latest.jpg",
-                "fallback_url": f"{local_base}/cam2_aeration_tank.png",
+                "image_url": f"{aws_host}/cam2images/image.jpg",
                 "last_updated": time_str
             }
         ]
