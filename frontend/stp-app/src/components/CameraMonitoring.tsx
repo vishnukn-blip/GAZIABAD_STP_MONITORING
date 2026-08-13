@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, RefreshCw, Maximize2, Shield, Video, Download, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Camera, RefreshCw, Maximize2, Video, Clock } from 'lucide-react';
 import { TelemetryAPI } from '../api';
 
 interface CameraChannel {
@@ -19,6 +19,7 @@ interface CameraMonitoringProps {
 
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, deviceName }) => {
   const [cameras, setCameras] = useState<CameraChannel[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_01');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<CameraChannel | null>(null);
@@ -54,7 +55,6 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
       }
       setLastRefreshed(new Date().toLocaleTimeString());
     } catch {
-      // Fallback to local default static snapshots
       setCameras(defaultCameras);
       setLastRefreshed(new Date().toLocaleTimeString());
     } finally {
@@ -69,10 +69,12 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
     return () => clearInterval(interval);
   }, [deviceId]);
 
+  const activeCam = (cameras.length > 0 ? cameras : defaultCameras).find(c => c.id === selectedCameraId) || (cameras[0] || defaultCameras[0]);
+
   return (
     <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Top Banner / Controls */}
+      {/* Top Controls Banner */}
       <div style={{
         background: '#FFFFFF',
         border: '1px solid #CBD5E1',
@@ -109,7 +111,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                 borderRadius: '12px',
                 fontWeight: 600
               }}>
-                ● 2 CHANNELS ACTIVE
+                ● 2 CHANNELS AVAILABLE
               </span>
             </h3>
             <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0' }}>
@@ -118,7 +120,34 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Camera Selection Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📹 Select Camera:</label>
+            <select
+              value={selectedCameraId}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '10px',
+                border: '1.5px solid #0284C7',
+                background: '#F0F9FF',
+                color: '#0369A1',
+                fontSize: '13px',
+                fontWeight: 700,
+                outline: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+              }}
+            >
+              {(cameras.length > 0 ? cameras : defaultCameras).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Clock size={14} color="#64748B" />
             <span>Updated: <strong>{lastRefreshed || 'Just now'}</strong></span>
@@ -153,157 +182,151 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
       {loading && (
         <div style={{ textAlign: 'center', padding: '60px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #CBD5E1' }}>
           <div className="spinner-lg" style={{ margin: '0 auto 16px auto' }} />
-          <p style={{ color: '#64748B', fontSize: '14px' }}>Loading live camera feeds from server instance...</p>
+          <p style={{ color: '#64748B', fontSize: '14px' }}>Loading live camera feed from server instance...</p>
         </div>
       )}
 
-      {/* Camera Grid */}
-      {!loading && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
-          gap: '20px'
-        }}>
-          {cameras.map((cam) => (
-            <div
-              key={cam.id}
-              style={{
-                background: '#0F172A',
-                borderRadius: '16px',
-                border: '1px solid #334155',
-                overflow: 'hidden',
-                boxShadow: '0 8px 30px rgba(15, 23, 42, 0.25)',
-                display: 'flex',
-                flexDirection: 'column',
-                transition: 'transform 0.2s, box-shadow 0.2s'
-              }}
-            >
-              {/* Camera Channel Header */}
-              <div style={{
-                background: 'rgba(15, 23, 42, 0.95)',
-                padding: '12px 18px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid #1E293B'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Video size={16} color="#38BDF8" />
-                  <div>
-                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
-                      {cam.name}
-                    </h4>
-                    <span style={{ fontSize: '11px', color: '#94A3B8' }}>{cam.location}</span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    padding: '3px 8px',
-                    borderRadius: '10px',
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#34D399',
-                    border: '1px solid rgba(52, 211, 153, 0.3)'
-                  }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D399' }} />
-                    {cam.status}
-                  </span>
-
-                  <button
-                    onClick={() => setSelectedCamera(cam)}
-                    title="Full Screen Preview"
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: 'none',
-                      color: '#F8FAFC',
-                      padding: '6px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    <Maximize2 size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Image Frame with Surveillance Overlay */}
-              <div
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: '16/9',
-                  background: '#020617',
-                  cursor: 'pointer',
-                  overflow: 'hidden'
-                }}
-                onClick={() => setSelectedCamera(cam)}
-              >
-                <img
-                  src={cam.image_url}
-                  alt={cam.name}
-                  onError={(e) => {
-                    if (cam.fallback_url && e.currentTarget.src !== window.location.origin + cam.fallback_url) {
-                      e.currentTarget.src = cam.fallback_url;
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block',
-                    transition: 'transform 0.3s ease'
-                  }}
-                />
-
-                {/* Surveillance OSD Timestamp Overlay */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  left: '12px',
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  backdropFilter: 'blur(4px)',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  color: '#38BDF8',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <span style={{ color: '#EF4444', fontWeight: 900 }}>REC [●]</span>
-                  <span>{cam.last_updated}</span>
-                </div>
-
-                {/* Camera Name Tag top right */}
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  backdropFilter: 'blur(4px)',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  color: '#F8FAFC',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                  {cam.id.toUpperCase()}
-                </div>
+      {/* Selected Camera Display View */}
+      {!loading && activeCam && (
+        <div
+          style={{
+            background: '#0F172A',
+            borderRadius: '20px',
+            border: '1px solid #334155',
+            overflow: 'hidden',
+            boxShadow: '0 12px 40px rgba(15, 23, 42, 0.3)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* Active Camera Header */}
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.98)',
+            padding: '16px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid #1E293B'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Video size={20} color="#38BDF8" />
+              <div>
+                <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
+                  {activeCam.name}
+                </h4>
+                <span style={{ fontSize: '12px', color: '#94A3B8' }}>{activeCam.location}</span>
               </div>
             </div>
-          ))}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: '12px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#34D399',
+                border: '1px solid rgba(52, 211, 153, 0.3)'
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34D399' }} />
+                {activeCam.status}
+              </span>
+
+              <button
+                onClick={() => setSelectedCamera(activeCam)}
+                title="Full Screen Preview"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: '#F8FAFC',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'background 0.2s'
+                }}
+              >
+                <Maximize2 size={15} />
+                Expand View
+              </button>
+            </div>
+          </div>
+
+          {/* Active Camera Image Frame */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16/9',
+              maxHeight: '680px',
+              background: '#020617',
+              cursor: 'pointer',
+              overflow: 'hidden'
+            }}
+            onClick={() => setSelectedCamera(activeCam)}
+          >
+            <img
+              src={activeCam.image_url}
+              alt={activeCam.name}
+              onError={(e) => {
+                if (activeCam.fallback_url && e.currentTarget.src !== window.location.origin + activeCam.fallback_url) {
+                  e.currentTarget.src = activeCam.fallback_url;
+                }
+              }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+            />
+
+            {/* OSD Timestamp Overlay */}
+            <div style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '16px',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(6px)',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontFamily: 'monospace',
+              color: '#38BDF8',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ color: '#EF4444', fontWeight: 900 }}>REC [●]</span>
+              <span>{activeCam.last_updated}</span>
+            </div>
+
+            {/* Camera Tag top right */}
+            <div style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(6px)',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              color: '#F8FAFC',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              fontWeight: 700
+            }}>
+              {activeCam.id.toUpperCase()}
+            </div>
+          </div>
         </div>
       )}
 
@@ -329,7 +352,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
               background: '#0F172A',
               border: '1px solid #334155',
               borderRadius: '20px',
-              maxWidth: '1000px',
+              maxWidth: '1100px',
               width: '100%',
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
@@ -355,7 +378,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                   background: 'rgba(255, 255, 255, 0.1)',
                   border: 'none',
                   color: '#F8FAFC',
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: '8px',
                   fontSize: '12px',
                   fontWeight: 600,
@@ -366,7 +389,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
               </button>
             </div>
 
-            <div style={{ width: '100%', maxHeight: '70vh', background: '#020617', overflow: 'hidden' }}>
+            <div style={{ width: '100%', maxHeight: '75vh', background: '#020617', overflow: 'hidden' }}>
               <img
                 src={selectedCamera.image_url}
                 alt={selectedCamera.name}
@@ -375,7 +398,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                     e.currentTarget.src = selectedCamera.fallback_url;
                   }
                 }}
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '70vh', objectFit: 'contain' }}
+                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '75vh', objectFit: 'contain' }}
               />
             </div>
           </div>
