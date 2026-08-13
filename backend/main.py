@@ -206,10 +206,10 @@ async def get_telemetry(
     """
     session_id = frappe_sid or sid or ""
 
-    # Step 1: Get layout from Frappe for user session
+    # Step 1: Get layout from Frappe for user session (0.8s fast timeout)
     layout = {}
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=0.8) as client:
             cookies = {"sid": session_id} if session_id else {}
             resp = await client.get(
                 f"{FRAPPE_BASE}/api/method/stp_app.api.layout.get_user_layout",
@@ -230,7 +230,7 @@ async def get_telemetry(
     new_points: list[TelemetryHistoryPoint] = []
 
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=3.5) as client:
             resp = await client.get(NIMBLEVISION_URL, params={
                 "key": api_key,
                 "token": api_token,

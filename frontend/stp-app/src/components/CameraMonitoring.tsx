@@ -86,30 +86,31 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setFetchError(null);
 
     let responseData: string[] | null = null;
-    let successfulHost = WORKING_HOST;
+    let successfulHost = activeApiBase;
 
-    // 1. Try Primary Host (13.206.207.146)
+    // 1. Try active working host first (INSTANT)
     try {
-      const res = await fetch(`${PRIMARY_HOST}/api/5grouter/list?source=${sourceKey}`, {
-        signal: AbortSignal.timeout(2500)
+      const res = await fetch(`${activeApiBase}/api/5grouter/list?source=${sourceKey}`, {
+        signal: AbortSignal.timeout(1200)
       });
       if (res.ok) {
         responseData = await res.json();
-        successfulHost = PRIMARY_HOST;
+        successfulHost = activeApiBase;
       }
     } catch (e) {
-      // Ignore and proceed to fallback host
+      // Proceed to alternate host
     }
 
-    // 2. Fallback to Working Host (13.200.3.124) if primary failed
+    // 2. Try alternate host if active host failed
     if (!responseData || responseData.length === 0) {
+      const altHost = activeApiBase === WORKING_HOST ? PRIMARY_HOST : WORKING_HOST;
       try {
-        const res = await fetch(`${WORKING_HOST}/api/5grouter/list?source=${sourceKey}`, {
-          signal: AbortSignal.timeout(4000)
+        const res = await fetch(`${altHost}/api/5grouter/list?source=${sourceKey}`, {
+          signal: AbortSignal.timeout(1200)
         });
         if (res.ok) {
           responseData = await res.json();
-          successfulHost = WORKING_HOST;
+          successfulHost = altHost;
         }
       } catch (e: any) {
         console.error('All AWS host attempts failed:', e);
