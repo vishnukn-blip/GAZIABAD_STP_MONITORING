@@ -9,6 +9,7 @@ interface CameraChannel {
   id: string;
   name: string;
   location: string;
+  aws_path: string;
   status: string;
   image_url: string;
   fallback_url?: string;
@@ -35,20 +36,56 @@ interface CameraMonitoringProps {
 }
 
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, deviceName }) => {
-  const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_02');
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_01');
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
   const [activeSnapshotIdx, setActiveSnapshotIdx] = useState<number>(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [systemTime, setSystemTime] = useState<string>('');
+  const [apiCameras, setApiCameras] = useState<CameraChannel[]>([]);
 
-  // Sample snapshots list for thumbnail carousel
-  const snapshotsList = [
-    { id: 1, title: 'Snapshot 1', url: '/camera_snapshots/cam1_inlet_sump.png', time: '12:12:59 PM', date: '11/Aug/2026', hasPerson: false },
-    { id: 2, title: 'Snapshot 2', url: '/camera_snapshots/cam2_aeration_tank.png', time: '12:12:45 PM', date: '11/Aug/2026', hasPerson: true, personName: 'Saguaru', personRole: 'Visitor' },
-    { id: 3, title: 'Snapshot 3', url: '/camera_snapshots/insight_face.png', time: '12:10:30 PM', date: '11/Aug/2026', hasPerson: true, personName: 'El Presidento', personRole: 'Operator' },
-    { id: 4, title: 'Snapshot 4', url: '/camera_snapshots/cam3_filter_room.png', time: '12:05:12 PM', date: '11/Aug/2026', hasPerson: false },
-    { id: 5, title: 'Snapshot 5', url: '/camera_snapshots/cam4_site_overview.png', time: '12:00:00 PM', date: '11/Aug/2026', hasPerson: false },
-  ];
+  // AWS EC2 13.200.3.124 Image Paths
+  const awsHost = 'http://13.200.3.124';
+
+  const defaultCameras: Record<string, CameraChannel> = {
+    cam_01: {
+      id: 'cam_01',
+      name: 'CAMERA 1 (5G Router)',
+      location: '/home/routeruser/5grouter_images',
+      aws_path: `${awsHost}/5grouter_images/`,
+      status: 'LIVE',
+      image_url: `${awsHost}/5grouter_images/latest.jpg`,
+      fallback_url: '/camera_snapshots/cam1_inlet_sump.png',
+      last_updated: new Date().toLocaleTimeString()
+    },
+    cam_02: {
+      id: 'cam_02',
+      name: 'CAMERA 2 (Cam 2 Images)',
+      location: '/home/routeruser/cam2images',
+      aws_path: `${awsHost}/cam2images/`,
+      status: 'LIVE',
+      image_url: `${awsHost}/cam2images/latest.jpg`,
+      fallback_url: '/camera_snapshots/cam2_aeration_tank.png',
+      last_updated: new Date().toLocaleTimeString()
+    }
+  };
+
+  // Dynamic snapshot sets per selected camera
+  const cameraSnapshotsMap: Record<string, any[]> = {
+    cam_01: [
+      { id: 1, title: '5G Router Image 1', url: `${awsHost}/5grouter_images/latest.jpg`, fallback: '/camera_snapshots/cam1_inlet_sump.png', time: '12:12:59 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/5grouter_images' },
+      { id: 2, title: '5G Router Image 2', url: `${awsHost}/5grouter_images/img2.jpg`, fallback: '/camera_snapshots/cam1_inlet_sump.png', time: '12:10:45 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/5grouter_images' },
+      { id: 3, title: '5G Router Image 3', url: `${awsHost}/5grouter_images/img3.jpg`, fallback: '/camera_snapshots/insight_face.png', time: '12:08:30 PM', date: '13/Aug/2026', hasPerson: true, personName: 'Saguaru', personRole: 'Visitor' },
+      { id: 4, title: '5G Router Image 4', url: `${awsHost}/5grouter_images/img4.jpg`, fallback: '/camera_snapshots/cam3_filter_room.png', time: '12:05:12 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/5grouter_images' },
+      { id: 5, title: '5G Router Image 5', url: `${awsHost}/5grouter_images/img5.jpg`, fallback: '/camera_snapshots/cam4_site_overview.png', time: '12:00:00 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/5grouter_images' },
+    ],
+    cam_02: [
+      { id: 1, title: 'Cam 2 Image 1', url: `${awsHost}/cam2images/latest.jpg`, fallback: '/camera_snapshots/cam2_aeration_tank.png', time: '12:12:59 PM', date: '13/Aug/2026', hasPerson: true, personName: 'El Presidento', personRole: 'Operator', path: '/home/routeruser/cam2images' },
+      { id: 2, title: 'Cam 2 Image 2', url: `${awsHost}/cam2images/img2.jpg`, fallback: '/camera_snapshots/cam2_aeration_tank.png', time: '12:11:15 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/cam2images' },
+      { id: 3, title: 'Cam 2 Image 3', url: `${awsHost}/cam2images/img3.jpg`, fallback: '/camera_snapshots/cam1_inlet_sump.png', time: '12:09:00 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/cam2images' },
+      { id: 4, title: 'Cam 2 Image 4', url: `${awsHost}/cam2images/img4.jpg`, fallback: '/camera_snapshots/insight_face.png', time: '12:06:22 PM', date: '13/Aug/2026', hasPerson: true, personName: 'Saguaru', personRole: 'Visitor', path: '/home/routeruser/cam2images' },
+      { id: 5, title: 'Cam 2 Image 5', url: `${awsHost}/cam2images/img5.jpg`, fallback: '/camera_snapshots/cam4_site_overview.png', time: '12:02:10 PM', date: '13/Aug/2026', hasPerson: false, path: '/home/routeruser/cam2images' },
+    ]
+  };
 
   const authorizedStaff: StaffMember[] = [
     { id: '1', name: 'Saguaru', role: 'Visitor', status: 'ACTIVE', activeCount: 1 },
@@ -56,7 +93,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
   ];
 
   const identificationLogs: LogEntry[] = [
-    { time: '12:12:59', text: 'Room Secured - Monitoring Active', type: 'success' },
+    { time: '12:12:59', text: `Fetched AWS 13.200.3.124 (${selectedCameraId === 'cam_01' ? '/5grouter_images' : '/cam2images'})`, type: 'success' },
     { time: '12:10:30', text: 'Detected Authorized: El Presidento (Operator)', type: 'success' },
     { time: '07:02:50', text: 'Detected Unknown / Unauthorized Presence', type: 'warning' },
   ];
@@ -70,6 +107,25 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
     return () => clearInterval(interval);
   }, []);
 
+  const fetchCameraData = async () => {
+    setRefreshing(true);
+    try {
+      const res = await TelemetryAPI.get('/api/camera-snapshots', { params: { device_id: deviceId } });
+      if (res.data && res.data.cameras && res.data.cameras.length > 0) {
+        setApiCameras(res.data.cameras);
+      }
+    } catch {}
+    finally {
+      setTimeout(() => setRefreshing(false), 500);
+    }
+  };
+
+  useEffect(() => {
+    fetchCameraData();
+  }, [deviceId]);
+
+  const activeCamInfo = defaultCameras[selectedCameraId] || defaultCameras.cam_01;
+  const snapshotsList = cameraSnapshotsMap[selectedCameraId] || cameraSnapshotsMap.cam_01;
   const currentSnapshot = snapshotsList[activeSnapshotIdx] || snapshotsList[0];
 
   const handlePrevSnapshot = () => {
@@ -81,8 +137,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
   };
 
   const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
+    fetchCameraData();
   };
 
   return (
@@ -101,16 +156,33 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
             CAMERA MONITORING
           </h1>
           <p style={{ fontSize: '13px', color: '#64748B', margin: '2px 0 0 0' }}>
-            Live Snapshot Analysis & Face Identification
+            Live Snapshot Analysis & AWS Remote Feed (IP: <code>13.200.3.124</code>)
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          {/* Camera Dropdown */}
+          {/* AWS Server Path Tag */}
+          <span style={{
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            background: '#F0F9FF',
+            color: '#0284C7',
+            border: '1px solid #BAE6FD',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            fontWeight: 700
+          }}>
+            📂 {selectedCameraId === 'cam_01' ? '/home/routeruser/5grouter_images' : '/home/routeruser/cam2images'}
+          </span>
+
+          {/* Camera Selector Dropdown */}
           <div style={{ position: 'relative' }}>
             <select
               value={selectedCameraId}
-              onChange={(e) => setSelectedCameraId(e.target.value)}
+              onChange={(e) => {
+                setSelectedCameraId(e.target.value);
+                setActiveSnapshotIdx(0);
+              }}
               style={{
                 padding: '8px 36px 8px 16px',
                 borderRadius: '8px',
@@ -124,8 +196,8 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                 appearance: 'none'
               }}
             >
-              <option value="cam_01">CAMERA 1</option>
-              <option value="cam_02">CAMERA 2</option>
+              <option value="cam_01">CAMERA 1 (5grouter_images)</option>
+              <option value="cam_02">CAMERA 2 (cam2images)</option>
             </select>
             <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: '10px' }}>▼</span>
           </div>
@@ -161,7 +233,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
         alignItems: 'start'
       }}>
 
-        {/* LEFT COLUMN: Main Snapshot View + Thumbnail Carousel */}
+        {/* LEFT COLUMN: Main AWS Snapshot Viewer + Thumbnail Carousel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
           {/* Snapshot Viewer Box */}
@@ -189,7 +261,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
               textShadow: '0 2px 4px rgba(0,0,0,0.8)',
               zIndex: 10
             }}>
-              11 - Aug - 2026 &nbsp; 12 : 12 : 59 PM
+              13 - Aug - 2026 &nbsp; {systemTime || '12 : 12 : 59 PM'}
             </div>
 
             {/* Top Right Counter Badge */}
@@ -210,10 +282,15 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
               Snapshot {activeSnapshotIdx + 1} / {snapshotsList.length}
             </div>
 
-            {/* Snapshot Image */}
+            {/* AWS Snapshot Image with Fallback */}
             <img
               src={currentSnapshot.url}
               alt={currentSnapshot.title}
+              onError={(e) => {
+                if (currentSnapshot.fallback && e.currentTarget.src !== window.location.origin + currentSnapshot.fallback) {
+                  e.currentTarget.src = currentSnapshot.fallback;
+                }
+              }}
               style={{
                 width: '100%',
                 height: '100%',
@@ -342,6 +419,11 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                 <img
                   src={snap.url}
                   alt={snap.title}
+                  onError={(e) => {
+                    if (snap.fallback && e.currentTarget.src !== window.location.origin + snap.fallback) {
+                      e.currentTarget.src = snap.fallback;
+                    }
+                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>

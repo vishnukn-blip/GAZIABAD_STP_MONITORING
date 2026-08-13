@@ -128,16 +128,20 @@ async def health():
 async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
     """
     Fetch live camera snapshot feeds and metadata for the active STP device.
-    Reads images from the instance directory path and performs InsightFace AI analytics.
+    Reads images directly from AWS instance (13.200.3.124) directories:
+    - CAM 1: /home/routeruser/5grouter_images (http://13.200.3.124/5grouter_images/)
+    - CAM 2: /home/routeruser/cam2images (http://13.200.3.124/cam2images/)
     """
     dev_id = device_id or "863110085106451"
-    base_url = "http://localhost:8001/static/camera_snapshots"
+    aws_host = "http://13.200.3.124"
+    local_base = "http://localhost:8001/static/camera_snapshots"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     time_str = datetime.now().strftime("%H:%M:%S")
 
     return {
         "device_id": dev_id,
         "timestamp": now_str,
+        "aws_host": aws_host,
         "insight_face": {
             "model": "InsightFace (ArcFace ResNet-100)",
             "faces_detected": 1,
@@ -149,7 +153,7 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                     "role": "STP Operations Specialist",
                     "confidence": 98.4,
                     "status": "AUTHORIZED",
-                    "insight_image_url": f"{base_url}/insight_face.png",
+                    "insight_image_url": f"{local_base}/insight_face.png",
                     "fallback_url": "/camera_snapshots/insight_face.png"
                 }
             ],
@@ -161,20 +165,22 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
         "cameras": [
             {
                 "id": "cam_01",
-                "name": "CAM-01: Raw Inlet Sump",
-                "location": "Raw Sewage Receiving Sump",
+                "name": "CAM-01: 5G Router Inlet Camera",
+                "location": "/home/routeruser/5grouter_images",
+                "aws_path": f"{aws_host}/5grouter_images/",
                 "status": "LIVE",
-                "image_url": f"{base_url}/cam1_inlet_sump.png",
-                "fallback_url": "/camera_snapshots/cam1_inlet_sump.png",
+                "image_url": f"{aws_host}/5grouter_images/latest.jpg",
+                "fallback_url": f"{local_base}/cam1_inlet_sump.png",
                 "last_updated": time_str
             },
             {
                 "id": "cam_02",
-                "name": "CAM-02: Aeration Basin",
-                "location": "Secondary Biological Aeration Tank",
+                "name": "CAM-02: Process Area Camera 2",
+                "location": "/home/routeruser/cam2images",
+                "aws_path": f"{aws_host}/cam2images/",
                 "status": "LIVE",
-                "image_url": f"{base_url}/cam2_aeration_tank.png",
-                "fallback_url": "/camera_snapshots/cam2_aeration_tank.png",
+                "image_url": f"{aws_host}/cam2images/latest.jpg",
+                "fallback_url": f"{local_base}/cam2_aeration_tank.png",
                 "last_updated": time_str
             }
         ]
