@@ -211,44 +211,35 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   const defaultDevs = [
     { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu' },
     { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu' },
-    { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032683869', api_key: 'chinnu' },
-    { name: 'STP-02', device_name: 'STP-02', device_id: '12345', api_key: 'chinnu' }
+    { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032680674', api_key: 'chinnu' },
+    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu' },
+    { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
   const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
   const currentDev = allDevs.find((d: any) =>
     d.device_id === devId ||
     d.name === devId ||
-    d.device_name === devId ||
-    (d.device_name && d.device_name.toLowerCase() === devId.toLowerCase())
+    d.device_name === devId
   ) || {
     device_id: devId,
-    device_name: devId === '12345' ? 'STP-02' : (devId === '863110085106451' ? 'STP Telemetry Device' : devId),
+    device_name: devId === '863110085106451' ? 'STP Telemetry Device' : devId,
     name: devId
   };
 
   const defaultTanks = [
-    { name: 'TANK-001', tank_name: 'Raw Sewage Sump', device: '863110085106451', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK-001-ALT', tank_name: 'Raw Sewage Sump', device: 'STP-DEV-001', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK-002', tank_name: 'Equalization Tank', device: '12345', variant: 'main', capacity_liters: 15000, display_order: 1 },
+    { name: 'TANK-001', tank_name: 'TANK_1', device: '863110085106451', variant: 'main', capacity_liters: 10000, display_order: 1 },
     { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_A_NAME', tank_name: 'TANK_A', device: 'STP PLANT A', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032683869', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_B_NAME', tank_name: 'TANK_B', device: 'STP PLANT B', variant: 'main', capacity_liters: 10000, display_order: 1 }
+    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 10000, display_order: 1 },
+    { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 10000, display_order: 1 },
+    { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 10000, display_order: 1 }
   ];
   const localTanksStr = localStorage.getItem('stp_local_tanks');
   const allTanks = localTanksStr ? JSON.parse(localTanksStr) : defaultTanks;
 
   const matchedTanks = allTanks.filter((t: any) =>
     t.device === devId ||
-    t.device === currentDev.name ||
-    t.device === currentDev.device_name ||
-    t.device === currentDev.device_id ||
-    (t.device && (
-      t.device.toLowerCase() === currentDev.device_name?.toLowerCase() ||
-      t.device.toLowerCase() === currentDev.name?.toLowerCase() ||
-      t.device.toLowerCase() === currentDev.device_id?.toLowerCase()
-    ))
+    t.device === currentDev.device_id
   );
 
   const tanksToUse = matchedTanks.length > 0 ? matchedTanks : [
