@@ -40,22 +40,6 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
       status: 'LIVE',
       image_url: '/camera_snapshots/cam2_aeration_tank.png',
       last_updated: new Date().toLocaleTimeString()
-    },
-    {
-      id: 'cam_03',
-      name: 'CAM-03: Filter Pump Room',
-      location: 'Tertiary Filtration & Disinfection',
-      status: 'LIVE',
-      image_url: '/camera_snapshots/cam3_filter_room.png',
-      last_updated: new Date().toLocaleTimeString()
-    },
-    {
-      id: 'cam_04',
-      name: 'CAM-04: Plant Master View',
-      location: 'STP Plant Master Entrance & Overview',
-      status: 'LIVE',
-      image_url: '/camera_snapshots/cam4_site_overview.png',
-      last_updated: new Date().toLocaleTimeString()
     }
   ];
 
@@ -125,7 +109,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ deviceId, de
                 borderRadius: '12px',
                 fontWeight: 600
               }}>
-                ● 4 CHANNELS ACTIVE
+                ● 2 CHANNELS ACTIVE
               </span>
             </h3>
             <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0 0' }}>

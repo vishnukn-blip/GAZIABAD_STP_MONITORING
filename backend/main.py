@@ -156,24 +156,6 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                 "image_url": f"{base_url}/cam2_aeration_tank.png",
                 "fallback_url": "/camera_snapshots/cam2_aeration_tank.png",
                 "last_updated": time_str
-            },
-            {
-                "id": "cam_03",
-                "name": "CAM-03: Filter Pump Room",
-                "location": "Tertiary Filtration & Disinfection",
-                "status": "LIVE",
-                "image_url": f"{base_url}/cam3_filter_room.png",
-                "fallback_url": "/camera_snapshots/cam3_filter_room.png",
-                "last_updated": time_str
-            },
-            {
-                "id": "cam_04",
-                "name": "CAM-04: Plant Master View",
-                "location": "STP Plant Master Entrance & Overview",
-                "status": "LIVE",
-                "image_url": f"{base_url}/cam4_site_overview.png",
-                "fallback_url": "/camera_snapshots/cam4_site_overview.png",
-                "last_updated": time_str
             }
         ]
     }
