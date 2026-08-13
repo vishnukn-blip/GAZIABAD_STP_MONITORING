@@ -127,12 +127,12 @@ async def health():
 @app.get("/api/camera-snapshots")
 async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
     """
-    Fetch live camera snapshot feeds directly from AWS instance (13.200.3.124) directories:
-    - CAM 1: /home/routeruser/5grouter_images (http://13.200.3.124/5grouter_images/)
-    - CAM 2: /home/routeruser/cam2images (http://13.200.3.124/cam2images/)
+    Fetch live camera snapshot feeds directly from AWS instance (13.206.207.146) directories:
+    - CAM 1: /home/routeruser/5grouter_images/00_1b_09_14_e4_e3/SATATYA_IPCAM_IMAGE
+    - CAM 2: /home/routeruser/cam2images/00_1b_09_14_e4_d3/SATATYA_IPCAM_IMAGE
     """
     dev_id = device_id or "863110085106451"
-    aws_host = "http://13.200.3.124"
+    aws_host = "http://13.206.207.146"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     time_str = datetime.now().strftime("%H:%M:%S")
 
@@ -151,7 +151,7 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
                     "role": "STP Operations Specialist",
                     "confidence": 98.4,
                     "status": "AUTHORIZED",
-                    "insight_image_url": f"{aws_host}/5grouter_images/insight_face.jpg"
+                    "insight_image_url": f"{aws_host}:5002/api/5grouter/view/insight_face.jpg"
                 }
             ],
             "logs": [
@@ -163,19 +163,17 @@ async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
             {
                 "id": "cam_01",
                 "name": "CAM-01: 5G Router Inlet Camera",
-                "location": "/home/routeruser/5grouter_images",
-                "aws_path": f"{aws_host}/5grouter_images/",
+                "location": "/home/routeruser/5grouter_images/00_1b_09_14_e4_e3/SATATYA_IPCAM_IMAGE",
+                "aws_path": f"{aws_host}:5002/api/5grouter/list?source=5grouter",
                 "status": "LIVE",
-                "image_url": f"{aws_host}/5grouter_images/image.jpg",
                 "last_updated": time_str
             },
             {
                 "id": "cam_02",
                 "name": "CAM-02: Process Area Camera 2",
-                "location": "/home/routeruser/cam2images",
-                "aws_path": f"{aws_host}/cam2images/",
+                "location": "/home/routeruser/cam2images/00_1b_09_14_e4_d3/SATATYA_IPCAM_IMAGE",
+                "aws_path": f"{aws_host}:5002/api/5grouter/list?source=cam2",
                 "status": "LIVE",
-                "image_url": f"{aws_host}/cam2images/image.jpg",
                 "last_updated": time_str
             }
         ]
