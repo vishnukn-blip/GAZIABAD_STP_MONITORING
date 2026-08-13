@@ -1,8 +1,17 @@
 import axios from 'axios';
 
+// Dynamic Host Resolution (Uses current server IP/hostname instead of hardcoded localhost)
+const getApiBaseUrl = (port: string) => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname || 'localhost';
+    return `http://${hostname}:${port}`;
+  }
+  return `http://localhost:${port}`;
+};
+
 // ── Frappe API (Auth + Admin Config: Users, Devices, Tanks, Motors) ─────────
 export const FrappeAPI = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: getApiBaseUrl('8000'),
   withCredentials: true,  // uses Frappe session cookie
 });
 
@@ -22,7 +31,7 @@ FrappeAPI.interceptors.request.use(config => {
 
 // ── FastAPI (Telemetry only: Nimblevision real-time data) ────────────────────
 export const TelemetryAPI = axios.create({
-  baseURL: 'http://localhost:8001',  // FastAPI on port 8001
+  baseURL: getApiBaseUrl('8001'),  // FastAPI dynamically targeting host on port 8001
 });
 
 TelemetryAPI.interceptors.request.use(config => {
