@@ -1,0 +1,27 @@
+# Node / Frontend
+node_modules/
+frontend/stp-app/node_modules/
+frontend/stp-app/dist/
+frontend/stp-app/build/
+.npm
+*.log
+
+# Python / Backend
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+backend/*.db
+backend/stp_monitoring.db
+
+# Environment variables
+.env
+backend/.env
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
