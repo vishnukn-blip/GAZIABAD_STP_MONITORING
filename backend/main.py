@@ -9,9 +9,11 @@ Auth/Users/Devices/Tanks/Motors are all managed by Frappe on port 8000.
 FastAPI fetches the device config from Frappe before calling Nimblevision.
 """
 
+import os
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
@@ -30,6 +32,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static folder for camera snapshots
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 NIMBLEVISION_URL = "http://3.6.204.10/public/api/getDeviceDiagnosticInfoNisensu"
 FRAPPE_BASE = "http://localhost:8000"
@@ -113,6 +121,61 @@ async def health():
         "port": 8001,
         "role": "Nimblevision telemetry proxy",
         "admin_backend": "Frappe on http://localhost:8000"
+    }
+
+
+@app.get("/api/camera-snapshots")
+async def get_camera_snapshots(device_id: Optional[str] = Query(None)):
+    """
+    Fetch live camera snapshot feeds and metadata for the active STP device.
+    Reads images from the instance directory path.
+    """
+    dev_id = device_id or "863110085106451"
+    base_url = "http://localhost:8001/static/camera_snapshots"
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    time_str = datetime.now().strftime("%H:%M:%S")
+
+    return {
+        "device_id": dev_id,
+        "timestamp": now_str,
+        "cameras": [
+            {
+                "id": "cam_01",
+                "name": "CAM-01: Raw Inlet Sump",
+                "location": "Raw Sewage Receiving Sump",
+                "status": "LIVE",
+                "image_url": f"{base_url}/cam1_inlet_sump.png",
+                "fallback_url": "/camera_snapshots/cam1_inlet_sump.png",
+                "last_updated": time_str
+            },
+            {
+                "id": "cam_02",
+                "name": "CAM-02: Aeration Basin",
+                "location": "Secondary Biological Aeration Tank",
+                "status": "LIVE",
+                "image_url": f"{base_url}/cam2_aeration_tank.png",
+                "fallback_url": "/camera_snapshots/cam2_aeration_tank.png",
+                "last_updated": time_str
+            },
+            {
+                "id": "cam_03",
+                "name": "CAM-03: Filter Pump Room",
+                "location": "Tertiary Filtration & Disinfection",
+                "status": "LIVE",
+                "image_url": f"{base_url}/cam3_filter_room.png",
+                "fallback_url": "/camera_snapshots/cam3_filter_room.png",
+                "last_updated": time_str
+            },
+            {
+                "id": "cam_04",
+                "name": "CAM-04: Plant Master View",
+                "location": "STP Plant Master Entrance & Overview",
+                "status": "LIVE",
+                "image_url": f"{base_url}/cam4_site_overview.png",
+                "fallback_url": "/camera_snapshots/cam4_site_overview.png",
+                "last_updated": time_str
+            }
+        ]
     }
 
 

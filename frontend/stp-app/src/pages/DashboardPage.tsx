@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
+import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { frappeGetLayout, TelemetryAPI } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
+import { CameraMonitoring } from '../components/CameraMonitoring';
 
 const POLL_INTERVAL = 5000;
 
@@ -321,6 +322,7 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'camera'>('telemetry');
 
   const loadUserDevices = () => {
     const defaultDevs = [
@@ -491,7 +493,61 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main SCADA Canvas */}
+      {/* Dashboard View Navigation Tabs */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        margin: '20px 0 16px 0',
+        borderBottom: '2px solid #E2E8F0',
+        paddingBottom: '8px'
+      }}>
+        <button
+          onClick={() => setActiveTab('telemetry')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 22px',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'telemetry' ? '#0284C7' : '#F1F5F9',
+            color: activeTab === 'telemetry' ? '#FFFFFF' : '#64748B',
+            boxShadow: activeTab === 'telemetry' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Activity size={18} />
+          Live SCADA & Telemetry
+        </button>
+
+        <button
+          onClick={() => setActiveTab('camera')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 22px',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'camera' ? '#0284C7' : '#F1F5F9',
+            color: activeTab === 'camera' ? '#FFFFFF' : '#64748B',
+            boxShadow: activeTab === 'camera' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Camera size={18} />
+          Camera Monitoring
+        </button>
+      </div>
+
+      {/* Main Content Area */}
       <main className="scada-main">
         {loading && <div className="loading-screen"><div className="spinner-lg" /><p>Loading SCADA dashboard...</p></div>}
 
@@ -505,46 +561,52 @@ const DashboardPage: React.FC = () => {
 
         {!loading && layout && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
-              <div className="scada-canvas" style={{ margin: 0, height: '100%' }}>
-                <div className="canvas-header">
-                  <h2 className="canvas-title">Water Tank Monitoring</h2>
-                  <p className="canvas-sub">Live STP Tank Water Level & Capacity</p>
+            {activeTab === 'camera' ? (
+              <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} />
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
+                  <div className="scada-canvas" style={{ margin: 0, height: '100%' }}>
+                    <div className="canvas-header">
+                      <h2 className="canvas-title">Water Tank Monitoring</h2>
+                      <p className="canvas-sub">Live STP Tank Water Level & Capacity</p>
+                    </div>
+
+                    <div className="tanks-row" style={{ justifyContent: 'center' }}>
+                      {layout.tanks
+                        .sort((a, b) => a.display_order - b.display_order)
+                        .map((tank, idx) => {
+                          const tankTelemetry = telemetry?.tanks.find(tt => tt.tank_id === tank.id || tt.tank_name === tank.name) ?? telemetry?.tanks[idx] ?? null;
+                          return (
+                            <TankCard
+                              key={tank.id}
+                              tankLayout={tank}
+                              telemetry={tankTelemetry}
+                              index={idx}
+                              total={layout.tanks.length}
+                            />
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Device Location GIS Map on the right side */}
+                  <DeviceMap
+                    deviceId={layout.device_id}
+                    deviceName={layout.device_name}
+                    waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
+                    activeMotorsCount={activeMotors}
+                  />
                 </div>
 
-                <div className="tanks-row" style={{ justifyContent: 'center' }}>
-                  {layout.tanks
-                    .sort((a, b) => a.display_order - b.display_order)
-                    .map((tank, idx) => {
-                      const tankTelemetry = telemetry?.tanks.find(tt => tt.tank_id === tank.id || tt.tank_name === tank.name) ?? telemetry?.tanks[idx] ?? null;
-                      return (
-                        <TankCard
-                          key={tank.id}
-                          tankLayout={tank}
-                          telemetry={tankTelemetry}
-                          index={idx}
-                          total={layout.tanks.length}
-                        />
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Device Location GIS Map on the right side */}
-              <DeviceMap
-                deviceId={layout.device_id}
-                deviceName={layout.device_name}
-                waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
-                activeMotorsCount={activeMotors}
-              />
-            </div>
-
-            {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
-            <TelemetryCharts
-              history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
-              motors={layout?.tanks[0]?.motors || telemetry?.tanks[0]?.motors || []}
-              tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
-            />
+                {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
+                <TelemetryCharts
+                  history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
+                  motors={layout?.tanks[0]?.motors || telemetry?.tanks[0]?.motors || []}
+                  tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
+                />
+              </>
+            )}
           </>
         )}
       </main>
