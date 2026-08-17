@@ -46,6 +46,15 @@ const getItemTimestamp = (path: string): number => {
   return 0;
 };
 
+const formatImageDate = (path: string): string => {
+  const match = path.match(/(\d{2})_([A-Za-z]{3})_(\d{4})/);
+  if (match) {
+    const [, day, monthStr, year] = match;
+    return `${day} - ${monthStr} - ${year}`;
+  }
+  return '';
+};
+
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('5grouter');
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
@@ -300,20 +309,26 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            {/* Top OSD Date / Time */}
-            <div style={{
-              position: 'absolute',
-              top: '16px',
-              left: '20px',
-              color: '#FFFFFF',
-              fontFamily: 'monospace',
-              fontSize: '14px',
-              fontWeight: 700,
-              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-              zIndex: 10
-            }}>
-              13 - Aug - 2026 &nbsp; {systemTime || '12 : 12 : 59 PM'}
-            </div>
+            {/* Top OSD Image Date */}
+            {currentRelPath && (
+              <div style={{
+                position: 'absolute',
+                top: '16px',
+                left: '20px',
+                color: '#FFFFFF',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                fontWeight: 700,
+                background: 'rgba(15, 23, 42, 0.75)',
+                padding: '4px 12px',
+                borderRadius: '6px',
+                backdropFilter: 'blur(4px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                zIndex: 10
+              }}>
+                📅 {formatImageDate(currentRelPath) || 'Image Snapshot'}
+              </div>
+            )}
 
             {/* Top Right Counter Badge */}
             <div style={{
