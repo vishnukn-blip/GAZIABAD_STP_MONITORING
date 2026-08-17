@@ -195,7 +195,18 @@ const AdminPage: React.FC = () => {
 
     const stored = localStorage.getItem('stp_local_devices');
     if (stored) {
-      try { setDevices(JSON.parse(stored)); } catch { setDevices(DEFAULT_LOCAL_DEVICES); }
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.some((d: any) => d.device_id === '350435032683869' || d.device_id === '12345')) {
+          localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+          setDevices(DEFAULT_LOCAL_DEVICES);
+        } else {
+          setDevices(parsed);
+        }
+      } catch {
+        localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+        setDevices(DEFAULT_LOCAL_DEVICES);
+      }
     } else {
       localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
       setDevices(DEFAULT_LOCAL_DEVICES);
@@ -245,7 +256,18 @@ const AdminPage: React.FC = () => {
 
     const stored = localStorage.getItem('stp_local_tanks');
     if (stored) {
-      try { setTanks(JSON.parse(stored)); } catch { setTanks(DEFAULT_LOCAL_TANKS); }
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.some((t: any) => t.device === '12345' || t.name === 'TANK-002' || t.device === '350435032683869')) {
+          localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
+          setTanks(DEFAULT_LOCAL_TANKS);
+        } else {
+          setTanks(parsed);
+        }
+      } catch {
+        localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
+        setTanks(DEFAULT_LOCAL_TANKS);
+      }
     } else {
       localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
       setTanks(DEFAULT_LOCAL_TANKS);
@@ -295,7 +317,18 @@ const AdminPage: React.FC = () => {
 
     const stored = localStorage.getItem('stp_local_motors');
     if (stored) {
-      try { setMotors(JSON.parse(stored)); } catch { setMotors(DEFAULT_LOCAL_MOTORS); }
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.some((m: any) => m.tank === 'TANK-002' || m.name === 'MOTOR-007' || m.name === 'MOTOR-008')) {
+          localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
+          setMotors(DEFAULT_LOCAL_MOTORS);
+        } else {
+          setMotors(parsed);
+        }
+      } catch {
+        localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
+        setMotors(DEFAULT_LOCAL_MOTORS);
+      }
     } else {
       localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
       setMotors(DEFAULT_LOCAL_MOTORS);
