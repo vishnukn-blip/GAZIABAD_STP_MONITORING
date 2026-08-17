@@ -92,19 +92,15 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
         }
       }
 
-      if (!effectivePoint) {
-        effectivePoint = sorted[0];
-      }
-
       points.push({
         timestamp: timeLabel,
         time_short: timeLabel,
-        water_level: effectivePoint?.water_level ?? 0,
-        current_1: effectivePoint?.current_1 ?? 0,
-        current_2: effectivePoint?.current_2 ?? 0,
-        current_3: effectivePoint?.current_3 ?? 0,
-        current_4: effectivePoint?.current_4 ?? 0,
-        low_pressure: effectivePoint?.low_pressure ?? 0,
+        water_level: effectivePoint ? (effectivePoint.water_level ?? 0) : (sorted[0]?.water_level ?? 0),
+        current_1: effectivePoint ? (effectivePoint.current_1 ?? 0) : 0,
+        current_2: effectivePoint ? (effectivePoint.current_2 ?? 0) : 0,
+        current_3: effectivePoint ? (effectivePoint.current_3 ?? 0) : 0,
+        current_4: effectivePoint ? (effectivePoint.current_4 ?? 0) : 0,
+        low_pressure: effectivePoint ? (effectivePoint.low_pressure ?? 0) : 0,
       });
     }
 

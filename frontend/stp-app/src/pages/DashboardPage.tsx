@@ -397,8 +397,36 @@ const DashboardPage: React.FC = () => {
 
       setTelemetry(data);
 
-      if (data?.history && Array.isArray(data.history) && data.history.length > 0) {
-        setAccumulatedHistory(data.history);
+      if (data) {
+        const now = new Date();
+        const tsStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+        const timeShort = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+        
+        const allMotors = data.tanks?.flatMap((t: any) => t.motors) || [];
+        const getRun = (key: string) => allMotors.find((m: any) => m.run_param_key === key)?.is_running ? 1 : 0;
+
+        const newPoint = {
+          timestamp: tsStr,
+          time_short: timeShort,
+          water_level: data.tanks?.[0]?.water_level_percent ?? 0,
+          current_1: getRun('current_1'),
+          current_2: getRun('current_2'),
+          current_3: getRun('current_3'),
+          current_4: getRun('current_4'),
+          low_pressure: getRun('low_pressure'),
+        };
+
+        setAccumulatedHistory((prev) => {
+          const apiHist = (data.history && Array.isArray(data.history)) ? data.history : [];
+          const combined = [...apiHist, ...prev, newPoint];
+          const map = new Map();
+          for (const item of combined) {
+            if (item.timestamp) map.set(item.timestamp, item);
+          }
+          const unique = Array.from(map.values());
+          unique.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+          return unique.slice(-120);
+        });
       }
 
       setOnline(true);
