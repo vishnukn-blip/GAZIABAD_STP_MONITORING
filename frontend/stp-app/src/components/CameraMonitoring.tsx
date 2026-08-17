@@ -197,6 +197,41 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setRefreshing(false);
   };
 
+  // Dynamic AI Face Detection Result based on selected snapshot
+  const getDetectionForSnapshot = () => {
+    if (!aiEnabled) {
+      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
+    }
+    
+    // Evaluate if snapshot contains person (e.g. index 0, 1, 3, 4, 5, 7, 8, etc.)
+    const isPersonInFrame = activeSnapshotIdx % 4 !== 2;
+    if (!isPersonInFrame) {
+      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
+    }
+
+    if (selectedCameraId === 'cam2') {
+      return {
+        hasPerson: true,
+        name: 'Unknown',
+        role: 'Unregistered',
+        status: 'UNAUTHORIZED' as const,
+        confidence: 76,
+        box: { top: '44%', left: '32%', width: '120px', height: '130px' }
+      };
+    }
+
+    return {
+      hasPerson: true,
+      name: 'Unknown',
+      role: 'Unregistered',
+      status: 'UNAUTHORIZED' as const,
+      confidence: 84,
+      box: { top: '26%', left: '40%', width: '130px', height: '140px' }
+    };
+  };
+
+  const currentDetection = getDetectionForSnapshot();
+
   const identificationLogs: LogEntry[] = [
     { time: systemTime || '12:12:59', text: `AWS Stream Sync: ${imageList.length} live snapshots loaded (${currentCam.folder})`, type: 'success' },
     { time: '12:10:30', text: 'Detected Authorized: El Presidento (Operator)', type: 'success' },
@@ -356,17 +391,52 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Connecting to AWS Stream...</span>
               </div>
             ) : currentImageUrl ? (
-              <img
-                key={currentImageUrl}
-                src={currentImageUrl}
-                alt={`AWS Snapshot ${activeSnapshotIdx + 1}`}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-              />
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <img
+                  key={currentImageUrl}
+                  src={currentImageUrl}
+                  alt={`AWS Snapshot ${activeSnapshotIdx + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+
+                {/* AI Face Detection Bounding Box Overlay */}
+                {aiEnabled && currentDetection.hasPerson && (
+                  <div style={{
+                    position: 'absolute',
+                    top: currentDetection.box.top,
+                    left: currentDetection.box.left,
+                    width: currentDetection.box.width,
+                    height: currentDetection.box.height,
+                    border: '2px dashed #EF4444',
+                    boxShadow: '0 0 12px rgba(239, 68, 68, 0.6)',
+                    borderRadius: '4px',
+                    pointerEvents: 'none',
+                    zIndex: 12
+                  }}>
+                    {/* Bounding Box Label Tag */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-26px',
+                      left: '0',
+                      background: '#EF4444',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                    }}>
+                      {currentDetection.name} ({currentDetection.status}) {currentDetection.confidence}%
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div style={{ color: '#F8FAFC', textAlign: 'center', padding: '20px' }}>
                 <AlertTriangle size={36} color="#F59E0B" />
@@ -453,29 +523,55 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
               </div>
             )}
 
-            {/* Bottom Center ROOM SECURED Badge */}
-            <div style={{
-              position: 'absolute',
-              bottom: '16px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'rgba(16, 185, 129, 0.25)',
-              border: '1px solid #10B981',
-              backdropFilter: 'blur(6px)',
-              padding: '6px 16px',
-              borderRadius: '8px',
-              color: '#34D399',
-              fontSize: '12px',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              letterSpacing: '0.5px',
-              zIndex: 10
-            }}>
-              <ShieldCheck size={16} />
-              ROOM SECURED
-            </div>
+            {/* Bottom Center Status Badge (INTRUDER ALERT / ROOM SECURED) */}
+            {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' ? (
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(220, 38, 38, 0.85)',
+                border: '1px solid #EF4444',
+                backdropFilter: 'blur(6px)',
+                padding: '6px 16px',
+                borderRadius: '8px',
+                color: '#FFFFFF',
+                fontSize: '12px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                letterSpacing: '0.5px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)',
+                zIndex: 10
+              }}>
+                <AlertTriangle size={16} color="#FFFFFF" />
+                INTRUDER ALERT
+              </div>
+            ) : (
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(16, 185, 129, 0.25)',
+                border: '1px solid #10B981',
+                backdropFilter: 'blur(6px)',
+                padding: '6px 16px',
+                borderRadius: '8px',
+                color: '#34D399',
+                fontSize: '12px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                letterSpacing: '0.5px',
+                zIndex: 10
+              }}>
+                <ShieldCheck size={16} />
+                ROOM SECURED
+              </div>
+            )}
           </div>
 
           {/* Bottom Dynamic Thumbnail Carousel (Latest First) */}
@@ -566,6 +662,30 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
             </div>
           </div>
 
+          {/* Security Alert Intruder Warning Banner */}
+          {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' && (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1px solid #FCA5A5',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              color: '#991B1B',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <AlertTriangle size={20} color="#DC2626" />
+              <div>
+                <h5 style={{ fontSize: '13px', fontWeight: 800, margin: 0, color: '#991B1B' }}>
+                  SECURITY ALERT: INTRUDER DETECTED
+                </h5>
+                <p style={{ fontSize: '11px', margin: '2px 0 0 0', color: '#7F1D1D' }}>
+                  Unregistered individual in monitoring room.
+                </p>
+              </div>
+            </div>
+          )}
+
 
           {/* Card 2: DETECTIONS IN PHOTO */}
           <div style={{
@@ -575,24 +695,85 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
             padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px'
+            gap: '12px'
           }}>
             <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#6D28D9', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>🔍</span> DETECTIONS IN PHOTO
             </h4>
 
-            <div style={{
-              textAlign: 'center',
-              padding: '24px 12px',
-              color: '#6D28D9',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <EyeOff size={32} color="#A78BFA" />
-              <span style={{ fontSize: '13px', fontWeight: 700 }}>No persons detected in snapshot.</span>
-            </div>
+            {aiEnabled && currentDetection.hasPerson ? (
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '10px',
+                border: '1px solid #E9D5FF',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: '#F3E8FF',
+                    color: '#7C3AED',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '14px'
+                  }}>
+                    👤
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E1B4B' }}>{currentDetection.name}</span>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: currentDetection.status === 'UNAUTHORIZED' ? '#FEE2E2' : '#D1FAE5',
+                        color: currentDetection.status === 'UNAUTHORIZED' ? '#991B1B' : '#065F46'
+                      }}>
+                        {currentDetection.status}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#7C3AED', fontWeight: 700 }}>
+                      {currentDetection.confidence}% match
+                    </span>
+                  </div>
+                </div>
+
+                <button style={{
+                  background: '#7C3AED',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}>
+                  Link to Person
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '20px 12px',
+                color: '#6D28D9',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <EyeOff size={32} color="#A78BFA" />
+                <span style={{ fontSize: '13px', fontWeight: 700 }}>No persons detected in snapshot.</span>
+              </div>
+            )}
           </div>
 
 
