@@ -30,15 +30,17 @@ const DEFAULT_LOCAL_USERS = [
 export const DEFAULT_LOCAL_DEVICES = [
   { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032683869', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP-02', device_name: 'STP-02', device_id: '12345', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 }
+  { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
-  { name: 'TANK-001', tank_name: 'Raw Sewage Sump', device: 'STP-DEV-001', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK_A', tank_name: 'TANK_A', device: 'STP PLANT A', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK_B', tank_name: 'TANK_B', device: 'STP PLANT B', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK-002', tank_name: 'Equalization Tank', device: 'STP-02', variant: 'main', capacity_liters: 15000, display_order: 1 }
+  { name: 'TANK-001', tank_name: 'TANK_1', device: '863110085106451', variant: 'main', capacity_liters: 10000, display_order: 1 },
+  { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 10000, display_order: 1 },
+  { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 10000, display_order: 1 },
+  { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 10000, display_order: 1 },
+  { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 10000, display_order: 1 }
 ];
 
 export const DEFAULT_LOCAL_MOTORS = [
@@ -46,15 +48,7 @@ export const DEFAULT_LOCAL_MOTORS = [
   { name: 'MOTOR-002', motor_name: 'Submersible Pump 2', tank: 'TANK-001', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR-003', motor_name: 'Air Blower 1', tank: 'TANK-001', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR-004', motor_name: 'Air Blower 2', tank: 'TANK-001', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR-005', motor_name: 'Filter Feed Pump', tank: 'TANK-001', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-  { name: 'MOTOR-A1', motor_name: 'Motor_1', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR-A2', motor_name: 'Motor_2', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR-A3', motor_name: 'Motor_3', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR-A4', motor_name: 'Motor_4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR-A5', motor_name: 'Motor_5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-  { name: 'MOTOR-006', motor_name: 'Transfer Pump 1', tank: 'TANK-002', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR-007', motor_name: 'Transfer Pump 2', tank: 'TANK-002', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR-008', motor_name: 'Sludge Blower 1', tank: 'TANK-002', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 }
+  { name: 'MOTOR-005', motor_name: 'Filter Feed Pump', tank: 'TANK-001', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
 ];
 
 // ────────────────────────────────────────────────────────────────────────────

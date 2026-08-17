@@ -319,11 +319,26 @@ const DashboardPage: React.FC = () => {
     const defaultDevs = [
       { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032683869', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'STP-02', device_name: 'STP-02', device_id: '12345', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
+      { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
     const localDevicesStr = localStorage.getItem('stp_local_devices');
-    const allDevices = localDevicesStr ? JSON.parse(localDevicesStr) : defaultDevs;
+    let allDevices = defaultDevs;
+    
+    if (localDevicesStr) {
+      try {
+        const parsed = JSON.parse(localDevicesStr);
+        // If local storage has obsolete device ID, purge it to force clean sync
+        if (parsed.some((d: any) => d.device_id === '350435032683869' || d.device_id === '12345')) {
+          localStorage.removeItem('stp_local_devices');
+          localStorage.removeItem('stp_local_tanks');
+        } else {
+          allDevices = parsed;
+        }
+      } catch {}
+    }
+
     const userDevs = allDevices.filter((d: any) => 
       !d.assigned_user || d.assigned_user === 'wabag@nimblevision.io' || d.assigned_user === username
     );
