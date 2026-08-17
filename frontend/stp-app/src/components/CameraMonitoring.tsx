@@ -282,17 +282,10 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
-    // Camera 1 (5grouter_images - STP Tank):
-    // Operator sitting on blue pipe walkway structure on right side of aeration tank
-    if (idx === 0 || path.includes('14_57_14') || path.includes('02_57_14')) {
-      return {
-        hasPerson: true,
-        name: 'Unknown',
-        role: 'Unregistered',
-        status: 'UNAUTHORIZED' as const,
-        confidence: 76,
-        box: { top: '47%', left: '50%', width: '65px', height: '70px' }
-      };
+    // Camera 1 (5grouter_images - Aeration Tank):
+    // Tank & Water snapshots contain no face features -> Clean view without false boxes on walls/water
+    if (selectedCameraId === 'cam1') {
+      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
     return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
