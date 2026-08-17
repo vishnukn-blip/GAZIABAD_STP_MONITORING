@@ -82,11 +82,12 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
       // Search for matching API history point for this hour
       const matchingApiPoint = incomingHistory.find((p) => p.time_short && p.time_short.startsWith(hStr));
 
-      const c1 = matchingApiPoint ? matchingApiPoint.current_1 : (hour >= 6 && hour <= 22 ? 1 : 0);
-      const c2 = matchingApiPoint ? matchingApiPoint.current_2 : (hour % 4 !== 3 ? 1 : 0);
-      const c3 = matchingApiPoint ? matchingApiPoint.current_3 : (Math.floor(hour / 2) % 2 === 0 ? 1 : 0);
-      const c4 = matchingApiPoint ? matchingApiPoint.current_4 : (hour % 4 === 1 ? 1 : 0);
-      const lp = matchingApiPoint ? matchingApiPoint.low_pressure : (hour === 3 ? 0 : 1);
+      // Map motor status strictly from matching API history point or latest real API telemetry reading
+      const c1 = matchingApiPoint ? matchingApiPoint.current_1 : (latestPoint.current_1 ?? 0);
+      const c2 = matchingApiPoint ? matchingApiPoint.current_2 : (latestPoint.current_2 ?? 0);
+      const c3 = matchingApiPoint ? matchingApiPoint.current_3 : (latestPoint.current_3 ?? 0);
+      const c4 = matchingApiPoint ? matchingApiPoint.current_4 : (latestPoint.current_4 ?? 0);
+      const lp = matchingApiPoint ? matchingApiPoint.low_pressure : (latestPoint.low_pressure ?? 0);
       
       // Use real API water_level parameter from matching point or latest device telemetry reading
       const wl = matchingApiPoint ? matchingApiPoint.water_level : latestWaterLevel;
