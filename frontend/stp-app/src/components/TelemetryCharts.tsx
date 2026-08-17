@@ -58,15 +58,11 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
   return null;
 };
 
-// Helper function to build 24-Hour timeline bound to real API water_level telemetry parameter
+// Helper function to build 24-Hour timeline bound dynamically to NimbleVision API telemetry history records
 const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): TelemetryHistoryPoint[] => {
   if (incomingHistory && incomingHistory.length > 0) {
-    if (incomingHistory.length >= 24) {
-      return incomingHistory;
-    }
-
-    const latestPoint = incomingHistory[incomingHistory.length - 1];
-    const latestWaterLevel = latestPoint.water_level ?? 0;
+    // Sort API points chronologically
+    const sorted = [...incomingHistory].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
 
     const now = new Date();
     const currentMinute = now.getMinutes();
@@ -79,32 +75,35 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
       const mStr = i === 0 ? currentMinute.toString().padStart(2, '0') : '00';
       const timeLabel = `${hStr}:${mStr}`;
 
-      // Search for matching API history point for this hour
-      const matchingApiPoint = incomingHistory.find((p) => p.time_short && p.time_short.startsWith(hStr));
+      // Find the latest API record logged at or prior to this hour slot
+      let effectivePoint: TelemetryHistoryPoint | null = null;
+      for (const p of sorted) {
+        if (p.time_short) {
+          const pHour = parseInt(p.time_short.split(':')[0], 10);
+          if (!isNaN(pHour) && pHour <= hour) {
+            effectivePoint = p;
+          }
+        }
+      }
 
-      // Map motor status: if specific matching API log exists, use it; otherwise project active RUNNING state for running motors during shift hours, and 0 (OFF) for stopped motors
-      const c1 = matchingApiPoint ? matchingApiPoint.current_1 : ((latestPoint.current_1 === 1 && hour >= 6) ? 1 : 0);
-      const c2 = matchingApiPoint ? matchingApiPoint.current_2 : ((latestPoint.current_2 === 1 && hour >= 6) ? 1 : 0);
-      const c3 = matchingApiPoint ? matchingApiPoint.current_3 : ((latestPoint.current_3 === 1 && hour >= 6) ? 1 : 0);
-      const c4 = matchingApiPoint ? matchingApiPoint.current_4 : ((latestPoint.current_4 === 1 && hour >= 6) ? 1 : 0);
-      const lp = matchingApiPoint ? matchingApiPoint.low_pressure : ((latestPoint.low_pressure === 1 && hour >= 6) ? 1 : 0);
-      
-      // Use real API water_level parameter from matching point or latest device telemetry reading
-      const wl = matchingApiPoint ? matchingApiPoint.water_level : latestWaterLevel;
+      if (!effectivePoint) {
+        effectivePoint = sorted[0];
+      }
 
       points.push({
         timestamp: timeLabel,
         time_short: timeLabel,
-        water_level: wl,
-        current_1: c1,
-        current_2: c2,
-        current_3: c3,
-        current_4: c4,
-        low_pressure: lp
+        water_level: effectivePoint?.water_level ?? 0,
+        current_1: effectivePoint?.current_1 ?? 0,
+        current_2: effectivePoint?.current_2 ?? 0,
+        current_3: effectivePoint?.current_3 ?? 0,
+        current_4: effectivePoint?.current_4 ?? 0,
+        low_pressure: effectivePoint?.low_pressure ?? 0,
       });
     }
 
-    // Overwrite the last point with exact real-time API telemetry point
+    // Overwrite the last point with exact real-time API telemetry reading
+    const latestPoint = sorted[sorted.length - 1];
     points[points.length - 1] = {
       ...points[points.length - 1],
       ...latestPoint,
