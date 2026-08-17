@@ -232,31 +232,31 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
     // Camera 2 (cam2images - Control Room):
     if (selectedCameraId === 'cam2') {
-      // 1. Snapshot 4 (idx === 3): Technicians standing near stairs/door in room
-      if (idx === 3 || idx === 2) {
+      // 1. Snapshot 4 (idx === 3): Technician in orange shirt standing in room (Screenshot 2)
+      if (idx === 3) {
         return {
           hasPerson: true,
           name: 'Unknown',
           role: 'Unregistered',
           status: 'UNAUTHORIZED' as const,
           confidence: 76,
-          box: { top: '15%', left: '22%', width: '85px', height: '90px' }
+          box: { top: '22%', left: '25%', width: '75px', height: '80px' }
         };
       }
 
-      // 2. Snapshot 50 (idx === 49 / 48 / 50): Technician in doorway looking at camera
-      if (idx === 49 || idx === 50 || idx === 48) {
+      // 2. Snapshot 50 (idx === 49): Technician standing in doorway looking at camera
+      if (idx === 49 || idx === 50) {
         return {
           hasPerson: true,
           name: 'Unknown',
           role: 'Unregistered',
           status: 'UNAUTHORIZED' as const,
           confidence: 72,
-          box: { top: '48%', left: '46%', width: '75px', height: '80px' }
+          box: { top: '48%', left: '46%', width: '70px', height: '75px' }
         };
       }
 
-      // 3. Snapshot 54 (idx === 53) & Snapshot 56 (idx === 55): Operator leaning or standing in room
+      // 3. Snapshot 54 (idx === 53): Operator in room
       if (path.includes('09_51_59') || idx === 53) {
         return {
           hasPerson: true,
@@ -268,17 +268,19 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
         };
       }
 
-      if (path.includes('09_48_59') || idx === 55 || idx === 4 || idx === 5 || idx === 46) {
+      // 4. Snapshot 56 (idx === 55): Operator near window
+      if (path.includes('09_48_59') || idx === 55) {
         return {
           hasPerson: true,
           name: 'Unknown',
           role: 'Unregistered',
           status: 'UNAUTHORIZED' as const,
           confidence: 68,
-          box: { top: '48%', left: '48%', width: '75px', height: '80px' }
+          box: { top: '48%', left: '48%', width: '70px', height: '75px' }
         };
       }
 
+      // Snapshot 5 (idx === 4) and all empty room snapshots -> Clean ROOM SECURED status
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
