@@ -330,15 +330,15 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
 const DashboardPage: React.FC = () => {
   const { username, fullName, logout } = useAuth();
   const navigate = useNavigate();
-  const [layout, setLayout] = useState<DeviceLayout | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('350435032683868');
+  const selectedDeviceIdRef = useRef<string>('350435032683868');
+  const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
   const [userDevices, setUserDevices] = useState<any[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('863110085106451');
-  const selectedDeviceIdRef = useRef<string>('863110085106451');
 
   const [online, setOnline] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
