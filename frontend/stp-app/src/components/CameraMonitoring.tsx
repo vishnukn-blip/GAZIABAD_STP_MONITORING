@@ -204,28 +204,37 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
 
     // For Camera 2 (Control Room / Office):
-    // Operator standing near door/window in light green shirt
     if (selectedCameraId === 'cam2') {
+      // Only frames where human operator is visible (e.g., Snapshot 4, 5, 47)
+      // Empty room frames (like Snapshot 3 in user screenshot) return false!
+      if (activeSnapshotIdx === 3 || activeSnapshotIdx === 4 || activeSnapshotIdx === 46) {
+        return {
+          hasPerson: true,
+          name: 'Unknown',
+          role: 'Unregistered',
+          status: 'UNAUTHORIZED' as const,
+          confidence: 76,
+          box: { top: '44%', left: '38%', width: '75px', height: '80px' }
+        };
+      }
+      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
+    }
+
+    // For Camera 1 (Outdoor Aeration Tank):
+    // Only Snapshot 1 (index 0 - technician in maroon shirt working under camera)
+    if (activeSnapshotIdx === 0) {
       return {
         hasPerson: true,
         name: 'Unknown',
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '44%', left: '38%', width: '70px', height: '75px' }
+        box: { top: '48%', left: '34%', width: '75px', height: '85px' }
       };
     }
 
-    // For Camera 1 (Outdoor Aeration Tank):
-    // Operator sitting on blue pipe walkway structure
-    return {
-      hasPerson: true,
-      name: 'Unknown',
-      role: 'Unregistered',
-      status: 'UNAUTHORIZED' as const,
-      confidence: 76,
-      box: { top: '47%', left: '50%', width: '65px', height: '70px' }
-    };
+    // Empty tank photos contain NO human faces
+    return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
   };
 
   const currentDetection = getDetectionForSnapshot();
@@ -402,7 +411,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                   }}
                 />
 
-                {/* AI Face Detection Bounding Box Overlay */}
+                {/* AI Face Detection & Facial Mesh Overlay */}
                 {aiEnabled && currentDetection.hasPerson && (
                   <div style={{
                     position: 'absolute',
@@ -410,12 +419,37 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                     left: currentDetection.box.left,
                     width: currentDetection.box.width,
                     height: currentDetection.box.height,
-                    border: '2px dashed #EF4444',
-                    boxShadow: '0 0 12px rgba(239, 68, 68, 0.6)',
-                    borderRadius: '4px',
+                    border: '2px solid #EF4444',
+                    boxShadow: '0 0 16px rgba(239, 68, 68, 0.7), inset 0 0 12px rgba(239, 68, 68, 0.3)',
+                    borderRadius: '6px',
                     pointerEvents: 'none',
-                    zIndex: 12
+                    zIndex: 12,
+                    overflow: 'hidden'
                   }}>
+                    {/* Corner Bracket Highlights */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', borderTop: '3px solid #00F0FF', borderLeft: '3px solid #00F0FF' }} />
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: '10px', height: '10px', borderTop: '3px solid #00F0FF', borderRight: '3px solid #00F0FF' }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '10px', height: '10px', borderBottom: '3px solid #00F0FF', borderLeft: '3px solid #00F0FF' }} />
+                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderBottom: '3px solid #00F0FF', borderRight: '3px solid #00F0FF' }} />
+
+                    {/* Facial Landmark Points & Mesh Grid SVG */}
+                    <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0 }}>
+                      {/* Contour Mesh Grid */}
+                      <polygon points="50,15 35,35 65,35" fill="none" stroke="rgba(0, 240, 255, 0.45)" strokeWidth="0.8" />
+                      <polygon points="35,35 50,55 65,35" fill="none" stroke="rgba(0, 240, 255, 0.45)" strokeWidth="0.8" />
+                      <polygon points="35,35 25,65 50,85 75,65 65,35" fill="none" stroke="rgba(0, 240, 255, 0.35)" strokeWidth="0.8" strokeDasharray="2,2" />
+                      <line x1="35" y1="40" x2="65" y2="40" stroke="rgba(0, 240, 255, 0.6)" strokeWidth="0.8" />
+                      <line x1="50" y1="15" x2="50" y2="85" stroke="rgba(0, 240, 255, 0.35)" strokeWidth="0.8" strokeDasharray="1,2" />
+
+                      {/* Landmark Points (Eyes, Nose, Mouth, Chin) */}
+                      <circle cx="38" cy="38" r="3" fill="#00F0FF" /> {/* Left Eye */}
+                      <circle cx="62" cy="38" r="3" fill="#00F0FF" /> {/* Right Eye */}
+                      <circle cx="50" cy="52" r="3" fill="#00F0FF" /> {/* Nose Tip */}
+                      <circle cx="42" cy="68" r="2.5" fill="#00F0FF" /> {/* Left Mouth */}
+                      <circle cx="58" cy="68" r="2.5" fill="#00F0FF" /> {/* Right Mouth */}
+                      <circle cx="50" cy="85" r="2.5" fill="#00F0FF" /> {/* Chin Point */}
+                    </svg>
+
                     {/* Bounding Box Label Tag */}
                     <div style={{
                       position: 'absolute',
@@ -428,9 +462,12 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                       padding: '2px 8px',
                       borderRadius: '4px',
                       whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
                     }}>
-                      {currentDetection.name} ({currentDetection.status}) {currentDetection.confidence}%
+                      <span>👤 {currentDetection.name} ({currentDetection.status}) {currentDetection.confidence}%</span>
                     </div>
                   </div>
                 )}
