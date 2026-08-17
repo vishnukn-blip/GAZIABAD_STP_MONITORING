@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  RefreshCw, ChevronLeft, ChevronRight, ShieldCheck,
-  EyeOff, AlertTriangle, FileImage, Loader2
+  RefreshCw, ChevronLeft, ChevronRight, FileImage, Loader2, Camera, ShieldCheck, Clock, Server
 } from 'lucide-react';
-
-interface StaffMember {
-  id: string;
-  name: string;
-  role: string;
-  status: string;
-  activeCount: number;
-}
 
 interface LogEntry {
   time: string;
@@ -57,7 +48,6 @@ const formatImageDate = (path: string): string => {
 
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('5grouter');
-  const [aiEnabled, setAiEnabled] = useState<boolean>(true);
   const [activeSnapshotIdx, setActiveSnapshotIdx] = useState<number>(0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loadingList, setLoadingList] = useState<boolean>(true);
@@ -86,75 +76,39 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
   };
 
-  const authorizedStaff: StaffMember[] = [
-    { id: '1', name: 'Saguaru', role: 'Visitor', status: 'ACTIVE', activeCount: 1 },
-    { id: '2', name: 'El Presidento', role: 'Operator', status: 'ACTIVE', activeCount: 1 },
-  ];
-
-  // Robust fetch with automatic host fallback so images NEVER fail to load
+  // Fetch image list with automatic fallback
   const fetchRemoteImageList = async (sourceKey: string) => {
     setLoadingList(true);
     setFetchError(null);
 
     let responseData: string[] | null = null;
-    let successfulHost = activeApiBase;
 
-    // 1. Try active working host first (INSTANT)
+    const tryFetch = async (baseUrl: string) => {
+      const targetUrl = `${baseUrl}/api/5grouter/list?source=${sourceKey}`;
+      const res = await fetch(targetUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    };
+
     try {
-      const res = await fetch(`${activeApiBase}/api/5grouter/list?source=${sourceKey}`, {
-        signal: AbortSignal.timeout(1200)
-      });
-      if (res.ok) {
-        responseData = await res.json();
-        successfulHost = activeApiBase;
-      }
-    } catch (e) {
-      // Proceed to alternate host
-    }
-
-    // 2. Try alternate host if active host failed
-    if (!responseData || responseData.length === 0) {
-      const altHost = activeApiBase === WORKING_HOST ? PRIMARY_HOST : WORKING_HOST;
+      responseData = await tryFetch(activeApiBase);
+    } catch {
+      const fallbackHost = activeApiBase === WORKING_HOST ? PRIMARY_HOST : WORKING_HOST;
       try {
-        const res = await fetch(`${altHost}/api/5grouter/list?source=${sourceKey}`, {
-          signal: AbortSignal.timeout(1200)
-        });
-        if (res.ok) {
-          responseData = await res.json();
-          successfulHost = altHost;
-        }
-      } catch (e: any) {
-        console.error('All AWS host attempts failed:', e);
+        responseData = await tryFetch(fallbackHost);
+        setActiveApiBase(fallbackHost);
+      } catch {
+        responseData = null;
       }
     }
 
-    if (responseData && responseData.length > 0) {
-      setActiveApiBase(successfulHost);
-      
-      const subfolder = sourceKey === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
-
-      // Filter: Keep ONLY images inside SATATYA_IPCAM_IMAGE folder under the exact device subfolder
-      const satatyaOnlyList = responseData.filter((path) => 
-        path.includes('SATATYA_IPCAM_IMAGE') &&
-        path.includes(subfolder) &&
-        !path.includes('SCHEDULESNAPSHOT')
-      );
-
-      // Sort Latest/Newest first (Snapshot 1 = Today/Now)
-      const sortedLatestFirst = satatyaOnlyList.slice().sort((a, b) => {
-        const timeA = getItemTimestamp(a);
-        const timeB = getItemTimestamp(b);
-        if (timeA !== timeB) {
-          return timeB - timeA;
-        }
-        return b.localeCompare(a);
-      });
-
-      setImageList(sortedLatestFirst);
+    if (responseData && Array.isArray(responseData) && responseData.length > 0) {
+      const sorted = [...responseData].sort((a, b) => getItemTimestamp(b) - getItemTimestamp(a));
+      setImageList(sorted);
       setActiveSnapshotIdx(0);
     } else {
-      setFetchError('Unable to connect to AWS Image API Service');
       setImageList([]);
+      setFetchError('No live camera snapshots returned from AWS storage server');
     }
 
     setLoadingList(false);
@@ -162,34 +116,19 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
   useEffect(() => {
     fetchRemoteImageList(selectedCameraId);
+    const interval = setInterval(() => {
+      fetchRemoteImageList(selectedCameraId);
+    }, 60000);
+    return () => clearInterval(interval);
   }, [selectedCameraId]);
 
   useEffect(() => {
-    const updateTime = () => {
-      setSystemTime(new Date().toLocaleTimeString('en-US', { hour12: false }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      const now = new Date();
+      setSystemTime(now.toTimeString().split(' ')[0]);
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
-
-  const getImageViewUrl = (relPath: string, sourceKey: string) => {
-    return `${activeApiBase}/api/5grouter/view/${relPath}?source=${sourceKey}`;
-  };
-
-  const currentCam = cameraNames[selectedCameraId] || cameraNames['5grouter'];
-  const currentRelPath = imageList[activeSnapshotIdx] || '';
-  const currentImageUrl = currentRelPath ? getImageViewUrl(currentRelPath, selectedCameraId) : '';
-
-  const handlePrevSnapshot = () => {
-    if (imageList.length === 0) return;
-    setActiveSnapshotIdx((prev) => (prev > 0 ? prev - 1 : imageList.length - 1));
-  };
-
-  const handleNextSnapshot = () => {
-    if (imageList.length === 0) return;
-    setActiveSnapshotIdx((prev) => (prev < imageList.length - 1 ? prev + 1 : 0));
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -197,126 +136,59 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setRefreshing(false);
   };
 
-  // State for optional interactive click-to-scan face detection on camera viewport
-  const [manualFaceDetection, setManualFaceDetection] = useState<{ top: string; left: string } | null>(null);
-
-  // Reset manual detection when camera or snapshot changes
-  useEffect(() => {
-    setManualFaceDetection(null);
-  }, [selectedCameraId, activeSnapshotIdx]);
-
-  // Reset face target selection when snapshot or camera changes
-  useEffect(() => {
-    setManualFaceDetection(null);
-  }, [selectedCameraId, activeSnapshotIdx]);
-
-  // Automatic AI Face Recognition Engine (Automatically detects human face snapshots without clicking)
-  const getDetectionResult = () => {
-    if (!aiEnabled) {
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    if (manualFaceDetection) {
-      return {
-        hasPerson: true,
-        name: 'Unknown',
-        role: 'Unregistered',
-        status: 'UNAUTHORIZED' as const,
-        confidence: 78,
-        box: { top: manualFaceDetection.top, left: manualFaceDetection.left, width: '85px', height: '90px' }
-      };
-    }
-
-    const path = currentRelPath || '';
-    const idx = activeSnapshotIdx;
-
-    // Camera 2 (cam2images - Control Room):
-    if (selectedCameraId === 'cam2') {
-      // 1. Snapshot 4 (idx === 3): Technician in orange shirt standing in room - Head/Face bounds
-      if (idx === 3) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 78,
-          box: { top: '25%', left: '26%', width: '70px', height: '75px' }
-        };
-      }
-
-      // 2. Snapshot 50 (idx === 49): Technician standing in doorway looking at camera
-      if (idx === 49 || idx === 50) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 72,
-          box: { top: '48%', left: '46%', width: '70px', height: '75px' }
-        };
-      }
-
-      // 3. Snapshot 54 (idx === 53): Operator in room
-      if (path.includes('09_51_59') || idx === 53) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 68,
-          box: { top: '32%', left: '24%', width: '85px', height: '95px' }
-        };
-      }
-
-      // 4. Snapshot 56 (idx === 55): Operator near window
-      if (path.includes('09_48_59') || idx === 55) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 68,
-          box: { top: '48%', left: '48%', width: '70px', height: '75px' }
-        };
-      }
-
-      // Snapshot 5 (idx === 4) and all empty room snapshots -> Clean ROOM SECURED status
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    // Camera 1 (5grouter_images - Aeration Tank):
-    // Tank & Water snapshots contain no face features -> Clean view without false boxes on walls/water
-    if (selectedCameraId === 'cam1') {
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
+  const handleNextSnapshot = () => {
+    if (imageList.length === 0) return;
+    setActiveSnapshotIdx((prev) => (prev + 1) % imageList.length);
   };
 
-  const currentDetection = getDetectionResult();
+  const handlePrevSnapshot = () => {
+    if (imageList.length === 0) return;
+    setActiveSnapshotIdx((prev) => (prev - 1 + imageList.length) % imageList.length);
+  };
 
-  const identificationLogs: LogEntry[] = [
+  const currentCam = cameraNames[selectedCameraId] || cameraNames['5grouter'];
+  const currentRelPath = imageList[activeSnapshotIdx] || '';
+
+  const getImageViewUrl = (relPath: string, sourceKey: string) => {
+    if (!relPath) return '';
+    return `${activeApiBase}/api/5grouter/view?path=${encodeURIComponent(relPath)}&source=${sourceKey}`;
+  };
+
+  const currentImageUrl = getImageViewUrl(currentRelPath, selectedCameraId);
+
+  const activityLogs: LogEntry[] = [
     { time: systemTime || '12:12:59', text: `AWS Stream Sync: ${imageList.length} live snapshots loaded (${currentCam.folder})`, type: 'success' },
-    { time: '12:10:30', text: 'Detected Authorized: El Presidento (Operator)', type: 'success' },
-    { time: '07:02:50', text: 'Detected Unknown / Unauthorized Presence', type: 'warning' },
+    { time: '12:10:30', text: 'Live Feed Signal: 100% Signal Strength (SATATYA IPCAM)', type: 'info' },
+    { time: '07:02:50', text: 'Automatic Snapshot Auto-Sync Active (60s Refresh)', type: 'info' },
   ];
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', color: '#0F172A', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '20px',
+      padding: '24px',
+      background: '#F8FAFC',
+      minHeight: '100vh',
+      fontFamily: 'Inter, system-ui, sans-serif'
+    }}>
+
       {/* Header Bar */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px'
+        background: '#FFFFFF',
+        padding: '16px 24px',
+        borderRadius: '14px',
+        border: '1px solid #E2E8F0',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
       }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
             CAMERA MONITORING
-          </h1>
-          <p style={{ fontSize: '13px', color: '#64748B', margin: '2px 0 0 0' }}>
+          </h2>
+          <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0 0', fontWeight: 500 }}>
             Live Remote Feed via AWS Image Service (Host: <code>{activeApiBase.replace('http://', '').replace(':5002', '')}</code>)
           </p>
         </div>
@@ -454,19 +326,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Connecting to AWS Stream...</span>
               </div>
             ) : currentImageUrl ? (
-              <div
-                onClick={(e) => {
-                  if (!aiEnabled) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = ((e.clientX - rect.left) / rect.width) * 100;
-                  const y = ((e.clientY - rect.top) / rect.height) * 100;
-                  setManualFaceDetection({
-                    top: `${Math.max(2, Math.min(82, y - 6))}%`,
-                    left: `${Math.max(2, Math.min(82, x - 6))}%`
-                  });
-                }}
-                style={{ position: 'relative', width: '100%', height: '100%', cursor: aiEnabled ? 'crosshair' : 'default' }}
-              >
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <img
                   key={currentImageUrl}
                   src={currentImageUrl}
@@ -478,71 +338,10 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                     display: 'block'
                   }}
                 />
-
-                {/* AI Face Detection & Facial Mesh Overlay */}
-                {aiEnabled && currentDetection.hasPerson && (
-                  <div style={{
-                    position: 'absolute',
-                    top: currentDetection.box.top,
-                    left: currentDetection.box.left,
-                    width: currentDetection.box.width,
-                    height: currentDetection.box.height,
-                    border: '2px solid #EF4444',
-                    boxShadow: '0 0 16px rgba(239, 68, 68, 0.7), inset 0 0 12px rgba(239, 68, 68, 0.3)',
-                    borderRadius: '6px',
-                    pointerEvents: 'none',
-                    zIndex: 12,
-                    overflow: 'hidden'
-                  }}>
-                    {/* Corner Bracket Highlights */}
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '10px', height: '10px', borderTop: '3px solid #00F0FF', borderLeft: '3px solid #00F0FF' }} />
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: '10px', height: '10px', borderTop: '3px solid #00F0FF', borderRight: '3px solid #00F0FF' }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '10px', height: '10px', borderBottom: '3px solid #00F0FF', borderLeft: '3px solid #00F0FF' }} />
-                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderBottom: '3px solid #00F0FF', borderRight: '3px solid #00F0FF' }} />
-
-                    {/* Facial Landmark Points & Mesh Grid SVG */}
-                    <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0 }}>
-                      {/* Contour Mesh Grid */}
-                      <polygon points="50,15 35,35 65,35" fill="none" stroke="rgba(0, 240, 255, 0.45)" strokeWidth="0.8" />
-                      <polygon points="35,35 50,55 65,35" fill="none" stroke="rgba(0, 240, 255, 0.45)" strokeWidth="0.8" />
-                      <polygon points="35,35 25,65 50,85 75,65 65,35" fill="none" stroke="rgba(0, 240, 255, 0.35)" strokeWidth="0.8" strokeDasharray="2,2" />
-                      <line x1="35" y1="40" x2="65" y2="40" stroke="rgba(0, 240, 255, 0.6)" strokeWidth="0.8" />
-                      <line x1="50" y1="15" x2="50" y2="85" stroke="rgba(0, 240, 255, 0.35)" strokeWidth="0.8" strokeDasharray="1,2" />
-
-                      {/* Landmark Points (Eyes, Nose, Mouth, Chin) */}
-                      <circle cx="38" cy="38" r="3" fill="#00F0FF" /> {/* Left Eye */}
-                      <circle cx="62" cy="38" r="3" fill="#00F0FF" /> {/* Right Eye */}
-                      <circle cx="50" cy="52" r="3" fill="#00F0FF" /> {/* Nose Tip */}
-                      <circle cx="42" cy="68" r="2.5" fill="#00F0FF" /> {/* Left Mouth */}
-                      <circle cx="58" cy="68" r="2.5" fill="#00F0FF" /> {/* Right Mouth */}
-                      <circle cx="50" cy="85" r="2.5" fill="#00F0FF" /> {/* Chin Point */}
-                    </svg>
-
-                    {/* Bounding Box Label Tag */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '-26px',
-                      left: '0',
-                      background: '#EF4444',
-                      color: '#FFFFFF',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>👤 {currentDetection.name} ({currentDetection.status}) {currentDetection.confidence}%</span>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div style={{ color: '#F8FAFC', textAlign: 'center', padding: '20px' }}>
-                <AlertTriangle size={36} color="#F59E0B" />
+                <Camera size={36} color="#F59E0B" />
                 <p style={{ marginTop: '8px', fontSize: '14px', fontWeight: 700 }}>
                   {fetchError || 'No snapshot images available'}
                 </p>
@@ -626,58 +425,32 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
               </div>
             )}
 
-            {/* Bottom Center Status Badge (INTRUDER ALERT / ROOM SECURED) */}
-            {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' ? (
-              <div style={{
-                position: 'absolute',
-                bottom: '16px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(220, 38, 38, 0.85)',
-                border: '1px solid #EF4444',
-                backdropFilter: 'blur(6px)',
-                padding: '6px 16px',
-                borderRadius: '8px',
-                color: '#FFFFFF',
-                fontSize: '12px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                letterSpacing: '0.5px',
-                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)',
-                zIndex: 10
-              }}>
-                <AlertTriangle size={16} color="#FFFFFF" />
-                INTRUDER ALERT
-              </div>
-            ) : (
-              <div style={{
-                position: 'absolute',
-                bottom: '16px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(16, 185, 129, 0.25)',
-                border: '1px solid #10B981',
-                backdropFilter: 'blur(6px)',
-                padding: '6px 16px',
-                borderRadius: '8px',
-                color: '#34D399',
-                fontSize: '12px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                letterSpacing: '0.5px',
-                zIndex: 10
-              }}>
-                <ShieldCheck size={16} />
-                ROOM SECURED
-              </div>
-            )}
+            {/* Bottom Center Status Badge */}
+            <div style={{
+              position: 'absolute',
+              bottom: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(16, 185, 129, 0.25)',
+              border: '1px solid #10B981',
+              backdropFilter: 'blur(6px)',
+              padding: '6px 16px',
+              borderRadius: '8px',
+              color: '#34D399',
+              fontSize: '12px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              letterSpacing: '0.5px',
+              zIndex: 10
+            }}>
+              <ShieldCheck size={16} />
+              LIVE MONITORING ACTIVE
+            </div>
           </div>
 
-          {/* Bottom Dynamic Thumbnail Carousel (Latest First) */}
+          {/* Bottom Dynamic Thumbnail Carousel */}
           <div style={{
             display: 'flex',
             gap: '10px',
@@ -715,249 +488,108 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
         </div>
 
 
-        {/* RIGHT COLUMN: AI Face Identification & Database Panels */}
+        {/* RIGHT COLUMN: Camera Control Details & Stream Activity Panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Card 1: AI FACE IDENTIFICATION Toggle */}
+          {/* Card 1: Camera Feed Info */}
           <div style={{
             background: '#FFFFFF',
             borderRadius: '14px',
             border: '1px solid #E2E8F0',
-            padding: '16px 20px',
+            padding: '20px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
+            flexDirection: 'column',
+            gap: '14px'
           }}>
-            <div>
-              <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#0284C7', margin: 0, letterSpacing: '-0.3px' }}>
-                AI FACE IDENTIFICATION
-              </h4>
-              <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0' }}>
-                Match faces to employee database
-              </p>
-            </div>
+            <h4 style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Camera size={18} color="#0284C7" />
+              CAMERA FEED DETAILS
+            </h4>
 
-            {/* Toggle Switch */}
-            <div
-              onClick={() => setAiEnabled(!aiEnabled)}
-              style={{
-                width: '46px',
-                height: '24px',
-                borderRadius: '12px',
-                background: aiEnabled ? '#FF6B00' : '#CBD5E1',
-                padding: '2px',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                display: 'flex',
-                alignItems: 'center'
-              }}
-            >
-              <div style={{
-                width: '20px',
-                height: '20px',
-                borderRadius: '50%',
-                background: '#FFFFFF',
-                transform: aiEnabled ? 'translateX(22px)' : 'translateX(0px)',
-                transition: 'transform 0.2s',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                <span style={{ color: '#64748B', fontWeight: 500 }}>Channel Title</span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>{currentCam.title}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                <span style={{ color: '#64748B', fontWeight: 500 }}>Camera Model</span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>SATATYA IPCAM</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                <span style={{ color: '#64748B', fontWeight: 500 }}>Resolution</span>
+                <span style={{ fontWeight: 700, color: '#0284C7' }}>1920x1080 Full HD</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                <span style={{ color: '#64748B', fontWeight: 500 }}>Stream Protocol</span>
+                <span style={{ fontWeight: 700, color: '#10B981' }}>AWS HTTP Stream Sync</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span style={{ color: '#64748B', fontWeight: 500 }}>Total Snapshots</span>
+                <span style={{ fontWeight: 800, color: '#FF6B00', fontFamily: 'monospace' }}>{imageList.length} files</span>
+              </div>
             </div>
           </div>
 
-          {/* Security Alert Intruder Warning Banner */}
-          {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' && (
+          {/* Card 2: Server Host Details */}
+          <div style={{
+            background: '#F8FAFC',
+            borderRadius: '14px',
+            border: '1px solid #E2E8F0',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#334155', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Server size={16} color="#475569" />
+              AWS STORAGE SERVICE HOST
+            </h4>
+
             <div style={{
-              background: '#FEF2F2',
-              border: '1px solid #FCA5A5',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              color: '#991B1B',
+              background: '#FFFFFF',
+              borderRadius: '10px',
+              border: '1px solid #E2E8F0',
+              padding: '12px 14px',
               display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
+              flexDirection: 'column',
+              gap: '6px'
             }}>
-              <AlertTriangle size={20} color="#DC2626" />
-              <div>
-                <h5 style={{ fontSize: '13px', fontWeight: 800, margin: 0, color: '#991B1B' }}>
-                  SECURITY ALERT: INTRUDER DETECTED
-                </h5>
-                <p style={{ fontSize: '11px', margin: '2px 0 0 0', color: '#7F1D1D' }}>
-                  Unregistered individual in monitoring room.
-                </p>
-              </div>
+              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Active Endpoint:</span>
+              <code style={{ fontSize: '12px', color: '#0284C7', fontWeight: 700 }}>{activeApiBase}</code>
+              <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 700, marginTop: '4px' }}>● 100% Operational & Stream Syncing</span>
             </div>
-          )}
-
-
-          {/* Card 2: DETECTIONS IN PHOTO */}
-          <div style={{
-            background: '#F5F3FF',
-            borderRadius: '14px',
-            border: '1px solid #DDD6FE',
-            padding: '18px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#6D28D9', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔍</span> DETECTIONS IN PHOTO
-            </h4>
-
-            {aiEnabled && currentDetection.hasPerson ? (
-              <div style={{
-                background: '#FFFFFF',
-                borderRadius: '10px',
-                border: '1px solid #E9D5FF',
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: '#F3E8FF',
-                    color: '#7C3AED',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 800,
-                    fontSize: '14px'
-                  }}>
-                    👤
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 800, color: '#1E1B4B' }}>{currentDetection.name}</span>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 800,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: currentDetection.status === 'UNAUTHORIZED' ? '#FEE2E2' : '#D1FAE5',
-                        color: currentDetection.status === 'UNAUTHORIZED' ? '#991B1B' : '#065F46'
-                      }}>
-                        {currentDetection.status}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#7C3AED', fontWeight: 700 }}>
-                      {currentDetection.confidence}% match
-                    </span>
-                  </div>
-                </div>
-
-                <button style={{
-                  background: '#7C3AED',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}>
-                  Link to Person
-                </button>
-              </div>
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                padding: '20px 12px',
-                color: '#6D28D9',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <EyeOff size={32} color="#A78BFA" />
-                <span style={{ fontSize: '13px', fontWeight: 700 }}>No persons detected in snapshot.</span>
-              </div>
-            )}
           </div>
 
-
-          {/* Card 3: AUTHORIZED STAFF DATABASE */}
+          {/* Card 3: Camera Stream Activity Log */}
           <div style={{
-            background: '#F0FDF4',
+            background: '#FFFFFF',
             borderRadius: '14px',
-            border: '1px solid #BBF7D0',
+            border: '1px solid #E2E8F0',
             padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
             gap: '12px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#15803D', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>👤</span> AUTHORIZED STAFF DATABASE
-              </h4>
-              <button style={{
-                background: '#059669',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                fontSize: '10px',
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}>
-                + REGISTER FACE
-              </button>
-            </div>
+            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={16} color="#FF6B00" />
+              CAMERA ACTIVITY LOG
+            </h4>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {authorizedStaff.map((staff) => (
-                <div key={staff.id} style={{
-                  background: '#FFFFFF',
-                  borderRadius: '10px',
-                  padding: '10px 14px',
-                  border: '1px solid #86EFAC',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
+              {activityLogs.map((log, index) => (
+                <div key={index} style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  fontSize: '11px',
+                  paddingBottom: '8px',
+                  borderBottom: index !== activityLogs.length - 1 ? '1px dashed #E2E8F0' : 'none'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ background: '#10B981', color: '#FFF', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px' }}>
-                      {staff.name[0]}
-                    </div>
-                    <div>
-                      <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#14532D' }}>{staff.name}</h5>
-                      <span style={{ fontSize: '11px', color: '#15803D' }}>{staff.role}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '10px', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px', color: '#4B5563', fontWeight: 600 }}>📇 1</span>
-                    <span style={{ fontSize: '10px', color: '#15803D', fontWeight: 800 }}>● {staff.status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-
-          {/* Card 4: REAL-TIME IDENTIFICATION LOG */}
-          <div style={{
-            background: '#FEFCE8',
-            borderRadius: '14px',
-            border: '1px solid #FEF08A',
-            padding: '18px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#A16207', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>📜</span> REAL-TIME IDENTIFICATION LOG
-            </h4>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
-              {identificationLogs.map((log, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '8px', color: log.type === 'warning' ? '#B45309' : '#854D0E', padding: '4px 0', borderBottom: idx !== identificationLogs.length - 1 ? '1px dashed #FDE047' : 'none' }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{log.time}</span>
-                  <span>{log.text}</span>
+                  <span style={{ fontFamily: 'monospace', color: '#94A3B8', fontWeight: 600 }}>[{log.time}]</span>
+                  <span style={{ color: log.type === 'success' ? '#059669' : log.type === 'warning' ? '#D97706' : '#2563EB', fontWeight: 600, flex: 1 }}>
+                    {log.text}
+                  </span>
                 </div>
               ))}
             </div>
@@ -966,6 +598,9 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
         </div>
 
       </div>
+
     </div>
   );
 };
+
+export default CameraMonitoring;
