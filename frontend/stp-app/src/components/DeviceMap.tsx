@@ -22,6 +22,25 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   longitude = 77.4390,
   locationName = "Ghaziabad STP Plant Site (28.667°–28.670° N, 77.433°–77.445° E)",
 }) => {
+  // Device specific hardcoded GPS coordinates mapping
+  const deviceCoordinates: Record<string, { lat: number; lng: number; address: string }> = {
+    '350435032683868': {
+      lat: 28.657521,
+      lng: 77.376303,
+      address: 'Ghaziabad STP Plant Site A (28.657521° N, 77.376303° E)'
+    }
+  };
+
+  const currentCoords = deviceCoordinates[deviceId] || {
+    lat: latitude || 28.6685,
+    lng: longitude || 77.4390,
+    address: locationName
+  };
+
+  const finalLat = currentCoords.lat;
+  const finalLng = currentCoords.lng;
+  const finalAddress = currentCoords.address;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -60,8 +79,8 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
 
     // Initialize Leaflet Map
     const map = L.map(mapContainerRef.current, {
-      center: [latitude, longitude],
-      zoom: 15,
+      center: [finalLat, finalLng],
+      zoom: 16,
       zoomControl: true,
       attributionControl: true
     });
@@ -73,15 +92,15 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     }).addTo(map);
 
     // Set map view center
-    map.setView([latitude, longitude], 15);
+    map.setView([finalLat, finalLng], 16);
 
-    // Add Marker at center (28.6685° N, 77.4390° E)
-    const marker = L.marker([latitude, longitude], { icon: customPinIcon }).addTo(map);
+    // Add Marker at exact GPS coordinates (28.657521° N, 77.376303° E)
+    const marker = L.marker([finalLat, finalLng], { icon: customPinIcon }).addTo(map);
     marker.bindPopup(`
       <div style="font-family: sans-serif; padding: 2px;">
         <strong style="color: #0F172A; font-size: 13px;">${deviceName}</strong><br/>
-        <span style="color: #0284C7; font-size: 11px; font-weight: 600;">Lat: ${latitude}° N | Long: ${longitude}° E</span><br/>
-        <span style="color: #64748B; font-size: 10px;">Range: 28.667°–28.670° N | 77.433°–77.445° E</span>
+        <span style="color: #0284C7; font-size: 11px; font-weight: 600;">Lat: ${finalLat}° N | Long: ${finalLng}° E</span><br/>
+        <span style="color: #64748B; font-size: 10px;">${finalAddress}</span>
       </div>
     `).openPopup();
 
@@ -98,7 +117,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
         mapInstanceRef.current = null;
       }
     };
-  }, [latitude, longitude, deviceName]);
+  }, [finalLat, finalLng, deviceName, finalAddress]);
 
   return (
     <div style={{
@@ -212,7 +231,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
             <Navigation size={12} color="#059669" /> Coordinates
           </div>
           <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', fontFamily: 'monospace' }}>
-            {latitude}° N, {longitude}° E
+            {finalLat}° N, {finalLng}° E
           </div>
         </div>
 
@@ -255,7 +274,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
             <Globe size={12} color="#7C3AED" /> Plant Site Address
           </div>
           <div style={{ fontSize: '11px', color: '#334155', fontWeight: 500 }}>
-            {locationName}
+            {finalAddress}
           </div>
         </div>
       </div>
