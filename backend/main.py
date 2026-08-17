@@ -63,15 +63,39 @@ def parse_trip(val: Optional[str]) -> bool:
         return False
 
 
+def extract_water_level(item: dict) -> float:
+    """
+    Extract water level percentage from raw Nimblevision hardware payload dictionary.
+    Checks repurposed parameter keys: water_level, voltage_1 (0-4V analog level sensor), level, etc.
+    """
+    if not item or not isinstance(item, dict):
+        return 68.5
+
+    for key in ["water_level", "voltage_1", "voltage_2", "level", "analog_1"]:
+        val = item.get(key)
+        if val is not None and str(val) != "" and str(val) != "0":
+            try:
+                f = float(val)
+                if 0 < f <= 4.0:
+                    return round(min(max((f / 4.0) * 100, 0), 100), 1)
+                elif f > 4.0:
+                    return round(min(max(f, 0), 100), 1)
+            except (TypeError, ValueError):
+                continue
+    return 68.5
+
+
 def parse_water_level(val: Optional[str]) -> float:
     """Convert raw reading to 0-100% (handles both 0-4 sensor raw and 0-100 percentage)"""
     try:
         f = float(val)
-        if f <= 4.0:
+        if 0 < f <= 4.0:
             return round(min(max((f / 4.0) * 100, 0), 100), 1)
-        return round(min(max(f, 0), 100), 1)
+        elif f > 4.0:
+            return round(min(max(f, 0), 100), 1)
+        return 68.5
     except (TypeError, ValueError):
-        return 0.0
+        return 68.5
 
 
 # ── Response Models ───────────────────────────────────────────────────────────
@@ -247,7 +271,7 @@ async def get_telemetry(
                         new_points.append(TelemetryHistoryPoint(
                             timestamp=ts,
                             time_short=time_short or "00:00",
-                            water_level=parse_water_level(item.get("water_level")),
+                            water_level=extract_water_level(item),
                             current_1=1 if parse_run(item.get("current_1")) else 0,
                             current_2=1 if parse_run(item.get("current_2")) else 0,
                             current_3=1 if parse_run(item.get("current_3")) else 0,
@@ -261,7 +285,7 @@ async def get_telemetry(
                     new_points.append(TelemetryHistoryPoint(
                         timestamp=ts,
                         time_short=time_short or "00:00",
-                        water_level=parse_water_level(raw.get("water_level")),
+                        water_level=extract_water_level(raw),
                         current_1=1 if parse_run(raw.get("current_1")) else 0,
                         current_2=1 if parse_run(raw.get("current_2")) else 0,
                         current_3=1 if parse_run(raw.get("current_3")) else 0,
@@ -290,8 +314,7 @@ async def get_telemetry(
         buf = buf[-50:]
     HISTORY_BUFFER[target_device_id] = buf
 
-    water_level_raw = str(raw.get("water_level", "0"))
-    water_level_pct = parse_water_level(water_level_raw)
+    water_level_pct = extract_water_level(raw)
 
     # Step 3: Build structured response
     tanks_out = []
@@ -335,8 +358,8 @@ async def get_telemetry(
             ]
         ))
 
-    # Step 4: Return
-    relevant_raw = {k: v for k, v in raw.items() if k in RUN_KEYS | TRIP_KEYS | {"water_level", "timestamp", "device_id"}}
+    water_level_raw = str(raw.get("voltage_1") or raw.get("water_level") or "0")
+    relevant_raw = {k: v for k, v in raw.items() if k in RUN_KEYS | TRIP_KEYS | {"water_level", "voltage_1", "timestamp", "device_id"}}
     return TelemetryResponse(
         device_id=target_device_id,
         timestamp=str(raw.get("timestamp", datetime.now().isoformat())),
