@@ -400,12 +400,36 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                   const x = ((e.clientX - rect.left) / rect.width) * 100;
                   const y = ((e.clientY - rect.top) / rect.height) * 100;
                   setManualFaceDetection({
-                    top: `${Math.max(2, Math.min(85, y - 5))}%`,
-                    left: `${Math.max(2, Math.min(85, x - 5))}%`
+                    top: `${Math.max(2, Math.min(82, y - 6))}%`,
+                    left: `${Math.max(2, Math.min(82, x - 6))}%`
                   });
                 }}
                 style={{ position: 'relative', width: '100%', height: '100%', cursor: aiEnabled ? 'crosshair' : 'default' }}
               >
+                {/* Guidance Banner for Precision Face Scanning */}
+                {aiEnabled && !manualFaceDetection && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(0, 240, 255, 0.15)',
+                    border: '1px solid #00F0FF',
+                    color: '#00F0FF',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    backdropFilter: 'blur(6px)',
+                    zIndex: 12,
+                    pointerEvents: 'none',
+                    letterSpacing: '0.5px'
+                  }}>
+                    🔍 CLICK ANY OPERATOR FACE IN PHOTO FOR INSIGHTFACE MESH RECOGNITION
+                  </div>
+                )}
+
                 <img
                   key={currentImageUrl}
                   src={currentImageUrl}
