@@ -204,36 +204,28 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
 
     // For Camera 2 (Control Room / Office):
+    // Operator standing near door/window in light green shirt
     if (selectedCameraId === 'cam2') {
-      // Snapshots 3 & 4 (indices 3, 4) contain operators in the room. Empty room frames (like Snapshot 10 / index 9) have NO faces.
-      if (activeSnapshotIdx === 3 || activeSnapshotIdx === 4) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 76,
-          box: { top: '18%', left: '22%', width: '75px', height: '80px' }
-        };
-      }
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    // For Camera 1 (Outdoor Aeration Tank):
-    // Snapshot 1 (index 0 - technician in maroon shirt working under camera as shown on 13.200.3.124)
-    if (activeSnapshotIdx === 0) {
       return {
         hasPerson: true,
         name: 'Unknown',
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '48%', left: '34%', width: '70px', height: '80px' }
+        box: { top: '44%', left: '38%', width: '70px', height: '75px' }
       };
     }
 
-    // Empty tank photos contain NO human faces
-    return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
+    // For Camera 1 (Outdoor Aeration Tank):
+    // Operator sitting on blue pipe walkway structure
+    return {
+      hasPerson: true,
+      name: 'Unknown',
+      role: 'Unregistered',
+      status: 'UNAUTHORIZED' as const,
+      confidence: 76,
+      box: { top: '47%', left: '50%', width: '65px', height: '70px' }
+    };
   };
 
   const currentDetection = getDetectionForSnapshot();
