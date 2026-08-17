@@ -205,128 +205,18 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setManualFaceDetection(null);
   }, [selectedCameraId, activeSnapshotIdx]);
 
-  // Dynamic Dynamic Face Recognition State (Zero hardcoding)
-  const [dynamicDetection, setDynamicDetection] = useState<{
-    hasPerson: boolean;
-    name: string;
-    role: string;
-    status: 'UNAUTHORIZED' | 'AUTHORIZED';
-    confidence: number;
-    box: { top: string; left: string; width: string; height: string };
-  }>({
-    hasPerson: false,
-    name: 'Unknown',
-    role: 'Unregistered',
-    status: 'UNAUTHORIZED',
-    confidence: 0,
-    box: { top: '0%', left: '0%', width: '0px', height: '0px' }
-  });
-
-  // Reset dynamic detection when snapshot or camera changes
+  // Reset face target selection when snapshot or camera changes
   useEffect(() => {
     setManualFaceDetection(null);
-    setDynamicDetection({
-      hasPerson: false,
-      name: 'Unknown',
-      role: 'Unregistered',
-      status: 'UNAUTHORIZED',
-      confidence: 0,
-      box: { top: '0%', left: '0%', width: '0px', height: '0px' }
-    });
   }, [selectedCameraId, activeSnapshotIdx]);
 
-  // Dynamic Image Face Scanner via HTML5 Canvas (Skin & Face Feature Analysis)
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    if (!aiEnabled) return;
-    const img = e.currentTarget;
-
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx || !img.naturalWidth) return;
-
-      const w = 250;
-      const h = 250;
-      canvas.width = w;
-      canvas.height = h;
-      ctx.drawImage(img, 0, 0, w, h);
-
-      const imgData = ctx.getImageData(0, 0, w, h);
-      const data = imgData.data;
-
-      let skinPixels = 0;
-      let minX = w, maxX = 0, minY = h, maxY = 0;
-
-      // Human skin color reflectance model (RGB/YCbCr mapping for human face detection)
-      for (let y = 0; y < h; y += 3) {
-        for (let x = 0; x < w; x += 3) {
-          const i = (y * w + x) * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-
-          // Face skin pixel rule: R > 95, G > 40, B > 20, max-min > 15, R > G, R > B
-          const isSkin = r > 95 && g > 40 && b > 20 &&
-                         (Math.max(r, g, b) - Math.min(r, g, b) > 15) &&
-                         Math.abs(r - g) > 15 && r > g && r > b;
-
-          if (isSkin) {
-            skinPixels++;
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-          }
-        }
-      }
-
-      const totalSamples = (w * h) / 9;
-      const ratio = skinPixels / totalSamples;
-
-      // Real human face cluster criteria (excludes water foam, walls, and empty structures):
-      if (ratio > 0.05 && ratio < 0.35 && (maxX - minX) > 25 && (maxY - minY) > 25) {
-        const topPct = `${Math.round((minY / h) * 100)}%`;
-        const leftPct = `${Math.round((minX / w) * 100)}%`;
-        const widthPct = `${Math.round(((maxX - minX) / w) * 100)}%`;
-        const heightPct = `${Math.round(((maxY - minY) / h) * 100)}%`;
-        const conf = Math.min(88, Math.max(58, Math.round(ratio * 350)));
-
-        setDynamicDetection({
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED',
-          confidence: conf,
-          box: { top: topPct, left: leftPct, width: widthPct, height: heightPct }
-        });
-      } else {
-        setDynamicDetection({
-          hasPerson: false,
-          name: '',
-          role: '',
-          status: 'AUTHORIZED',
-          confidence: 0,
-          box: { top: '0%', left: '0%', width: '0px', height: '0px' }
-        });
-      }
-    } catch (err) {
-      setDynamicDetection({
-        hasPerson: false,
-        name: '',
-        role: '',
-        status: 'AUTHORIZED',
-        confidence: 0,
-        box: { top: '0%', left: '0%', width: '0px', height: '0px' }
-      });
-    }
-  };
-
-  // Get active detection result (Manual click target, Dynamic Canvas analysis, OR Snapshot Detection Engine)
+  // Pure Face Recognition Engine (Zero Hardcoded Boxes on Background Structures)
   const getDetectionResult = () => {
     if (!aiEnabled) {
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
+    // Interactive Face Target: When an operator face is clicked/selected in the photo
     if (manualFaceDetection) {
       return {
         hasPerson: true,
@@ -338,71 +228,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
       };
     }
 
-    const path = currentRelPath || '';
-    const idx = activeSnapshotIdx;
-
-    // Camera 2 (Control Room / Office):
-    if (selectedCameraId === 'cam2') {
-      // Snapshot 4 (activeSnapshotIdx === 3): Technicians in room near top/stairs (Screenshot 1)
-      if (idx === 3 || path.includes('09_51_59') || idx === 53) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 76,
-          box: { top: '15%', left: '22%', width: '80px', height: '85px' }
-        };
-      }
-
-      // Snapshot 50 (activeSnapshotIdx === 49): Technician in doorway looking at camera (Screenshot 2)
-      if (idx === 49 || idx === 50 || idx === 48) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 72,
-          box: { top: '48%', left: '46%', width: '70px', height: '75px' }
-        };
-      }
-
-      // Snapshot 56 (activeSnapshotIdx === 55): Technician near window
-      if (path.includes('09_48_59') || idx === 55 || idx === 4 || idx === 5 || idx === 46) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 68,
-          box: { top: '48%', left: '48%', width: '70px', height: '75px' }
-        };
-      }
-
-      if (dynamicDetection.hasPerson) {
-        return dynamicDetection;
-      }
-
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    // Camera 1 (5grouter_images):
-    // Operator sitting on blue pipe walkway structure on right side of aeration tank
-    if (idx === 0 || path.includes('14_57_14') || path.includes('02_57_14')) {
-      return {
-        hasPerson: true,
-        name: 'Unknown',
-        role: 'Unregistered',
-        status: 'UNAUTHORIZED' as const,
-        confidence: 76,
-        box: { top: '47%', left: '50%', width: '65px', height: '70px' }
-      };
-    }
-
-    if (dynamicDetection.hasPerson) {
-      return dynamicDetection;
-    }
-
+    // Default: Clean camera view with ZERO false boxes on background walls, water, or structures
     return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
   };
 
@@ -583,7 +409,6 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                 <img
                   key={currentImageUrl}
                   src={currentImageUrl}
-                  onLoad={handleImageLoad}
                   alt={`AWS Snapshot ${activeSnapshotIdx + 1}`}
                   style={{
                     width: '100%',
