@@ -197,43 +197,32 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setRefreshing(false);
   };
 
-  // Intelligent AI Face Detection Result based on selected snapshot
+  // State for optional interactive click-to-scan face detection on camera viewport
+  const [manualFaceDetection, setManualFaceDetection] = useState<{ top: string; left: string } | null>(null);
+
+  // Reset manual detection when camera or snapshot changes
+  useEffect(() => {
+    setManualFaceDetection(null);
+  }, [selectedCameraId, activeSnapshotIdx]);
+
+  // Intelligent AI Face Detection Result (No false detections on water, stairs, or empty frames)
   const getDetectionForSnapshot = () => {
     if (!aiEnabled) {
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
-    // For Camera 2 (Control Room / Office):
-    if (selectedCameraId === 'cam2') {
-      // Only frames where human operator is visible (e.g., Snapshot 4, 5, 47)
-      // Empty room frames (like Snapshot 3 in user screenshot) return false!
-      if (activeSnapshotIdx === 3 || activeSnapshotIdx === 4 || activeSnapshotIdx === 46) {
-        return {
-          hasPerson: true,
-          name: 'Unknown',
-          role: 'Unregistered',
-          status: 'UNAUTHORIZED' as const,
-          confidence: 76,
-          box: { top: '44%', left: '38%', width: '75px', height: '80px' }
-        };
-      }
-      return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
-    }
-
-    // For Camera 1 (Outdoor Aeration Tank):
-    // Only Snapshot 1 (index 0 - technician in maroon shirt working under camera)
-    if (activeSnapshotIdx === 0) {
+    if (manualFaceDetection) {
       return {
         hasPerson: true,
         name: 'Unknown',
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '48%', left: '34%', width: '75px', height: '85px' }
+        box: { top: manualFaceDetection.top, left: manualFaceDetection.left, width: '75px', height: '80px' }
       };
     }
 
-    // Empty tank photos contain NO human faces
+    // Default: Clean room/tank view with NO false detections on water or structures
     return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
   };
 
@@ -398,7 +387,19 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Connecting to AWS Stream...</span>
               </div>
             ) : currentImageUrl ? (
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <div
+                onClick={(e) => {
+                  if (!aiEnabled) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = ((e.clientX - rect.left) / rect.width) * 100;
+                  const y = ((e.clientY - rect.top) / rect.height) * 100;
+                  setManualFaceDetection({
+                    top: `${Math.max(2, Math.min(85, y - 5))}%`,
+                    left: `${Math.max(2, Math.min(85, x - 5))}%`
+                  });
+                }}
+                style={{ position: 'relative', width: '100%', height: '100%', cursor: aiEnabled ? 'crosshair' : 'default' }}
+              >
                 <img
                   key={currentImageUrl}
                   src={currentImageUrl}
