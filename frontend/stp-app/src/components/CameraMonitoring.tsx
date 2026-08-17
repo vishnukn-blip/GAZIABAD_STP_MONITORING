@@ -62,16 +62,18 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
   const [activeApiBase, setActiveApiBase] = useState<string>(WORKING_HOST);
 
-  const cameraNames: Record<string, { title: string; folder: string; path: string }> = {
+  const cameraNames: Record<string, { title: string; folder: string; path: string; deviceSubfolder: string }> = {
     '5grouter': {
       title: 'CAMERA 1 (5grouter_images)',
       folder: '5grouter_images',
-      path: '/home/routeruser/5grouter_images/00_1b_09_14_e4_e3/SATATYA_IPCAM_IMAGE'
+      path: '/home/routeruser/5grouter_images/00_1b_09_14_e4_e3/SATATYA_IPCAM_IMAGE',
+      deviceSubfolder: '00_1b_09_14_e4_e3'
     },
     'cam2': {
       title: 'CAMERA 2 (cam2images)',
       folder: 'cam2images',
-      path: '/home/routeruser/cam2images/00_1b_09_14_e4_d3/SATATYA_IPCAM_IMAGE'
+      path: '/home/routeruser/cam2images/00_1b_09_14_e4_d3/SATATYA_IPCAM_IMAGE',
+      deviceSubfolder: '00_1b_09_14_e4_d3'
     }
   };
 
@@ -120,8 +122,14 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     if (responseData && responseData.length > 0) {
       setActiveApiBase(successfulHost);
       
-      // Filter: Keep ONLY images inside SATATYA_IPCAM_IMAGE folder
-      const satatyaOnlyList = responseData.filter((path) => path.includes('SATATYA_IPCAM_IMAGE'));
+      const subfolder = sourceKey === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+
+      // Filter: Keep ONLY images inside SATATYA_IPCAM_IMAGE folder under the exact device subfolder
+      const satatyaOnlyList = responseData.filter((path) => 
+        path.includes('SATATYA_IPCAM_IMAGE') &&
+        path.includes(subfolder) &&
+        !path.includes('SCHEDULESNAPSHOT')
+      );
 
       // Sort Latest/Newest first (Snapshot 1 = Today/Now)
       const sortedLatestFirst = satatyaOnlyList.slice().sort((a, b) => {
