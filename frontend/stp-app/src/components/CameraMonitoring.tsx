@@ -232,15 +232,15 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
     // Camera 2 (cam2images - Control Room):
     if (selectedCameraId === 'cam2') {
-      // 1. Snapshot 4 (idx === 3): Technician in orange shirt standing in room (Screenshot 2)
+      // 1. Snapshot 4 (idx === 3): Technician in orange shirt standing in room - Head/Face bounds
       if (idx === 3) {
         return {
           hasPerson: true,
           name: 'Unknown',
           role: 'Unregistered',
           status: 'UNAUTHORIZED' as const,
-          confidence: 76,
-          box: { top: '22%', left: '25%', width: '75px', height: '80px' }
+          confidence: 78,
+          box: { top: '14%', left: '26%', width: '70px', height: '75px' }
         };
       }
 
