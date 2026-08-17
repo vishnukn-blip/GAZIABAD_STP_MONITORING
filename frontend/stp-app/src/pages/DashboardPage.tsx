@@ -557,7 +557,7 @@ const DashboardPage: React.FC = () => {
           }}
         >
           <Activity size={18} />
-          Live SCADA & Telemetry
+          Plant Monitoring
         </button>
 
         <button
