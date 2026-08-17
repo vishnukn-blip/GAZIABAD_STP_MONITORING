@@ -210,23 +210,25 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
 
     if (selectedCameraId === 'cam2') {
+      // Camera 2 (Control Room): Human face of operator standing near desk/wall
       return {
         hasPerson: true,
         name: 'Unknown',
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '44%', left: '32%', width: '120px', height: '130px' }
+        box: { top: '30%', left: '25%', width: '80px', height: '90px' }
       };
     }
 
+    // Camera 1 (Outdoor Aeration Tank): Human face of operator sitting on right side walkway
     return {
       hasPerson: true,
       name: 'Unknown',
       role: 'Unregistered',
       status: 'UNAUTHORIZED' as const,
       confidence: 84,
-      box: { top: '26%', left: '40%', width: '130px', height: '140px' }
+      box: { top: '44%', left: '69%', width: '75px', height: '85px' }
     };
   };
 
