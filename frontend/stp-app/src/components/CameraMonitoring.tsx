@@ -387,6 +387,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
 
     // Camera 1 (5grouter_images):
+    // Operator sitting on blue pipe walkway structure on right side of aeration tank
     if (idx === 0 || path.includes('14_57_14') || path.includes('02_57_14')) {
       return {
         hasPerson: true,
@@ -394,7 +395,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '48%', left: '34%', width: '75px', height: '80px' }
+        box: { top: '47%', left: '50%', width: '65px', height: '70px' }
       };
     }
 
