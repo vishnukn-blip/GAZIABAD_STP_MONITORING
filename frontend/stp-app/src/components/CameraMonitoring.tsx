@@ -240,7 +240,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
           role: 'Unregistered',
           status: 'UNAUTHORIZED' as const,
           confidence: 78,
-          box: { top: '14%', left: '26%', width: '70px', height: '75px' }
+          box: { top: '25%', left: '26%', width: '70px', height: '75px' }
         };
       }
 
