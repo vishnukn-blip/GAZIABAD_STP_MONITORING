@@ -58,31 +58,37 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
   return null;
 };
 
+const parseTs = (tsStr?: string): number => {
+  if (!tsStr) return 0;
+  const formatted = tsStr.includes(' ') ? tsStr.replace(' ', 'T') : tsStr;
+  const d = new Date(formatted);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
 // Helper function to build 24-Hour timeline bound dynamically to NimbleVision API telemetry history records
 const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): TelemetryHistoryPoint[] => {
   if (incomingHistory && incomingHistory.length > 0) {
-    // Sort API points chronologically
-    const sorted = [...incomingHistory].sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+    // Sort API points chronologically by actual timestamp
+    const sorted = [...incomingHistory].sort((a, b) => parseTs(a.timestamp) - parseTs(b.timestamp));
 
     const now = new Date();
     const currentMinute = now.getMinutes();
     const points: TelemetryHistoryPoint[] = [];
 
     for (let i = 24; i >= 0; i--) {
-      const past = new Date(now.getTime() - i * 60 * 60 * 1000);
-      const hour = past.getHours();
+      const slotDate = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const slotMs = slotDate.getTime();
+      const hour = slotDate.getHours();
       const hStr = hour.toString().padStart(2, '0');
       const mStr = i === 0 ? currentMinute.toString().padStart(2, '0') : '00';
       const timeLabel = `${hStr}:${mStr}`;
 
-      // Find the latest API record logged at or prior to this hour slot
+      // Find the latest API record logged at or prior to this time slot
       let effectivePoint: TelemetryHistoryPoint | null = null;
       for (const p of sorted) {
-        if (p.time_short) {
-          const pHour = parseInt(p.time_short.split(':')[0], 10);
-          if (!isNaN(pHour) && pHour <= hour) {
-            effectivePoint = p;
-          }
+        const pMs = parseTs(p.timestamp);
+        if (pMs > 0 && pMs <= slotMs) {
+          effectivePoint = p;
         }
       }
 
