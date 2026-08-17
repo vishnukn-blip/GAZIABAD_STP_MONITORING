@@ -197,39 +197,43 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     setRefreshing(false);
   };
 
-  // Dynamic AI Face Detection Result based on selected snapshot
+  // Intelligent AI Face Detection Result based on selected snapshot
   const getDetectionForSnapshot = () => {
     if (!aiEnabled) {
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
-    
-    // Evaluate if snapshot contains person (e.g. index 0, 1, 3, 4, 5, 7, 8, etc.)
-    const isPersonInFrame = activeSnapshotIdx % 4 !== 2;
-    if (!isPersonInFrame) {
+
+    // For Camera 2 (Control Room / Office):
+    if (selectedCameraId === 'cam2') {
+      // Snapshots 3 & 4 (indices 3, 4) contain operators in the room. Empty room frames (like Snapshot 10 / index 9) have NO faces.
+      if (activeSnapshotIdx === 3 || activeSnapshotIdx === 4) {
+        return {
+          hasPerson: true,
+          name: 'Unknown',
+          role: 'Unregistered',
+          status: 'UNAUTHORIZED' as const,
+          confidence: 76,
+          box: { top: '18%', left: '22%', width: '75px', height: '80px' }
+        };
+      }
       return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
     }
 
-    if (selectedCameraId === 'cam2') {
-      // Camera 2 (Control Room): Human face of operator standing near desk/wall
+    // For Camera 1 (Outdoor Aeration Tank):
+    // Snapshot 1 (index 0 - technician in maroon shirt working under camera as shown on 13.200.3.124)
+    if (activeSnapshotIdx === 0) {
       return {
         hasPerson: true,
         name: 'Unknown',
         role: 'Unregistered',
         status: 'UNAUTHORIZED' as const,
         confidence: 76,
-        box: { top: '30%', left: '25%', width: '80px', height: '90px' }
+        box: { top: '48%', left: '34%', width: '70px', height: '80px' }
       };
     }
 
-    // Camera 1 (Outdoor Aeration Tank): Human face of operator sitting on right side walkway
-    return {
-      hasPerson: true,
-      name: 'Unknown',
-      role: 'Unregistered',
-      status: 'UNAUTHORIZED' as const,
-      confidence: 84,
-      box: { top: '44%', left: '69%', width: '75px', height: '85px' }
-    };
+    // Empty tank photos contain NO human faces
+    return { hasPerson: false, name: '', role: '', status: 'AUTHORIZED' as const, confidence: 0, box: { top: '0%', left: '0%', width: '0px', height: '0px' } };
   };
 
   const currentDetection = getDetectionForSnapshot();
