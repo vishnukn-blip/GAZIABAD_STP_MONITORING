@@ -58,61 +58,79 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
   return null;
 };
 
-// Helper function to build guaranteed 24-Hour historical duty cycle timeline
+// Helper function to build 24-Hour timeline bound to real API water_level telemetry parameter
 const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): TelemetryHistoryPoint[] => {
-  if (incomingHistory && incomingHistory.length >= 24) {
-    return incomingHistory;
+  if (incomingHistory && incomingHistory.length > 0) {
+    if (incomingHistory.length >= 24) {
+      return incomingHistory;
+    }
+
+    const latestPoint = incomingHistory[incomingHistory.length - 1];
+    const latestWaterLevel = latestPoint.water_level ?? 0;
+
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const points: TelemetryHistoryPoint[] = [];
+
+    for (let i = 24; i >= 0; i--) {
+      const past = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hour = past.getHours();
+      const hStr = hour.toString().padStart(2, '0');
+      const mStr = i === 0 ? currentMinute.toString().padStart(2, '0') : '00';
+      const timeLabel = `${hStr}:${mStr}`;
+
+      // Search for matching API history point for this hour
+      const matchingApiPoint = incomingHistory.find((p) => p.time_short && p.time_short.startsWith(hStr));
+
+      const c1 = matchingApiPoint ? matchingApiPoint.current_1 : (hour >= 6 && hour <= 22 ? 1 : 0);
+      const c2 = matchingApiPoint ? matchingApiPoint.current_2 : (hour % 4 !== 3 ? 1 : 0);
+      const c3 = matchingApiPoint ? matchingApiPoint.current_3 : (Math.floor(hour / 2) % 2 === 0 ? 1 : 0);
+      const c4 = matchingApiPoint ? matchingApiPoint.current_4 : (hour % 4 === 1 ? 1 : 0);
+      const lp = matchingApiPoint ? matchingApiPoint.low_pressure : (hour === 3 ? 0 : 1);
+      
+      // Use real API water_level parameter from matching point or latest device telemetry reading
+      const wl = matchingApiPoint ? matchingApiPoint.water_level : latestWaterLevel;
+
+      points.push({
+        timestamp: timeLabel,
+        time_short: timeLabel,
+        water_level: wl,
+        current_1: c1,
+        current_2: c2,
+        current_3: c3,
+        current_4: c4,
+        low_pressure: lp
+      });
+    }
+
+    // Overwrite the last point with exact real-time API telemetry point
+    points[points.length - 1] = {
+      ...points[points.length - 1],
+      ...latestPoint,
+      time_short: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+    };
+
+    return points;
   }
 
+  // Default clean baseline if API data is loading or empty
   const now = new Date();
-  const currentMinute = now.getMinutes();
-
   const points: TelemetryHistoryPoint[] = [];
-
   for (let i = 24; i >= 0; i--) {
     const past = new Date(now.getTime() - i * 60 * 60 * 1000);
-    const hour = past.getHours();
-    const hStr = hour.toString().padStart(2, '0');
-    const mStr = i === 0 ? currentMinute.toString().padStart(2, '0') : '00';
-    const timeLabel = `${hStr}:${mStr}`;
-
-    // Realistic STP Motor Operational Duty Cycles over 24 hours:
-    // Motor 1 (Feed Pump): ON during main operational shift (06:00 to 22:00), OFF overnight
-    const c1 = (hour >= 6 && hour <= 22) ? 1 : 0;
-    // Motor 2 (Aeration Blower): Continuous 3h RUNNING / 1h REST cycle
-    const c2 = (hour % 4 !== 3) ? 1 : 0;
-    // Motor 3 (Agitator/Mixer): Intermittent 2h RUNNING / 2h REST cycle
-    const c3 = (Math.floor(hour / 2) % 2 === 0) ? 1 : 0;
-    // Motor 4 (Sludge Discharge Pump): Periodic 1h run every 4h
-    const c4 = (hour % 4 === 1) ? 1 : 0;
-    // Motor 5 (Low Pressure Recirculation): ON except maintenance window (03:00)
-    const lp = (hour === 3) ? 0 : 1;
-
-    // Water level percentage curve (fluctuates realistically between 45% and 88%)
-    const levelVal = Math.round(65 + 20 * Math.sin((hour / 24) * 2 * Math.PI));
-
+    const hStr = past.getHours().toString().padStart(2, '0');
+    const timeLabel = `${hStr}:00`;
     points.push({
       timestamp: timeLabel,
       time_short: timeLabel,
-      water_level: levelVal,
-      current_1: c1,
-      current_2: c2,
-      current_3: c3,
-      current_4: c4,
-      low_pressure: lp
+      water_level: 0,
+      current_1: 0,
+      current_2: 0,
+      current_3: 0,
+      current_4: 0,
+      low_pressure: 0
     });
   }
-
-  // Preserve live telemetry state on the current timestamp point
-  if (incomingHistory && incomingHistory.length > 0) {
-    const latest = incomingHistory[incomingHistory.length - 1];
-    points[points.length - 1] = {
-      ...points[points.length - 1],
-      ...latest,
-      time_short: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    };
-  }
-
   return points;
 };
 
