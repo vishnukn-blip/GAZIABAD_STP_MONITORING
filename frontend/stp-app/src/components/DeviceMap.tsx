@@ -11,8 +11,6 @@ interface DeviceMapProps {
   latitude?: number;
   longitude?: number;
   locationName?: string;
-  allDevices?: any[];
-  onSelectDevice?: (devId: string) => void;
 }
 
 export const DeviceMap: React.FC<DeviceMapProps> = ({
@@ -23,8 +21,6 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   latitude,
   longitude,
   locationName,
-  allDevices = [],
-  onSelectDevice,
 }) => {
   const finalLat = latitude ?? 28.6685;
   const finalLng = longitude ?? 77.4390;
@@ -42,34 +38,34 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
       mapInstanceRef.current = null;
     }
 
-    const createPinIcon = (isSelected: boolean) => L.divIcon({
-      className: isSelected ? 'leaflet-red-pin-marker' : 'leaflet-blue-pin-marker',
+    // Red SVG Location Pin Marker Icon
+    const customPinIcon = L.divIcon({
+      className: 'leaflet-red-pin-marker',
       html: `
         <div style="
           position: relative;
-          width: ${isSelected ? '34px' : '28px'};
-          height: ${isSelected ? '44px' : '36px'};
+          width: 32px;
+          height: 42px;
           display: flex;
           align-items: center;
           justify-content: center;
           filter: drop-shadow(0px 3px 6px rgba(15, 23, 42, 0.35));
-          cursor: pointer;
         ">
-          <svg width="${isSelected ? '34' : '28'}" height="${isSelected ? '44' : '36'}" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="${isSelected ? '#EF4444' : '#0284C7'}" stroke="${isSelected ? '#B91C1C' : '#0369A1'}" stroke-width="1.2"/>
+          <svg width="32" height="42" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#EF4444" stroke="#B91C1C" stroke-width="1.2"/>
             <circle cx="12" cy="11" r="4.5" fill="#FFFFFF"/>
           </svg>
         </div>
       `,
-      iconSize: [isSelected ? 34 : 28, isSelected ? 44 : 36],
-      iconAnchor: [isSelected ? 17 : 14, isSelected ? 44 : 36],
-      popupAnchor: [0, isSelected ? -40 : -32]
+      iconSize: [32, 42],
+      iconAnchor: [16, 42],
+      popupAnchor: [0, -38]
     });
 
     // Initialize Leaflet Map
     const map = L.map(mapContainerRef.current, {
       center: [finalLat, finalLng],
-      zoom: 14,
+      zoom: 16,
       zoomControl: true,
       attributionControl: true
     });
@@ -80,52 +76,18 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
       maxZoom: 19
     }).addTo(map);
 
-    const devicesToPlot = (allDevices && allDevices.length > 0) ? allDevices : [{
-      device_id: deviceId,
-      device_name: deviceName,
-      latitude: finalLat,
-      longitude: finalLng
-    }];
+    // Set map view center
+    map.setView([finalLat, finalLng], 16);
 
-    const bounds: L.LatLngTuple[] = [];
-
-    devicesToPlot.forEach(dev => {
-      const devIdStr = dev.device_id || dev.name || '';
-      const isSelected = devIdStr === deviceId || dev.name === deviceName || dev.device_name === deviceName;
-      const dLat = dev.latitude ?? (isSelected ? finalLat : 28.6685);
-      const dLng = dev.longitude ?? (isSelected ? finalLng : 77.4390);
-      const dName = dev.device_name || dev.name || 'STP Device';
-
-      bounds.push([dLat, dLng]);
-
-      const marker = L.marker([dLat, dLng], { icon: createPinIcon(isSelected) }).addTo(map);
-
-      const popupHtml = `
-        <div style="font-family: sans-serif; padding: 4px; min-width: 140px;">
-          <strong style="color: #0F172A; font-size: 13px; display: block; margin-bottom: 2px;">${dName}</strong>
-          <span style="color: #0284C7; font-size: 11px; font-weight: 600; display: block;">Lat: ${dLat}° N | Long: ${dLng}° E</span>
-          ${isSelected ? '<span style="display:inline-block; margin-top:4px; font-size:10px; background:#ECFDF5; color:#059669; font-weight:700; padding:2px 6px; border-radius:4px;">ACTIVE PLANT</span>' : ''}
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml);
-
-      if (isSelected) {
-        marker.openPopup();
-      }
-
-      marker.on('click', () => {
-        if (onSelectDevice && devIdStr && devIdStr !== deviceId) {
-          onSelectDevice(devIdStr);
-        }
-      });
-    });
-
-    if (bounds.length > 1) {
-      map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 15 });
-    } else if (bounds.length === 1) {
-      map.setView(bounds[0], 15);
-    }
+    // Add Marker at exact GPS coordinates (28.657521° N, 77.376303° E)
+    const marker = L.marker([finalLat, finalLng], { icon: customPinIcon }).addTo(map);
+    marker.bindPopup(`
+      <div style="font-family: sans-serif; padding: 2px;">
+        <strong style="color: #0F172A; font-size: 13px;">${deviceName}</strong><br/>
+        <span style="color: #0284C7; font-size: 11px; font-weight: 600;">Lat: ${finalLat}° N | Long: ${finalLng}° E</span><br/>
+        <span style="color: #64748B; font-size: 10px;">${finalAddress}</span>
+      </div>
+    `).openPopup();
 
     mapInstanceRef.current = map;
 
@@ -140,7 +102,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
         mapInstanceRef.current = null;
       }
     };
-  }, [finalLat, finalLng, deviceName, deviceId, allDevices]);
+  }, [finalLat, finalLng, deviceName, finalAddress]);
 
   return (
     <div style={{
