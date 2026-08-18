@@ -65,54 +65,29 @@ const parseTs = (tsStr?: string): number => {
   return isNaN(d.getTime()) ? 0 : d.getTime();
 };
 
-// Helper function to build 24-Hour timeline bound dynamically to NimbleVision API telemetry history records
+// Helper function to plot all real NimbleVision API telemetry history records directly on the chart timeline
 const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): TelemetryHistoryPoint[] => {
   if (incomingHistory && incomingHistory.length > 0) {
     // Sort API points chronologically by actual timestamp
     const sorted = [...incomingHistory].sort((a, b) => parseTs(a.timestamp) - parseTs(b.timestamp));
 
-    const now = new Date();
-    const currentMinute = now.getMinutes();
-    const points: TelemetryHistoryPoint[] = [];
-
-    for (let i = 24; i >= 0; i--) {
-      const slotDate = new Date(now.getTime() - i * 60 * 60 * 1000);
-      const slotMs = slotDate.getTime();
-      const hour = slotDate.getHours();
-      const hStr = hour.toString().padStart(2, '0');
-      const mStr = i === 0 ? currentMinute.toString().padStart(2, '0') : '00';
-      const timeLabel = `${hStr}:${mStr}`;
-
-      // Find the latest API record logged at or prior to this time slot
-      let effectivePoint: TelemetryHistoryPoint | null = null;
-      for (const p of sorted) {
-        const pMs = parseTs(p.timestamp);
-        if (pMs > 0 && pMs <= slotMs) {
-          effectivePoint = p;
-        }
+    return sorted.map((p) => {
+      let tLabel = p.time_short || '';
+      if (!tLabel && p.timestamp) {
+        tLabel = p.timestamp.includes(' ') ? p.timestamp.split(' ')[1].slice(0, 5) : p.timestamp.slice(0, 5);
       }
-
-      points.push({
-        timestamp: timeLabel,
-        time_short: timeLabel,
-        water_level: effectivePoint ? (effectivePoint.water_level ?? 0) : (sorted[0]?.water_level ?? 0),
-        current_1: effectivePoint ? (effectivePoint.current_1 ?? 0) : 0,
-        current_2: effectivePoint ? (effectivePoint.current_2 ?? 0) : 0,
-        current_3: effectivePoint ? (effectivePoint.current_3 ?? 0) : 0,
-        current_4: effectivePoint ? (effectivePoint.current_4 ?? 0) : 0,
-        low_pressure: effectivePoint ? (effectivePoint.low_pressure ?? 0) : 0,
-      });
-    }
-
-    // Overwrite the last point with exact real-time API telemetry reading
-    const latestPoint = sorted[sorted.length - 1];
-    points[points.length - 1] = {
-      ...points[points.length - 1],
-      ...latestPoint,
-      time_short: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-    };
-
-    return points;
+      return {
+        ...p,
+        timestamp: tLabel,
+        time_short: tLabel,
+        water_level: p.water_level ?? 0,
+        current_1: p.current_1 ?? 0,
+        current_2: p.current_2 ?? 0,
+        current_3: p.current_3 ?? 0,
+        current_4: p.current_4 ?? 0,
+        low_pressure: p.low_pressure ?? 0,
+      };
+    });
   }
 
   // Default clean baseline if API data is loading or empty
