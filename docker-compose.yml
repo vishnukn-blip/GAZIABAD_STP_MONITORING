@@ -22,3 +22,16 @@ services:
     restart: always
     depends_on:
       - backend
+
+  router_service:
+    build:
+      context: ./router_service
+      dockerfile: Dockerfile
+    container_name: stp_router_service
+    ports:
+      - "5002:5002"
+    restart: always
+    volumes:
+      - /home/routeruser/5grouter_images:/home/routeruser/5grouter_images
+      - /home/routeruser/cam2images:/home/routeruser/cam2images
+
