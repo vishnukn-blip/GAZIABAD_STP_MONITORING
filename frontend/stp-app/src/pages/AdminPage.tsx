@@ -33,10 +33,10 @@ const DEFAULT_LOCAL_USERS = [
 ];
 
 export const DEFAULT_LOCAL_DEVICES = [
-  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 }
+  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
@@ -127,7 +127,7 @@ const AdminPage: React.FC = () => {
 
   const [devices, setDevices] = useState<any[]>([]);
   const [deviceForm, setDeviceForm] = useState({
-    device_name: '', device_id: '', api_key: '', api_token: '', assigned_user: '', is_active: 1
+    device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1
   });
   const [editingDevice, setEditingDevice] = useState<any | null>(null);
   const [confirmDevice, setConfirmDevice] = useState<any | null>(null);
@@ -192,7 +192,7 @@ const AdminPage: React.FC = () => {
     localStorage.setItem('stp_local_devices', JSON.stringify(updatedList));
     saveCentralDevices(updatedList);
     setDevices(updatedList);
-    setDeviceForm({ device_name: '', device_id: '', api_key: '', api_token: '', assigned_user: '', is_active: 1 });
+    setDeviceForm({ device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1 });
     setEditingDevice(null);
   };
 
@@ -479,14 +479,14 @@ const AdminPage: React.FC = () => {
                     onChange={e => setDeviceForm({ ...deviceForm, device_id: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>API Key</label>
-                  <input className="form-input" placeholder="e.g. chinnu" value={deviceForm.api_key}
-                    onChange={e => setDeviceForm({ ...deviceForm, api_key: e.target.value })} />
+                  <label>Latitude <span className="hint">(Map Pin)</span></label>
+                  <input className="form-input" type="number" step="0.000001" placeholder="e.g. 28.668500" value={deviceForm.latitude}
+                    onChange={e => setDeviceForm({ ...deviceForm, latitude: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
-                  <label>API Token</label>
-                  <input className="form-input" type="password" placeholder="API Token" value={deviceForm.api_token}
-                    onChange={e => setDeviceForm({ ...deviceForm, api_token: e.target.value })} />
+                  <label>Longitude <span className="hint">(Map Pin)</span></label>
+                  <input className="form-input" type="number" step="0.000001" placeholder="e.g. 77.439000" value={deviceForm.longitude}
+                    onChange={e => setDeviceForm({ ...deviceForm, longitude: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
                   <label>Assigned Frappe User</label>
@@ -502,22 +502,23 @@ const AdminPage: React.FC = () => {
               </div>
               <div className="form-actions">
                 <button className="btn-primary" onClick={saveDevice}><Save size={14} /> {editingDevice ? 'Update' : 'Create in Frappe'}</button>
-                {editingDevice && <button className="btn-secondary" onClick={() => { setEditingDevice(null); setDeviceForm({ device_name: '', device_id: '', api_key: '', api_token: '', assigned_user: '', is_active: 1 }); }}><X size={14} /> Cancel</button>}
+                {editingDevice && <button className="btn-secondary" onClick={() => { setEditingDevice(null); setDeviceForm({ device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1 }); }}><X size={14} /> Cancel</button>}
               </div>
             </div>
             <div className="admin-table-card">
               <table className="admin-table">
-                <thead><tr><th>DocType Name</th><th>Device Name</th><th>Device ID</th><th>API Key</th><th>Assigned User</th><th>Actions</th></tr></thead>
+                <thead><tr><th>DocType Name</th><th>Device Name</th><th>Device ID</th><th>Latitude</th><th>Longitude</th><th>Assigned User</th><th>Actions</th></tr></thead>
                 <tbody>
                   {devices.map(d => (
                     <tr key={d.name}>
                       <td><code>{d.name}</code></td>
                       <td>{d.device_name}</td>
                       <td><code>{d.device_id}</code></td>
-                      <td><code>{d.api_key}</code></td>
+                      <td><code style={{ color: '#0284C7' }}>{d.latitude ?? 28.6685}</code></td>
+                      <td><code style={{ color: '#0284C7' }}>{d.longitude ?? 77.4390}</code></td>
                       <td>{d.assigned_user}</td>
                       <td className="actions">
-                        <button className="icon-btn" onClick={() => { setEditingDevice(d); setDeviceForm({ device_name: d.device_name, device_id: d.device_id, api_key: d.api_key, api_token: '', assigned_user: d.assigned_user, is_active: d.is_active }); }}><Edit2 size={14} /></button>
+                        <button className="icon-btn" onClick={() => { setEditingDevice(d); setDeviceForm({ device_name: d.device_name, device_id: d.device_id, api_key: d.api_key || 'chinnu', api_token: d.api_token || '257bbec888a81696529ee979804cca59', latitude: d.latitude ?? 28.6685, longitude: d.longitude ?? 77.4390, assigned_user: d.assigned_user, is_active: d.is_active }); }}><Edit2 size={14} /></button>
                         <button className="icon-btn danger" onClick={() => setConfirmDevice(d)}><Trash2 size={14} /></button>
                       </td>
                     </tr>

@@ -31,15 +31,9 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     }
   };
 
-  const currentCoords = deviceCoordinates[deviceId] || {
-    lat: latitude || 28.6685,
-    lng: longitude || 77.4390,
-    address: locationName
-  };
-
-  const finalLat = currentCoords.lat;
-  const finalLng = currentCoords.lng;
-  const finalAddress = currentCoords.address;
+  const finalLat = latitude ?? deviceCoordinates[deviceId]?.lat ?? 28.6685;
+  const finalLng = longitude ?? deviceCoordinates[deviceId]?.lng ?? 77.4390;
+  const finalAddress = locationName || `Ghaziabad STP Plant Site (${finalLat}° N, ${finalLng}° E)`;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
