@@ -39,6 +39,8 @@ export interface DeviceLayout {
   api_key: string;
   api_token: string;
   device_name: string;
+  latitude?: number;
+  longitude?: number;
   tanks: Tank[];
 }
 

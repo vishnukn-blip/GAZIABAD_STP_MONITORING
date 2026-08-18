@@ -18,22 +18,13 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   deviceName = "STP Telemetry Device",
   waterLevel,
   activeMotorsCount,
-  latitude = 28.6685,
-  longitude = 77.4390,
-  locationName = "Ghaziabad STP Plant Site (28.667°–28.670° N, 77.433°–77.445° E)",
+  latitude,
+  longitude,
+  locationName,
 }) => {
-  // Device specific hardcoded GPS coordinates mapping
-  const deviceCoordinates: Record<string, { lat: number; lng: number; address: string }> = {
-    '350435032683868': {
-      lat: 28.657521,
-      lng: 77.376303,
-      address: 'Ghaziabad STP Plant Site A (28.657521° N, 77.376303° E)'
-    }
-  };
-
-  const finalLat = latitude ?? deviceCoordinates[deviceId]?.lat ?? 28.6685;
-  const finalLng = longitude ?? deviceCoordinates[deviceId]?.lng ?? 77.4390;
-  const finalAddress = locationName || `Ghaziabad STP Plant Site (${finalLat}° N, ${finalLng}° E)`;
+  const finalLat = latitude ?? 28.6685;
+  const finalLng = longitude ?? 77.4390;
+  const finalAddress = locationName || `${deviceName} (${finalLat}° N, ${finalLng}° E)`;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);

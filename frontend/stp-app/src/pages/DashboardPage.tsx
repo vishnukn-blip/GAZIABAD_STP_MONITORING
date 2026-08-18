@@ -333,6 +333,8 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
     device_name: currentDev.device_name || devId,
     api_key: currentDev.api_key || 'chinnu',
     api_token: currentDev.api_token || '257bbec888a81696529ee979804cca59',
+    latitude: currentDev.latitude,
+    longitude: currentDev.longitude,
     tanks: compiledTanks
   };
 };
@@ -665,6 +667,8 @@ const DashboardPage: React.FC = () => {
                     deviceName={layout.device_name}
                     waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
                     activeMotorsCount={activeMotors}
+                    latitude={layout.latitude}
+                    longitude={layout.longitude}
                   />
                 </div>
 
