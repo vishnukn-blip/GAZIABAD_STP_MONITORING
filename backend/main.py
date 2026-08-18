@@ -39,7 +39,7 @@ if not os.path.exists(static_dir):
     os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-NIMBLEVISION_URL = "http://3.6.204.10/public/api/getDeviceDiagnosticInfoNisensu"
+NIMBLEVISION_URL = "http://nimblevision.io/public/api/getDeviceDiagnosticInfoNisensu"
 FRAPPE_BASE = "http://localhost:8000"
 
 # ── Parameter Mapping Logic ───────────────────────────────────────────────────
@@ -230,7 +230,7 @@ async def get_telemetry(
     new_points: list[TelemetryHistoryPoint] = []
 
     try:
-        async with httpx.AsyncClient(timeout=3.5) as client:
+        async with httpx.AsyncClient(timeout=3.5, follow_redirects=True) as client:
             resp = await client.get(NIMBLEVISION_URL, params={
                 "key": api_key,
                 "token": api_token,
