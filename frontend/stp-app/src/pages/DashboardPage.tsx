@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI, getCentralDevices } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -406,6 +406,16 @@ const DashboardPage: React.FC = () => {
       if (data && data.device_id === devId && data.tanks && data.tanks.length > 0) {
         setLayout(data);
         return;
+      }
+    } catch {}
+
+    try {
+      const [cTanks, cMotors] = await Promise.all([getCentralTanks(), getCentralMotors()]);
+      if (cTanks && cTanks.length > 0) {
+        localStorage.setItem('stp_local_tanks', JSON.stringify(cTanks));
+      }
+      if (cMotors && cMotors.length > 0) {
+        localStorage.setItem('stp_local_motors', JSON.stringify(cMotors));
       }
     } catch {}
 
