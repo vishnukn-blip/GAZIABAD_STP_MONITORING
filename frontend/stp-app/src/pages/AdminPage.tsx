@@ -34,7 +34,7 @@ const DEFAULT_LOCAL_USERS = [
 
 export const DEFAULT_LOCAL_DEVICES = [
   { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
@@ -185,7 +185,7 @@ const AdminPage: React.FC = () => {
     let updatedList = [...currentList];
     const devName = deviceForm.device_name || `STP-DEV-${Date.now()}`;
     if (editingDevice) {
-      updatedList = updatedList.map(d => d.name === editingDevice.name ? { ...d, ...deviceForm } : d);
+      updatedList = updatedList.map(d => d.name === editingDevice.name ? { ...d, name: deviceForm.device_name || d.name, ...deviceForm } : d);
     } else {
       updatedList.push({ name: devName, ...deviceForm });
     }

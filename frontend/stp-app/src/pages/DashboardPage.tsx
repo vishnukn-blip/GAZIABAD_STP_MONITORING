@@ -211,7 +211,7 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   const defaultDevs = [
     { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu' },
     { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu' },
-    { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032680674', api_key: 'chinnu' },
+    { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu' },
     { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu' },
     { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu' }
   ];
@@ -356,8 +356,8 @@ const DashboardPage: React.FC = () => {
 
   const loadUserDevices = async () => {
     const defaultDevs = [
-      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu' },
+      { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
