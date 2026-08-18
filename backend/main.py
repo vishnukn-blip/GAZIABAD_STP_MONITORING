@@ -240,8 +240,8 @@ async def get_telemetry(
                 res_data = resp.json()
                 if isinstance(res_data, list) and len(res_data) > 0:
                     raw = res_data[0]
-                    # Process chronological history (oldest first)
-                    for item in reversed(res_data[:30]):
+                    # Process chronological history (oldest first, up to 200 entries)
+                    for item in reversed(res_data[:200]):
                         ts = str(item.get("timestamp", ""))
                         time_short = ts.split(" ")[-1][:5] if " " in ts else ts[:5]
                         new_points.append(TelemetryHistoryPoint(
@@ -284,10 +284,10 @@ async def get_telemetry(
             buf.append(pt)
             existing_timestamps.add(pt.timestamp)
 
-    # Sort chronologically by timestamp and cap at 50 points
+    # Sort chronologically by timestamp and cap at 200 points
     buf.sort(key=lambda x: x.timestamp)
-    if len(buf) > 50:
-        buf = buf[-50:]
+    if len(buf) > 200:
+        buf = buf[-200:]
     HISTORY_BUFFER[target_device_id] = buf
 
     water_level_raw = str(raw.get("water_level", "0"))
