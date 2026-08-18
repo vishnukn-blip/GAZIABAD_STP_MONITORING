@@ -669,6 +669,8 @@ const DashboardPage: React.FC = () => {
                     activeMotorsCount={activeMotors}
                     latitude={layout.latitude}
                     longitude={layout.longitude}
+                    allDevices={userDevices}
+                    onSelectDevice={(devId) => handleDeviceChange(devId)}
                   />
                 </div>
 
