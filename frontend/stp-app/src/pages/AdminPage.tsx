@@ -28,15 +28,13 @@ const DEFAULT_LOCAL_USERS = [
 ];
 
 export const DEFAULT_LOCAL_DEVICES = [
-  { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT B', device_name: 'STP PLANT B', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
-  { name: 'TANK-001', tank_name: 'TANK_1', device: '863110085106451', variant: 'main', capacity_liters: 10000, display_order: 1 },
   { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 10000, display_order: 1 },
   { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 10000, display_order: 1 },
   { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 10000, display_order: 1 },
@@ -44,35 +42,28 @@ export const DEFAULT_LOCAL_TANKS = [
 ];
 
 export const DEFAULT_LOCAL_MOTORS = [
-  // TANK-001 (STP Telemetry Device)
-  { name: 'MOTOR-001', motor_name: 'Motor_1', tank: 'TANK-001', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR-002', motor_name: 'Motor_2', tank: 'TANK-001', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR-003', motor_name: 'Motor_3', tank: 'TANK-001', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR-004', motor_name: 'Motor_4', tank: 'TANK-001', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR-005', motor_name: 'Motor_5', tank: 'TANK-001', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+  // TANK_A (VASUNDHARA SECTOR 7 , 8MLD PLANT - 350435032683868)
+  { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+  { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_A_4', motor_name: 'M4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_A_5', motor_name: 'M5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-  // TANK_A (STP PLANT A)
-  { name: 'MOTOR_A_1', motor_name: 'MOTOR_A_1', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_A_2', motor_name: 'MOTOR_A_2', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_A_3', motor_name: 'MOTOR_A_3', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_A_4', motor_name: 'MOTOR_A_4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_A_5', motor_name: 'MOTOR_A_5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+  // TANK_B (VASUNDHARA SECTOR 19 - 350435032680674)
+  { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+  { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_B_3', motor_name: 'M3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_B_4', motor_name: 'M4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_B_5', motor_name: 'M5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-  // TANK_B (STP PLANT B)
-  { name: 'MOTOR_B_1', motor_name: 'MOTOR_B_1', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_B_2', motor_name: 'MOTOR_B_2', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_B_3', motor_name: 'MOTOR_B_3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_B_4', motor_name: 'MOTOR_B_4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_B_5', motor_name: 'MOTOR_B_5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-
-  // TANK_C (STP PLANT C)
+  // TANK_C (STP PLANT C - 350435032689659)
   { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
   { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-  // TANK_D (STP PLANT D)
+  // TANK_D (STP PLANT D - 350435032681912)
   { name: 'MOTOR_D_1', motor_name: 'MOTOR_D_1', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_D_2', motor_name: 'MOTOR_D_2', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_D_3', motor_name: 'MOTOR_D_3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
