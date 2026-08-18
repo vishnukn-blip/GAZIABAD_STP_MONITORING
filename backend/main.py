@@ -307,7 +307,7 @@ async def get_telemetry(
                     is_tripped=parse_trip(raw.get(motor["trip_param_key"])),
                 ))
 
-            cap = tank.get("capacity_liters", 10000)
+            cap = tank.get("capacity_liters", 8000000)
             tanks_out.append(TankTelemetry(
                 tank_id=int(tank.get("id", tank.get("display_order", 1))),
                 tank_name=tank.get("tank_name", tank.get("name", "Tank")),
@@ -323,9 +323,9 @@ async def get_telemetry(
             tank_id=1,
             tank_name="Raw Sewage Sump",
             variant="main",
-            capacity_liters=10000,
+            capacity_liters=8000000,
             water_level_percent=water_level_pct,
-            current_volume_liters=round((water_level_pct / 100) * 10000, 0),
+            current_volume_liters=round((water_level_pct / 100) * 8000000, 0),
             motors=[
                 MotorTelemetry(motor_name="Submersible Pump 1", run_param_key="current_1", trip_param_key="voltage_4", is_running=parse_run(raw.get("current_1")), is_tripped=parse_trip(raw.get("voltage_4"))),
                 MotorTelemetry(motor_name="Submersible Pump 2", run_param_key="current_2", trip_param_key="voltage_5", is_running=parse_run(raw.get("current_2")), is_tripped=parse_trip(raw.get("voltage_5"))),
@@ -390,9 +390,9 @@ async def get_telemetry_direct(
         water_level_raw=water_level_raw,
         tanks=[TankTelemetry(
             tank_name=tank_names.split(",")[0].strip(),
-            variant="main", capacity_liters=10000,
+            variant="main", capacity_liters=8000000,
             water_level_percent=water_level_pct,
-            current_volume_liters=round(water_level_pct * 100, 0),
+            current_volume_liters=round((water_level_pct / 100) * 8000000, 0),
             motors=motors_out,
         )],
         raw_params=relevant_raw,

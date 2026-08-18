@@ -21,8 +21,8 @@ interface TankCardProps {
 
 const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index }) => {
   const level = telemetry?.water_level_percent ?? 0;
-  const volume = telemetry?.current_volume_liters ?? 0;
   const capacity = tankLayout.capacity_liters || 8000000;
+  const volume = Math.round((level / 100) * capacity);
   const tankDisplayName = tankLayout.name || (tankLayout as any).tank_name || telemetry?.tank_name || `Tank ${index + 1}`;
   const fillHeight = Math.max(0, Math.min(100, level));
 
