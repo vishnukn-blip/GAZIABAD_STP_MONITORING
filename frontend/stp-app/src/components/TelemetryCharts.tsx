@@ -72,9 +72,13 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
     const sorted = [...incomingHistory].sort((a, b) => parseTs(a.timestamp) - parseTs(b.timestamp));
 
     return sorted.map((p) => {
-      let tLabel = p.time_short || '';
-      if (!tLabel && p.timestamp) {
-        tLabel = p.timestamp.includes(' ') ? p.timestamp.split(' ')[1].slice(0, 5) : p.timestamp.slice(0, 5);
+      let tLabel = '';
+      if (p.timestamp && p.timestamp.includes(' ')) {
+        tLabel = p.timestamp.split(' ')[1].slice(0, 5);
+      } else if (p.time_short) {
+        tLabel = p.time_short;
+      } else if (p.timestamp) {
+        tLabel = p.timestamp.slice(0, 5);
       }
       return {
         ...p,
