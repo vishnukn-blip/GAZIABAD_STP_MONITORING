@@ -397,3 +397,83 @@ async def get_telemetry_direct(
         )],
         raw_params=relevant_raw,
     )
+
+
+# ── Centralized Store Endpoints (Cross-Browser Syncing) ────────────────────────
+DEFAULT_CENTRAL_DEVICES = [
+    {"name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_id": "350435032683868", "api_key": "chinnu", "assigned_user": "wabag@nimblevision.io", "is_active": 1},
+    {"name": "VASUNDHARA SECTOR 19", "device_name": "VASUNDHARA SECTOR 19", "device_id": "350435032680674", "api_key": "chinnu", "assigned_user": "wabag@nimblevision.io", "is_active": 1},
+    {"name": "STP PLANT C", "device_name": "STP PLANT C", "device_id": "350435032689659", "api_key": "chinnu", "assigned_user": "wabag@nimblevision.io", "is_active": 1},
+    {"name": "STP PLANT D", "device_name": "STP PLANT D", "device_id": "350435032681912", "api_key": "chinnu", "assigned_user": "wabag@nimblevision.io", "is_active": 1}
+]
+
+DEFAULT_CENTRAL_TANKS = [
+    {"name": "TANK_A", "tank_name": "TANK_A", "device": "350435032683868", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
+    {"name": "TANK_B", "tank_name": "TANK_B", "device": "350435032680674", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
+    {"name": "TANK_C", "tank_name": "TANK_C", "device": "350435032689659", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
+    {"name": "TANK_D", "tank_name": "TANK_D", "device": "350435032681912", "variant": "main", "capacity_liters": 8000000, "display_order": 1}
+]
+
+DEFAULT_CENTRAL_MOTORS = [
+    {"name": "MOTOR_A_1", "motor_name": "M1_60_HP", "tank": "TANK_A", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
+    {"name": "MOTOR_A_2", "motor_name": "M2_75_HP", "tank": "TANK_A", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
+    {"name": "MOTOR_A_3", "motor_name": "M3_60_HP", "tank": "TANK_A", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
+    {"name": "MOTOR_A_4", "motor_name": "M4", "tank": "TANK_A", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
+    {"name": "MOTOR_A_5", "motor_name": "M5", "tank": "TANK_A", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
+    {"name": "MOTOR_B_1", "motor_name": "M1_40_HP", "tank": "TANK_B", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
+    {"name": "MOTOR_B_2", "motor_name": "M2_30_HP", "tank": "TANK_B", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
+    {"name": "MOTOR_B_3", "motor_name": "M3", "tank": "TANK_B", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
+    {"name": "MOTOR_B_4", "motor_name": "M4", "tank": "TANK_B", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
+    {"name": "MOTOR_B_5", "motor_name": "M5", "tank": "TANK_B", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
+    {"name": "MOTOR_C_1", "motor_name": "MOTOR_C_1", "tank": "TANK_C", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
+    {"name": "MOTOR_C_2", "motor_name": "MOTOR_C_2", "tank": "TANK_C", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
+    {"name": "MOTOR_C_3", "motor_name": "MOTOR_C_3", "tank": "TANK_C", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
+    {"name": "MOTOR_C_4", "motor_name": "MOTOR_C_4", "tank": "TANK_C", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
+    {"name": "MOTOR_C_5", "motor_name": "MOTOR_C_5", "tank": "TANK_C", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
+    {"name": "MOTOR_D_1", "motor_name": "MOTOR_D_1", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
+    {"name": "MOTOR_D_2", "motor_name": "MOTOR_D_2", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
+    {"name": "MOTOR_D_3", "motor_name": "MOTOR_D_3", "tank": "TANK_D", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
+    {"name": "MOTOR_D_4", "motor_name": "MOTOR_D_4", "tank": "TANK_D", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
+    {"name": "MOTOR_D_5", "motor_name": "MOTOR_D_5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
+]
+
+CENTRAL_DEVICES = list(DEFAULT_CENTRAL_DEVICES)
+CENTRAL_TANKS = list(DEFAULT_CENTRAL_TANKS)
+CENTRAL_MOTORS = list(DEFAULT_CENTRAL_MOTORS)
+
+
+@app.get("/api/config/devices")
+async def get_config_devices():
+    return CENTRAL_DEVICES
+
+
+@app.post("/api/config/devices")
+async def save_config_devices(devices: list[dict]):
+    global CENTRAL_DEVICES
+    CENTRAL_DEVICES = devices
+    return {"status": "success", "count": len(CENTRAL_DEVICES)}
+
+
+@app.get("/api/config/tanks")
+async def get_config_tanks():
+    return CENTRAL_TANKS
+
+
+@app.post("/api/config/tanks")
+async def save_config_tanks(tanks: list[dict]):
+    global CENTRAL_TANKS
+    CENTRAL_TANKS = tanks
+    return {"status": "success", "count": len(CENTRAL_TANKS)}
+
+
+@app.get("/api/config/motors")
+async def get_config_motors():
+    return CENTRAL_MOTORS
+
+
+@app.post("/api/config/motors")
+async def save_config_motors(motors: list[dict]):
+    global CENTRAL_MOTORS
+    CENTRAL_MOTORS = motors
+    return {"status": "success", "count": len(CENTRAL_MOTORS)}
+

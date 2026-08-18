@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -354,20 +354,27 @@ const DashboardPage: React.FC = () => {
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'telemetry' | 'camera'>('telemetry');
 
-  const loadUserDevices = () => {
+  const loadUserDevices = async () => {
     const defaultDevs = [
       { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
+
+    const centralDevs = await getCentralDevices();
+    if (centralDevs && centralDevs.length > 0) {
+      localStorage.setItem('stp_local_devices', JSON.stringify(centralDevs));
+      setUserDevices(centralDevs);
+      return centralDevs;
+    }
+
     const localDevicesStr = localStorage.getItem('stp_local_devices');
     let allDevices = defaultDevs;
     
     if (localDevicesStr) {
       try {
         const parsed = JSON.parse(localDevicesStr);
-        // If local storage has obsolete names or IDs, purge local cache to force clean sync
         if (parsed.some((d: any) => 
           d.device_name === 'STP PLANT A' || 
           d.device_name === 'STP Telemetry Device' || 
@@ -433,12 +440,12 @@ const DashboardPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const devs = loadUserDevices();
-    const initialDevId = devs[0]?.device_id || '863110085106451';
-    setSelectedDeviceId(initialDevId);
-    selectedDeviceIdRef.current = initialDevId;
-
     const init = async () => {
+      const devs = await loadUserDevices();
+      const initialDevId = devs[0]?.device_id || '350435032683868';
+      setSelectedDeviceId(initialDevId);
+      selectedDeviceIdRef.current = initialDevId;
+
       await fetchLayoutForDevice(initialDevId);
       await fetchTelemetryForDevice(initialDevId);
       setLoading(false);

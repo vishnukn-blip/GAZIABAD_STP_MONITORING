@@ -5,7 +5,12 @@ import {
   LogOut, Droplets, ExternalLink, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetList, frappeCreate, frappeUpdate, frappeDelete } from '../api';
+import {
+  frappeGetList, frappeCreate, frappeUpdate, frappeDelete,
+  getCentralDevices, saveCentralDevices,
+  getCentralTanks, saveCentralTanks,
+  getCentralMotors, saveCentralMotors
+} from '../api';
 
 const RUN_KEYS = ['current_1', 'current_2', 'current_3', 'current_4', 'low_pressure'];
 const TRIP_KEYS = ['voltage_4', 'voltage_5', 'voltage_6', 'voltage_7', 'voltage_8'];
@@ -42,28 +47,21 @@ export const DEFAULT_LOCAL_TANKS = [
 ];
 
 export const DEFAULT_LOCAL_MOTORS = [
-  // TANK_A (VASUNDHARA SECTOR 7 , 8MLD PLANT - 350435032683868)
   { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR_A_4', motor_name: 'M4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
   { name: 'MOTOR_A_5', motor_name: 'M5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-
-  // TANK_B (VASUNDHARA SECTOR 19 - 350435032680674)
   { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_B_3', motor_name: 'M3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR_B_4', motor_name: 'M4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
   { name: 'MOTOR_B_5', motor_name: 'M5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-
-  // TANK_C (STP PLANT C - 350435032689659)
   { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
   { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-
-  // TANK_D (STP PLANT D - 350435032681912)
   { name: 'MOTOR_D_1', motor_name: 'MOTOR_D_1', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_D_2', motor_name: 'MOTOR_D_2', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_D_3', motor_name: 'MOTOR_D_3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
@@ -71,102 +69,62 @@ export const DEFAULT_LOCAL_MOTORS = [
   { name: 'MOTOR_D_5', motor_name: 'MOTOR_D_5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
 ];
 
-// ────────────────────────────────────────────────────────────────────────────
 const AdminPage: React.FC = () => {
   const { fullName, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'users' | 'devices' | 'tanks' | 'motors' | 'desk'>('users');
 
-  // ── Users (Frappe User DocType) ─────────────────────────────────────────
   const [users, setUsers] = useState<any[]>([]);
   const [userForm, setUserForm] = useState({
     email: '', first_name: '', last_name: '', password: '', role: 'System User'
   });
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
   const [confirmUser, setConfirmUser] = useState<any | null>(null);
 
   const fetchUsers = async () => {
     try {
-      const data = await frappeGetList('User',
-        ['name', 'full_name', 'email', 'first_name', 'enabled'],
-        [['name', '!=', 'Administrator'], ['name', '!=', 'Guest']]);
+      const data = await frappeGetList('User', ['name', 'email', 'full_name', 'first_name', 'enabled'], { enabled: 1 });
       if (data && data.length > 0) {
         setUsers(data);
         return;
       }
     } catch {}
-
-    const stored = localStorage.getItem('stp_local_users');
-    if (stored) {
-      try { setUsers(JSON.parse(stored)); } catch { setUsers(DEFAULT_LOCAL_USERS); }
-    } else {
-      localStorage.setItem('stp_local_users', JSON.stringify(DEFAULT_LOCAL_USERS));
-      setUsers(DEFAULT_LOCAL_USERS);
-    }
+    setUsers(DEFAULT_LOCAL_USERS);
   };
 
-  const [userError, setUserError] = useState('');
-
   const saveUser = async () => {
-    setUserError('');
-    if (!userForm.email || !userForm.first_name) {
-      setUserError('Email and First Name are required');
+    setUserError(null);
+    if (!userForm.email || (!editingUser && !userForm.password)) {
+      setUserError('Email and Password are required.');
       return;
     }
-
-    let validEmail = userForm.email.trim();
-    if (!validEmail.includes('@')) {
-      validEmail = `${validEmail.toLowerCase()}@stp.local`;
-    }
-
     try {
       if (editingUser) {
         await frappeUpdate('User', editingUser.name, {
-          first_name: userForm.first_name,
-          last_name: userForm.last_name,
+          first_name: userForm.first_name, last_name: userForm.last_name
         });
       } else {
         await frappeCreate('User', {
-          email: validEmail,
-          first_name: userForm.first_name,
-          last_name: userForm.last_name,
-          new_password: userForm.password || 'User@1234',
-          send_welcome_email: 0,
-          enabled: 1,
-          user_type: 'System User'
+          email: userForm.email, first_name: userForm.first_name,
+          last_name: userForm.last_name, new_password: userForm.password,
+          send_welcome_email: 0, roles: [{ role: 'System User' }]
         });
       }
+      fetchUsers();
+      setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
+      setEditingUser(null);
     } catch (err: any) {
-      console.warn('Frappe API offline, saving user locally:', err);
+      const localUsers = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
+      const fullNameStr = `${userForm.first_name} ${userForm.last_name}`.trim();
+      const updated = [...localUsers, { name: userForm.email, email: userForm.email, full_name: fullNameStr, first_name: userForm.first_name, enabled: 1 }];
+      localStorage.setItem('stp_local_users', JSON.stringify(updated));
+      setUsers(updated);
+      setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
+      setEditingUser(null);
     }
-
-    const currentList = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
-    let updatedList = [...currentList];
-    if (editingUser) {
-      updatedList = updatedList.map(u => u.name === editingUser.name ? {
-        ...u,
-        first_name: userForm.first_name,
-        last_name: userForm.last_name,
-        full_name: `${userForm.first_name} ${userForm.last_name}`.trim()
-      } : u);
-    } else {
-      const newUser = {
-        name: validEmail,
-        email: validEmail,
-        first_name: userForm.first_name,
-        last_name: userForm.last_name,
-        full_name: `${userForm.first_name} ${userForm.last_name}`.trim(),
-        enabled: 1
-      };
-      updatedList.push(newUser);
-    }
-    localStorage.setItem('stp_local_users', JSON.stringify(updatedList));
-    setUsers(updatedList);
-    setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
-    setEditingUser(null);
   };
 
-  // ── Devices (STP Device DocType) ──────────────────────────────────────
   const [devices, setDevices] = useState<any[]>([]);
   const [deviceForm, setDeviceForm] = useState({
     device_name: '', device_id: '', api_key: '', api_token: '', assigned_user: '', is_active: 1
@@ -184,22 +142,32 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
+    const central = await getCentralDevices();
+    if (central && central.length > 0) {
+      localStorage.setItem('stp_local_devices', JSON.stringify(central));
+      setDevices(central);
+      return;
+    }
+
     const stored = localStorage.getItem('stp_local_devices');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (parsed.some((d: any) => d.device_id === '350435032683869' || d.device_id === '12345')) {
           localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+          saveCentralDevices(DEFAULT_LOCAL_DEVICES);
           setDevices(DEFAULT_LOCAL_DEVICES);
         } else {
           setDevices(parsed);
         }
       } catch {
         localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+        saveCentralDevices(DEFAULT_LOCAL_DEVICES);
         setDevices(DEFAULT_LOCAL_DEVICES);
       }
     } else {
       localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+      saveCentralDevices(DEFAULT_LOCAL_DEVICES);
       setDevices(DEFAULT_LOCAL_DEVICES);
     }
   };
@@ -222,15 +190,15 @@ const AdminPage: React.FC = () => {
       updatedList.push({ name: devName, ...deviceForm });
     }
     localStorage.setItem('stp_local_devices', JSON.stringify(updatedList));
+    saveCentralDevices(updatedList);
     setDevices(updatedList);
     setDeviceForm({ device_name: '', device_id: '', api_key: '', api_token: '', assigned_user: '', is_active: 1 });
     setEditingDevice(null);
   };
 
-  // ── Tanks (STP Tank DocType) ───────────────────────────────────────────
   const [tanks, setTanks] = useState<any[]>([]);
   const [tankForm, setTankForm] = useState({
-    tank_name: '', device: '', variant: 'main', capacity_liters: 10000, display_order: 1
+    tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, display_order: 1
   });
   const [editingTank, setEditingTank] = useState<any | null>(null);
   const [confirmTank, setConfirmTank] = useState<any | null>(null);
@@ -245,22 +213,32 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
+    const central = await getCentralTanks();
+    if (central && central.length > 0) {
+      localStorage.setItem('stp_local_tanks', JSON.stringify(central));
+      setTanks(central);
+      return;
+    }
+
     const stored = localStorage.getItem('stp_local_tanks');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (parsed.some((t: any) => t.capacity_liters === 10000 || t.device === '12345' || t.name === 'TANK-002' || t.device === '350435032683869')) {
           localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
+          saveCentralTanks(DEFAULT_LOCAL_TANKS);
           setTanks(DEFAULT_LOCAL_TANKS);
         } else {
           setTanks(parsed);
         }
       } catch {
         localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
+        saveCentralTanks(DEFAULT_LOCAL_TANKS);
         setTanks(DEFAULT_LOCAL_TANKS);
       }
     } else {
       localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
+      saveCentralTanks(DEFAULT_LOCAL_TANKS);
       setTanks(DEFAULT_LOCAL_TANKS);
     }
   };
@@ -283,12 +261,12 @@ const AdminPage: React.FC = () => {
       updatedList.push({ name: tankName, ...tankForm });
     }
     localStorage.setItem('stp_local_tanks', JSON.stringify(updatedList));
+    saveCentralTanks(updatedList);
     setTanks(updatedList);
-    setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 10000, display_order: 1 });
+    setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, display_order: 1 });
     setEditingTank(null);
   };
 
-  // ── Motors (STP Motor DocType) ─────────────────────────────────────────
   const [motors, setMotors] = useState<any[]>([]);
   const [motorForm, setMotorForm] = useState({
     motor_name: '', tank: '', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1
@@ -306,22 +284,32 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
+    const central = await getCentralMotors();
+    if (central && central.length > 0) {
+      localStorage.setItem('stp_local_motors', JSON.stringify(central));
+      setMotors(central);
+      return;
+    }
+
     const stored = localStorage.getItem('stp_local_motors');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (parsed.some((m: any) => m.tank === 'TANK-002' || m.name === 'MOTOR-007' || m.name === 'MOTOR-008')) {
           localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
+          saveCentralMotors(DEFAULT_LOCAL_MOTORS);
           setMotors(DEFAULT_LOCAL_MOTORS);
         } else {
           setMotors(parsed);
         }
       } catch {
         localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
+        saveCentralMotors(DEFAULT_LOCAL_MOTORS);
         setMotors(DEFAULT_LOCAL_MOTORS);
       }
     } else {
       localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
+      saveCentralMotors(DEFAULT_LOCAL_MOTORS);
       setMotors(DEFAULT_LOCAL_MOTORS);
     }
   };
@@ -344,6 +332,7 @@ const AdminPage: React.FC = () => {
       updatedList.push({ name: mName, ...motorForm });
     }
     localStorage.setItem('stp_local_motors', JSON.stringify(updatedList));
+    saveCentralMotors(updatedList);
     setMotors(updatedList);
     setMotorForm({ motor_name: '', tank: '', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 });
     setEditingMotor(null);
@@ -704,6 +693,7 @@ const AdminPage: React.FC = () => {
         const current = JSON.parse(localStorage.getItem('stp_local_devices') || JSON.stringify(DEFAULT_LOCAL_DEVICES));
         const updated = current.filter((d: any) => d.name !== confirmDevice.name);
         localStorage.setItem('stp_local_devices', JSON.stringify(updated));
+        saveCentralDevices(updated);
         setDevices(updated);
         setConfirmDevice(null);
       }} onNo={() => setConfirmDevice(null)} />}
@@ -712,6 +702,7 @@ const AdminPage: React.FC = () => {
         const current = JSON.parse(localStorage.getItem('stp_local_tanks') || JSON.stringify(DEFAULT_LOCAL_TANKS));
         const updated = current.filter((t: any) => t.name !== confirmTank.name);
         localStorage.setItem('stp_local_tanks', JSON.stringify(updated));
+        saveCentralTanks(updated);
         setTanks(updated);
         setConfirmTank(null);
       }} onNo={() => setConfirmTank(null)} />}
@@ -720,6 +711,7 @@ const AdminPage: React.FC = () => {
         const current = JSON.parse(localStorage.getItem('stp_local_motors') || JSON.stringify(DEFAULT_LOCAL_MOTORS));
         const updated = current.filter((m: any) => m.name !== confirmMotor.name);
         localStorage.setItem('stp_local_motors', JSON.stringify(updated));
+        saveCentralMotors(updated);
         setMotors(updated);
         setConfirmMotor(null);
       }} onNo={() => setConfirmMotor(null)} />}

@@ -89,4 +89,50 @@ export const frappeDelete = async (doctype: string, name: string) => {
   await FrappeAPI.delete(`/api/resource/${doctype}/${name}`);
 };
 
+// ── Centralized Server Config Helpers (Port 8001 Cross-Browser Sync) ─────────
+export const getCentralDevices = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/devices');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralDevices = async (devices: any[]) => {
+  try {
+    await TelemetryAPI.post('/api/config/devices', devices);
+  } catch {}
+};
+
+export const getCentralTanks = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/tanks');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralTanks = async (tanks: any[]) => {
+  try {
+    await TelemetryAPI.post('/api/config/tanks', tanks);
+  } catch {}
+};
+
+export const getCentralMotors = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/motors');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralMotors = async (motors: any[]) => {
+  try {
+    await TelemetryAPI.post('/api/config/motors', motors);
+  } catch {}
+};
+
 export default FrappeAPI;
