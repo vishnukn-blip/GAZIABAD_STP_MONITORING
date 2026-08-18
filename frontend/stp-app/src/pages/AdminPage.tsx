@@ -35,10 +35,10 @@ export const DEFAULT_LOCAL_DEVICES = [
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
-  { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 10000, display_order: 1 },
-  { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 10000, display_order: 1 }
+  { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+  { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+  { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+  { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, display_order: 1 }
 ];
 
 export const DEFAULT_LOCAL_MOTORS = [
@@ -249,7 +249,7 @@ const AdminPage: React.FC = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (parsed.some((t: any) => t.device === '12345' || t.name === 'TANK-002' || t.device === '350435032683869')) {
+        if (parsed.some((t: any) => t.capacity_liters === 10000 || t.device === '12345' || t.name === 'TANK-002' || t.device === '350435032683869')) {
           localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
           setTanks(DEFAULT_LOCAL_TANKS);
         } else {

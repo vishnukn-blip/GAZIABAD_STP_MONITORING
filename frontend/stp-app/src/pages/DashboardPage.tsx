@@ -22,7 +22,7 @@ interface TankCardProps {
 const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index }) => {
   const level = telemetry?.water_level_percent ?? 0;
   const volume = telemetry?.current_volume_liters ?? 0;
-  const capacity = tankLayout.capacity_liters || 10000;
+  const capacity = tankLayout.capacity_liters || 8000000;
   const tankDisplayName = tankLayout.name || (tankLayout as any).tank_name || telemetry?.tank_name || `Tank ${index + 1}`;
   const fillHeight = Math.max(0, Math.min(100, level));
 
@@ -228,14 +228,24 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   };
 
   const defaultTanks = [
-    { name: 'TANK-001', tank_name: 'TANK_1', device: '863110085106451', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 10000, display_order: 1 },
-    { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 10000, display_order: 1 }
+    { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+    { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, display_order: 1 },
+    { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, display_order: 1 }
   ];
   const localTanksStr = localStorage.getItem('stp_local_tanks');
-  const allTanks = localTanksStr ? JSON.parse(localTanksStr) : defaultTanks;
+  let allTanks = defaultTanks;
+  if (localTanksStr) {
+    try {
+      const parsed = JSON.parse(localTanksStr);
+      if (parsed.some((t: any) => t.capacity_liters === 10000 || !t.capacity_liters || t.capacity_liters < 100000)) {
+        localStorage.removeItem('stp_local_tanks');
+        allTanks = defaultTanks;
+      } else {
+        allTanks = parsed;
+      }
+    } catch {}
+  }
 
   const matchedTanks = allTanks.filter((t: any) =>
     t.device === devId ||
@@ -243,7 +253,7 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   );
 
   const tanksToUse = matchedTanks.length > 0 ? matchedTanks : [
-    { name: `TANK-${devId}`, tank_name: `${currentDev.device_name} Tank`, device: currentDev.name, capacity_liters: 10000, display_order: 1 }
+    { name: `TANK-${devId}`, tank_name: `${currentDev.device_name} Tank`, device: currentDev.name, capacity_liters: 8000000, display_order: 1 }
   ];
 
   const defaultMotors = [
@@ -305,7 +315,7 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
       device_id: tIdx + 1,
       name: t.tank_name || t.name,
       variant: t.variant || 'main',
-      capacity_liters: t.capacity_liters || 10000,
+      capacity_liters: t.capacity_liters || 8000000,
       display_order: t.display_order || (tIdx + 1),
       motors: motorsToUse.map((m: any, mIdx: number) => ({
         id: mIdx + 1,
