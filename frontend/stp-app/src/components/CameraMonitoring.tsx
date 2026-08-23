@@ -58,9 +58,9 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [imageList, setImageList] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // AWS EC2 Hosts: Image Service host (13.200.3.124)
-  const PRIMARY_HOST = 'http://13.200.3.124:5002';
-  const WORKING_HOST = 'http://13.200.3.124:5002';
+  // AWS EC2 Hosts: Image Service host (13.206.207.146)
+  const PRIMARY_HOST = 'http://13.206.207.146:5002';
+  const WORKING_HOST = 'http://13.206.207.146:5002';
 
   const [activeApiBase, setActiveApiBase] = useState<string>(WORKING_HOST);
 
