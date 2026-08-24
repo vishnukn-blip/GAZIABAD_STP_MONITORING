@@ -8,6 +8,8 @@ services:
     container_name: stp_backend
     ports:
       - "8001:8001"
+    volumes:
+      - ./backend_data:/app/data
     restart: always
     environment:
       - PORT=8001

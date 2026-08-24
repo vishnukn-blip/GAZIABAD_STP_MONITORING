@@ -10,6 +10,8 @@ FastAPI fetches the device config from Frappe before calling Nimblevision.
 """
 
 import os
+import json
+import sqlite3
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -441,8 +443,72 @@ CENTRAL_DEVICES = list(DEFAULT_CENTRAL_DEVICES)
 CENTRAL_TANKS = list(DEFAULT_CENTRAL_TANKS)
 CENTRAL_MOTORS = list(DEFAULT_CENTRAL_MOTORS)
 
-
 FRAPPE_BASE_URL = os.getenv("FRAPPE_URL", "http://localhost:8000")
+
+DB_DIR = os.getenv("DB_DIR", os.path.join(os.path.dirname(__file__), "data"))
+DB_PATH = os.path.join(DB_DIR, "stp_config.db")
+
+
+def init_persistent_db():
+    try:
+        os.makedirs(DB_DIR, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS config_store (
+                key TEXT PRIMARY KEY,
+                json_data TEXT
+            )
+        """)
+        conn.commit()
+
+        cursor.execute("SELECT json_data FROM config_store WHERE key = 'devices'")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('devices', ?)", (json.dumps(DEFAULT_CENTRAL_DEVICES),))
+
+        cursor.execute("SELECT json_data FROM config_store WHERE key = 'tanks'")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('tanks', ?)", (json.dumps(DEFAULT_CENTRAL_TANKS),))
+
+        cursor.execute("SELECT json_data FROM config_store WHERE key = 'motors'")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('motors', ?)", (json.dumps(DEFAULT_CENTRAL_MOTORS),))
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error initializing persistent SQLite DB: {e}")
+
+
+def get_persistent_data(key: str, fallback: list) -> list:
+    try:
+        if not os.path.exists(DB_PATH):
+            init_persistent_db()
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT json_data FROM config_store WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0]:
+            return json.loads(row[0])
+    except Exception as e:
+        print(f"Error reading persistent DB {key}: {e}")
+    return fallback
+
+
+def save_persistent_data(key: str, data: list):
+    try:
+        os.makedirs(DB_DIR, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO config_store (key, json_data) VALUES (?, ?)", (key, json.dumps(data)))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving persistent DB {key}: {e}")
+
+
+init_persistent_db()
 
 
 @app.get("/api/config/devices")
@@ -456,14 +522,13 @@ async def get_config_devices():
                     return data
     except Exception:
         pass
-    return CENTRAL_DEVICES
+    return get_persistent_data("devices", DEFAULT_CENTRAL_DEVICES)
 
 
 @app.post("/api/config/devices")
 async def save_config_devices(devices: list[dict]):
-    global CENTRAL_DEVICES
-    CENTRAL_DEVICES = devices
-    return {"status": "success", "count": len(CENTRAL_DEVICES)}
+    save_persistent_data("devices", devices)
+    return {"status": "success", "count": len(devices)}
 
 
 @app.get("/api/config/tanks")
@@ -477,14 +542,13 @@ async def get_config_tanks():
                     return data
     except Exception:
         pass
-    return CENTRAL_TANKS
+    return get_persistent_data("tanks", DEFAULT_CENTRAL_TANKS)
 
 
 @app.post("/api/config/tanks")
 async def save_config_tanks(tanks: list[dict]):
-    global CENTRAL_TANKS
-    CENTRAL_TANKS = tanks
-    return {"status": "success", "count": len(CENTRAL_TANKS)}
+    save_persistent_data("tanks", tanks)
+    return {"status": "success", "count": len(tanks)}
 
 
 @app.get("/api/config/motors")
@@ -498,12 +562,11 @@ async def get_config_motors():
                     return data
     except Exception:
         pass
-    return CENTRAL_MOTORS
+    return get_persistent_data("motors", DEFAULT_CENTRAL_MOTORS)
 
 
 @app.post("/api/config/motors")
 async def save_config_motors(motors: list[dict]):
-    global CENTRAL_MOTORS
-    CENTRAL_MOTORS = motors
-    return {"status": "success", "count": len(CENTRAL_MOTORS)}
+    save_persistent_data("motors", motors)
+    return {"status": "success", "count": len(motors)}
 
