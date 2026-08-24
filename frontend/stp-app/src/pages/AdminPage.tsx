@@ -36,7 +36,7 @@ export const DEFAULT_LOCAL_DEVICES = [
   { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
+  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [

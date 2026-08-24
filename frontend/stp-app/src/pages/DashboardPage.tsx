@@ -362,7 +362,7 @@ const DashboardPage: React.FC = () => {
       { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu' },
       { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
+      { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
 
     const centralDevs = await getCentralDevices();
@@ -380,6 +380,7 @@ const DashboardPage: React.FC = () => {
         const parsed = JSON.parse(localDevicesStr);
         if (parsed.some((d: any) => 
           d.device_name === 'STP PLANT A' || 
+          d.device_name === 'STP PLANT D' || 
           d.device_name === 'STP Telemetry Device' || 
           d.device_id === '863110085106451' || 
           d.device_id === '350435032683869' || 

@@ -404,7 +404,7 @@ DEFAULT_CENTRAL_DEVICES = [
     {"name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_id": "350435032683868", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.657521, "longitude": 77.376303, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
     {"name": "VASUNDHARA SECTOR 17", "device_name": "VASUNDHARA SECTOR 17", "device_id": "350435032680674", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.668500, "longitude": 77.439000, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
     {"name": "STP PLANT C", "device_name": "STP PLANT C", "device_id": "350435032689659", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.672000, "longitude": 77.442000, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
-    {"name": "STP PLANT D", "device_name": "STP PLANT D", "device_id": "350435032681912", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.675000, "longitude": 77.445000, "assigned_user": "wabag@nimblevision.io", "is_active": 1}
+    {"name": "VAISHALI SECTOR 6", "device_name": "VAISHALI SECTOR 6", "device_id": "350435032681912", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.675000, "longitude": 77.445000, "assigned_user": "wabag@nimblevision.io", "is_active": 1}
 ]
 
 DEFAULT_CENTRAL_TANKS = [
@@ -442,8 +442,20 @@ CENTRAL_TANKS = list(DEFAULT_CENTRAL_TANKS)
 CENTRAL_MOTORS = list(DEFAULT_CENTRAL_MOTORS)
 
 
+FRAPPE_BASE_URL = os.getenv("FRAPPE_URL", "http://localhost:8000")
+
+
 @app.get("/api/config/devices")
 async def get_config_devices():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Device?fields=[\"*\"]&limit_page_length=200")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    return data
+    except Exception:
+        pass
     return CENTRAL_DEVICES
 
 
@@ -456,6 +468,15 @@ async def save_config_devices(devices: list[dict]):
 
 @app.get("/api/config/tanks")
 async def get_config_tanks():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Tank?fields=[\"*\"]&limit_page_length=200")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    return data
+    except Exception:
+        pass
     return CENTRAL_TANKS
 
 
@@ -468,6 +489,15 @@ async def save_config_tanks(tanks: list[dict]):
 
 @app.get("/api/config/motors")
 async def get_config_motors():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Motor?fields=[\"*\"]&limit_page_length=200")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    return data
+    except Exception:
+        pass
     return CENTRAL_MOTORS
 
 
