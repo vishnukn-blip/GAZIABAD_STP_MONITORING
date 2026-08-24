@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera } from 'lucide-react';
+import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
 import { CameraMonitoring } from '../components/CameraMonitoring';
+import { ElectricalParameters } from '../components/ElectricalParameters';
 
 const POLL_INTERVAL = 5000;
 
@@ -354,7 +355,7 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'telemetry' | 'camera'>('telemetry');
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'camera' | 'electrical'>('telemetry');
 
   const loadUserDevices = async () => {
     const defaultDevs = [
@@ -616,6 +617,28 @@ const DashboardPage: React.FC = () => {
           <Camera size={18} />
           Camera Monitoring
         </button>
+
+        <button
+          onClick={() => setActiveTab('electrical')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 22px',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'electrical' ? '#0284C7' : '#F1F5F9',
+            color: activeTab === 'electrical' ? '#FFFFFF' : '#64748B',
+            boxShadow: activeTab === 'electrical' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Zap size={18} />
+          Electrical Parameters
+        </button>
       </div>
 
       {/* Main Content Area */}
@@ -634,6 +657,8 @@ const DashboardPage: React.FC = () => {
           <>
             {activeTab === 'camera' ? (
               <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} />
+            ) : activeTab === 'electrical' ? (
+              <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} />
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
