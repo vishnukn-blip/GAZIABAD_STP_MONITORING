@@ -430,11 +430,11 @@ DEFAULT_CENTRAL_MOTORS = [
     {"name": "MOTOR_C_3", "motor_name": "MOTOR_C_3", "tank": "TANK_C", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
     {"name": "MOTOR_C_4", "motor_name": "MOTOR_C_4", "tank": "TANK_C", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
     {"name": "MOTOR_C_5", "motor_name": "MOTOR_C_5", "tank": "TANK_C", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
-    {"name": "MOTOR_D_1", "motor_name": "MOTOR_D_1", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
-    {"name": "MOTOR_D_2", "motor_name": "MOTOR_D_2", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_D_3", "motor_name": "MOTOR_D_3", "tank": "TANK_D", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_D_4", "motor_name": "MOTOR_D_4", "tank": "TANK_D", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_D_5", "motor_name": "MOTOR_D_5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
+    {"name": "MOTOR_D_1", "motor_name": "M1_30_HP", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
+    {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
+    {"name": "MOTOR_D_3", "motor_name": "M3", "tank": "TANK_D", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
+    {"name": "MOTOR_D_4", "motor_name": "M4", "tank": "TANK_D", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
+    {"name": "MOTOR_D_5", "motor_name": "M5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
 ]
 
 CENTRAL_DEVICES = list(DEFAULT_CENTRAL_DEVICES)
