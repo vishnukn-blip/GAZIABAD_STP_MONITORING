@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers
 } from 'lucide-react';
+import { getElectricalTelemetry } from '../api';
 
 interface ElectricalParametersProps {
   deviceId?: string;
@@ -9,67 +10,88 @@ interface ElectricalParametersProps {
 }
 
 export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
+  deviceId = "350435032683868",
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT"
 }) => {
-  // Hardcoded values as requested for initial presentation (structured for future API hook binding)
+  const [telemetry, setTelemetry] = useState<any>({
+    v1n: 234.60, v2n: 234.58, v3n: 231.81, v_ln: 233.66,
+    v12: 404.43, v23: 404.95, v31: 404.72, v_ll: 404.70,
+    i1: 0.0, i2: 0.0, i3: 0.0, i_avg: 0.0,
+    kw1: 0.0, kw2: 0.0, kw3: 0.0, total_kw: 0.0,
+    pf1: 1.0, pf2: 1.0, pf3: 1.0, pf_avg: 1.0,
+    freq: 49.941, kwh: 1.01
+  });
+  const [lastUpdated, setLastUpdated] = useState<string>('Live');
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+
+  const fetchTelemetry = async () => {
+    if (!deviceId) return;
+    setIsFetching(true);
+    const data = await getElectricalTelemetry(deviceId);
+    if (data) {
+      setTelemetry((prev: any) => ({ ...prev, ...data }));
+      setLastUpdated(new Date().toLocaleTimeString());
+    }
+    setIsFetching(false);
+  };
+
+  useEffect(() => {
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 5000);
+    return () => clearInterval(interval);
+  }, [deviceId]);
+
   const electricalStats = {
-    loadCurrent: { value: 8.7, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
-    supplyVoltage: { value: 412.9, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
-    realPower: { value: 5.25, unit: 'kW', label: 'ACTIVE LOAD UTILIZATION' },
-    reactivePower: { value: 3.35, unit: 'kVAR', label: 'LAGGING REACTIVE DEMAND' },
-    powerFactor: { value: 0.840, label: 'SYSTEM EFFICIENCY (PF)', status: 'WARNING' },
-    totalEnergy: { value: 1.01, unit: 'kWh', label: 'CUMULATIVE USAGE' }
+    loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
+    supplyVoltage: { value: telemetry.v_ll ?? 404.70, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
+    realPower: { value: telemetry.total_kw ?? (telemetry.kw1 + telemetry.kw2 + telemetry.kw3), unit: 'kW', label: 'ACTIVE LOAD UTILIZATION' },
+    reactivePower: { value: 0.0, unit: 'kVAR', label: 'LAGGING REACTIVE DEMAND' },
+    powerFactor: { value: telemetry.pf_avg ?? 1.0, label: 'SYSTEM EFFICIENCY (PF)', status: (telemetry.pf_avg < 0.85 ? 'WARNING' : 'NORMAL') },
+    totalEnergy: { value: telemetry.kwh ?? 1.01, unit: 'kWh', label: 'CUMULATIVE USAGE' }
   };
 
   const phaseTableRows = [
     {
       parameter: 'Voltage LN (Phase-to-Neutral)',
-      r: '238.7 V',
-      y: '238.7 V',
-      b: '238.7 V',
-      total: '238.7 V'
+      r: `${telemetry.v1n?.toFixed(2) ?? '234.60'} V`,
+      y: `${telemetry.v2n?.toFixed(2) ?? '234.58'} V`,
+      b: `${telemetry.v3n?.toFixed(2) ?? '231.81'} V`,
+      total: `${telemetry.v_ln?.toFixed(2) ?? '233.66'} V`
     },
     {
       parameter: 'Voltage LL (Line-to-Line)',
-      r: '413.3 V',
-      y: '412.3 V',
-      b: '415.2 V',
-      total: '413.6 V'
+      r: `${telemetry.v12?.toFixed(2) ?? '404.43'} V`,
+      y: `${telemetry.v23?.toFixed(2) ?? '404.95'} V`,
+      b: `${telemetry.v31?.toFixed(2) ?? '404.72'} V`,
+      total: `${telemetry.v_ll?.toFixed(2) ?? '404.70'} V`
     },
     {
       parameter: 'Current (Phase Currents)',
-      r: '8.92 A',
-      y: '8.43 A',
-      b: '8.89 A',
-      total: '8.75 A'
+      r: `${telemetry.i1?.toFixed(4) ?? '0.0000'} A`,
+      y: `${telemetry.i2?.toFixed(4) ?? '0.0000'} A`,
+      b: `${telemetry.i3?.toFixed(4) ?? '0.0000'} A`,
+      total: `${telemetry.i_avg?.toFixed(4) ?? '0.0000'} A`
     },
     {
       parameter: 'Active Power',
-      r: '1.76 kW',
-      y: '1.69 kW',
-      b: '1.78 kW',
-      total: '5.25 kW'
-    },
-    {
-      parameter: 'Reactive Power',
-      r: '1.20 kVAR',
-      y: '1.10 kVAR',
-      b: '1.16 kVAR',
-      total: '3.46 kVAR'
-    },
-    {
-      parameter: 'Apparent Power',
-      r: '2.13 kVA',
-      y: '2.01 kVA',
-      b: '2.12 kVA',
-      total: '6.26 kVA'
+      r: `${telemetry.kw1?.toFixed(4) ?? '0.0000'} kW`,
+      y: `${telemetry.kw2?.toFixed(4) ?? '0.0000'} kW`,
+      b: `${telemetry.kw3?.toFixed(4) ?? '0.0000'} kW`,
+      total: `${(telemetry.total_kw ?? (telemetry.kw1 + telemetry.kw2 + telemetry.kw3))?.toFixed(4)} kW`
     },
     {
       parameter: 'Power Factor',
-      r: '0.83',
-      y: '0.84',
-      b: '0.84',
-      total: '0.84'
+      r: `${telemetry.pf1?.toFixed(4) ?? '1.0000'}`,
+      y: `${telemetry.pf2?.toFixed(4) ?? '1.0000'}`,
+      b: `${telemetry.pf3?.toFixed(4) ?? '1.0000'}`,
+      total: `${telemetry.pf_avg?.toFixed(4) ?? '1.0000'}`
+    },
+    {
+      parameter: 'Grid Frequency',
+      r: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
+      y: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
+      b: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
+      total: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`
     }
   ];
 

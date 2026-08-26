@@ -449,6 +449,32 @@ DB_DIR = os.getenv("DB_DIR", os.path.join(os.path.dirname(__file__), "data"))
 DB_PATH = os.path.join(DB_DIR, "stp_config.db")
 
 
+class ElectricalTelemetryPayload(BaseModel):
+    device_id: str
+    v1n: Optional[float] = 234.60
+    v2n: Optional[float] = 234.58
+    v3n: Optional[float] = 231.81
+    v_ln: Optional[float] = 233.66
+    v12: Optional[float] = 404.43
+    v23: Optional[float] = 404.95
+    v31: Optional[float] = 404.72
+    v_ll: Optional[float] = 404.70
+    i1: Optional[float] = 0.0
+    i2: Optional[float] = 0.0
+    i3: Optional[float] = 0.0
+    i_avg: Optional[float] = 0.0
+    kw1: Optional[float] = 0.0
+    kw2: Optional[float] = 0.0
+    kw3: Optional[float] = 0.0
+    total_kw: Optional[float] = 0.0
+    pf1: Optional[float] = 1.0
+    pf2: Optional[float] = 1.0
+    pf3: Optional[float] = 1.0
+    pf_avg: Optional[float] = 1.0
+    freq: Optional[float] = 49.941
+    kwh: Optional[float] = 1.01
+
+
 def init_persistent_db():
     try:
         os.makedirs(DB_DIR, exist_ok=True)
@@ -458,6 +484,13 @@ def init_persistent_db():
             CREATE TABLE IF NOT EXISTS config_store (
                 key TEXT PRIMARY KEY,
                 json_data TEXT
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS electrical_telemetry (
+                device_id TEXT PRIMARY KEY,
+                payload_json TEXT,
+                updated_at TEXT
             )
         """)
         conn.commit()
@@ -569,4 +602,48 @@ async def get_config_motors():
 async def save_config_motors(motors: list[dict]):
     save_persistent_data("motors", motors)
     return {"status": "success", "count": len(motors)}
+
+
+@app.post("/api/telemetry/electrical")
+async def receive_electrical_telemetry(payload: ElectricalTelemetryPayload):
+    try:
+        now_str = datetime.now().isoformat()
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO electrical_telemetry (device_id, payload_json, updated_at) VALUES (?, ?, ?)",
+            (payload.device_id, json.dumps(payload.dict()), now_str)
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Electrical telemetry updated successfully", "timestamp": now_str}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/telemetry/electrical/{device_id}")
+async def get_electrical_telemetry(device_id: str):
+    default_data = {
+        "device_id": device_id,
+        "v1n": 234.60, "v2n": 234.58, "v3n": 231.81, "v_ln": 233.66,
+        "v12": 404.43, "v23": 404.95, "v31": 404.72, "v_ll": 404.70,
+        "i1": 0.0, "i2": 0.0, "i3": 0.0, "i_avg": 0.0,
+        "kw1": 0.0, "kw2": 0.0, "kw3": 0.0, "total_kw": 0.0,
+        "pf1": 1.0, "pf2": 1.0, "pf3": 1.0, "pf_avg": 1.0,
+        "freq": 49.941, "kwh": 1.01
+    }
+    try:
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT payload_json, updated_at FROM electrical_telemetry WHERE device_id = ?", (device_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0]:
+                data_json = json.loads(row[0])
+                return {"status": "success", "device_id": device_id, "timestamp": row[1], "data": data_json}
+    except Exception as e:
+        print(f"Error fetching electrical telemetry: {e}")
+
+    return {"status": "fallback", "device_id": device_id, "timestamp": datetime.now().isoformat(), "data": default_data}
 

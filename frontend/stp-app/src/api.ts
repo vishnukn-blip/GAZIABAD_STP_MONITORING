@@ -135,4 +135,14 @@ export const saveCentralMotors = async (motors: any[]) => {
   } catch {}
 };
 
+export const getElectricalTelemetry = async (deviceId: string) => {
+  try {
+    const { data } = await TelemetryAPI.get(`/api/telemetry/electrical/${deviceId}`);
+    if (data && data.data) {
+      return data.data;
+    }
+  } catch {}
+  return null;
+};
+
 export default FrappeAPI;
