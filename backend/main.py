@@ -607,6 +607,8 @@ async def save_config_motors(motors: list[dict]):
 @app.post("/api/telemetry/electrical")
 async def receive_electrical_telemetry(
     request: Request,
+    key: Optional[str] = Query(None),
+    token: Optional[str] = Query(None),
     device_id: Optional[str] = Query("350435032683868"),
     v1n: Optional[float] = Query(234.60),
     v2n: Optional[float] = Query(234.58),
