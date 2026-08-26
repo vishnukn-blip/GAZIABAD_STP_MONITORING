@@ -155,6 +155,22 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           <span style={{
             fontSize: '11px',
             fontWeight: 700,
+            background: isFetching ? '#FFFBEB' : '#F0FDF4',
+            color: isFetching ? '#B45309' : '#166534',
+            border: `1px solid ${isFetching ? '#FDE68A' : '#BBF7D0'}`,
+            padding: '6px 12px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <RefreshCw size={14} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
+            Updated: {lastUpdated}
+          </span>
+
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 700,
             background: '#F0F9FF',
             color: '#0284C7',
             border: '1px solid #BAE6FD',
@@ -166,22 +182,6 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           }}>
             <Cpu size={14} />
             Plant Telemetry Active
-          </span>
-
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 700,
-            background: '#F0FDF4',
-            color: '#166534',
-            border: '1px solid #BBF7D0',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-            LIVE DATA
           </span>
         </div>
       </div>
