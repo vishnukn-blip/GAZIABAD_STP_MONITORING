@@ -605,18 +605,69 @@ async def save_config_motors(motors: list[dict]):
 
 
 @app.post("/api/telemetry/electrical")
-async def receive_electrical_telemetry(payload: ElectricalTelemetryPayload):
+async def receive_electrical_telemetry(
+    request: Request,
+    device_id: Optional[str] = Query("350435032683868"),
+    v1n: Optional[float] = Query(234.60),
+    v2n: Optional[float] = Query(234.58),
+    v3n: Optional[float] = Query(231.81),
+    v_ln: Optional[float] = Query(233.66),
+    v12: Optional[float] = Query(404.43),
+    v23: Optional[float] = Query(404.95),
+    v31: Optional[float] = Query(404.72),
+    v_ll: Optional[float] = Query(404.70),
+    i1: Optional[float] = Query(0.0),
+    i2: Optional[float] = Query(0.0),
+    i3: Optional[float] = Query(0.0),
+    i_avg: Optional[float] = Query(0.0),
+    kw1: Optional[float] = Query(0.0),
+    kw2: Optional[float] = Query(0.0),
+    kw3: Optional[float] = Query(0.0),
+    total_kw: Optional[float] = Query(0.0),
+    pf1: Optional[float] = Query(1.0),
+    pf2: Optional[float] = Query(1.0),
+    pf3: Optional[float] = Query(1.0),
+    pf_avg: Optional[float] = Query(1.0),
+    freq: Optional[float] = Query(49.941),
+    kwh: Optional[float] = Query(1.01),
+    payload: Optional[ElectricalTelemetryPayload] = None
+):
     try:
+        data_dict = {}
+        if payload and payload.device_id:
+            data_dict = payload.dict()
+        else:
+            try:
+                body_json = await request.json()
+                if isinstance(body_json, dict) and "device_id" in body_json:
+                    data_dict = body_json
+            except Exception:
+                pass
+        
+        if not data_dict:
+            data_dict = {
+                "device_id": device_id,
+                "v1n": v1n, "v2n": v2n, "v3n": v3n, "v_ln": v_ln,
+                "v12": v12, "v23": v23, "v31": v31, "v_ll": v_ll,
+                "i1": i1, "i2": i2, "i3": i3, "i_avg": i_avg,
+                "kw1": kw1, "kw2": kw2, "kw3": kw3, "total_kw": total_kw,
+                "pf1": pf1, "pf2": pf2, "pf3": pf3, "pf_avg": pf_avg,
+                "freq": freq, "kwh": kwh
+            }
+
+        target_device = data_dict.get("device_id") or device_id or "350435032683868"
+        data_dict["device_id"] = target_device
+
         now_str = datetime.now().isoformat()
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO electrical_telemetry (device_id, payload_json, updated_at) VALUES (?, ?, ?)",
-            (payload.device_id, json.dumps(payload.dict()), now_str)
+            (target_device, json.dumps(data_dict), now_str)
         )
         conn.commit()
         conn.close()
-        return {"status": "success", "message": "Electrical telemetry updated successfully", "timestamp": now_str}
+        return {"status": "success", "message": "Electrical telemetry updated successfully", "device_id": target_device, "timestamp": now_str}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
