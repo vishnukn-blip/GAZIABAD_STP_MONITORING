@@ -678,12 +678,13 @@ async def receive_electrical_telemetry(
 async def get_electrical_telemetry(device_id: str):
     default_data = {
         "device_id": device_id,
-        "v1n": 234.60, "v2n": 234.58, "v3n": 231.81, "v_ln": 233.66,
-        "v12": 404.43, "v23": 404.95, "v31": 404.72, "v_ll": 404.70,
+        "v1n": 0.0, "v2n": 0.0, "v3n": 0.0, "v_ln": 0.0,
+        "v12": 0.0, "v23": 0.0, "v31": 0.0, "v_ll": 0.0,
         "i1": 0.0, "i2": 0.0, "i3": 0.0, "i_avg": 0.0,
         "kw1": 0.0, "kw2": 0.0, "kw3": 0.0, "total_kw": 0.0,
-        "pf1": 1.0, "pf2": 1.0, "pf3": 1.0, "pf_avg": 1.0,
-        "freq": 49.941, "kwh": 1.01
+        "pf1": 0.0, "pf2": 0.0, "pf3": 0.0, "pf_avg": 0.0,
+        "freq": 0.0, "kwh": 0.0,
+        "has_data": False
     }
     try:
         if os.path.exists(DB_PATH):
@@ -694,9 +695,10 @@ async def get_electrical_telemetry(device_id: str):
             conn.close()
             if row and row[0]:
                 data_json = json.loads(row[0])
-                return {"status": "success", "device_id": device_id, "timestamp": row[1], "data": data_json}
+                data_json["has_data"] = True
+                return {"status": "success", "device_id": device_id, "timestamp": row[1], "has_data": True, "data": data_json}
     except Exception as e:
         print(f"Error fetching electrical telemetry: {e}")
 
-    return {"status": "fallback", "device_id": device_id, "timestamp": datetime.now().isoformat(), "data": default_data}
+    return {"status": "no_data", "device_id": device_id, "timestamp": None, "has_data": False, "data": default_data}
 

@@ -14,12 +14,13 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT"
 }) => {
   const [telemetry, setTelemetry] = useState<any>({
-    v1n: 234.60, v2n: 234.58, v3n: 231.81, v_ln: 233.66,
-    v12: 404.43, v23: 404.95, v31: 404.72, v_ll: 404.70,
+    v1n: 0.0, v2n: 0.0, v3n: 0.0, v_ln: 0.0,
+    v12: 0.0, v23: 0.0, v31: 0.0, v_ll: 0.0,
     i1: 0.0, i2: 0.0, i3: 0.0, i_avg: 0.0,
     kw1: 0.0, kw2: 0.0, kw3: 0.0, total_kw: 0.0,
-    pf1: 1.0, pf2: 1.0, pf3: 1.0, pf_avg: 1.0,
-    freq: 49.941, kwh: 1.01
+    pf1: 0.0, pf2: 0.0, pf3: 0.0, pf_avg: 0.0,
+    freq: 0.0, kwh: 0.0,
+    has_data: false
   });
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
   const [isFetching, setIsFetching] = useState<boolean>(false);
@@ -29,8 +30,8 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     setIsFetching(true);
     const data = await getElectricalTelemetry(deviceId);
     if (data) {
-      setTelemetry((prev: any) => ({ ...prev, ...data }));
-      if (data.updated_at) {
+      setTelemetry(data);
+      if (data.has_data && data.updated_at) {
         let rawStr = data.updated_at;
         if (!rawStr.endsWith('Z') && !rawStr.includes('+')) {
           rawStr += 'Z';
@@ -48,8 +49,10 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           setLastUpdated(data.updated_at.replace('T', ' ').split('.')[0]);
         }
       } else {
-        setLastUpdated(new Date().toLocaleTimeString());
+        setLastUpdated('No Telemetry Received');
       }
+    } else {
+      setLastUpdated('No Telemetry Received');
     }
     setIsFetching(false);
   };
@@ -62,27 +65,27 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
-    supplyVoltage: { value: telemetry.v_ll ?? 404.70, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
+    supplyVoltage: { value: telemetry.v_ll ?? 0.0, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
     realPower: { value: telemetry.total_kw ?? (telemetry.kw1 + telemetry.kw2 + telemetry.kw3), unit: 'kW', label: 'ACTIVE LOAD UTILIZATION' },
     reactivePower: { value: 0.0, unit: 'kVAR', label: 'LAGGING REACTIVE DEMAND' },
-    powerFactor: { value: telemetry.pf_avg ?? 1.0, label: 'SYSTEM EFFICIENCY (PF)', status: (telemetry.pf_avg < 0.85 ? 'WARNING' : 'NORMAL') },
-    totalEnergy: { value: telemetry.kwh ?? 1.01, unit: 'kWh', label: 'CUMULATIVE USAGE' }
+    powerFactor: { value: telemetry.pf_avg ?? 0.0, label: 'SYSTEM EFFICIENCY (PF)', status: (telemetry.pf_avg > 0 && telemetry.pf_avg < 0.85 ? 'WARNING' : 'NORMAL') },
+    totalEnergy: { value: telemetry.kwh ?? 0.0, unit: 'kWh', label: 'CUMULATIVE USAGE' }
   };
 
   const phaseTableRows = [
     {
       parameter: 'Voltage LN (Phase-to-Neutral)',
-      r: `${telemetry.v1n?.toFixed(2) ?? '234.60'} V`,
-      y: `${telemetry.v2n?.toFixed(2) ?? '234.58'} V`,
-      b: `${telemetry.v3n?.toFixed(2) ?? '231.81'} V`,
-      total: `${telemetry.v_ln?.toFixed(2) ?? '233.66'} V`
+      r: `${telemetry.v1n?.toFixed(2) ?? '0.00'} V`,
+      y: `${telemetry.v2n?.toFixed(2) ?? '0.00'} V`,
+      b: `${telemetry.v3n?.toFixed(2) ?? '0.00'} V`,
+      total: `${telemetry.v_ln?.toFixed(2) ?? '0.00'} V`
     },
     {
       parameter: 'Voltage LL (Line-to-Line)',
-      r: `${telemetry.v12?.toFixed(2) ?? '404.43'} V`,
-      y: `${telemetry.v23?.toFixed(2) ?? '404.95'} V`,
-      b: `${telemetry.v31?.toFixed(2) ?? '404.72'} V`,
-      total: `${telemetry.v_ll?.toFixed(2) ?? '404.70'} V`
+      r: `${telemetry.v12?.toFixed(2) ?? '0.00'} V`,
+      y: `${telemetry.v23?.toFixed(2) ?? '0.00'} V`,
+      b: `${telemetry.v31?.toFixed(2) ?? '0.00'} V`,
+      total: `${telemetry.v_ll?.toFixed(2) ?? '0.00'} V`
     },
     {
       parameter: 'Current (Phase Currents)',
@@ -100,17 +103,17 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     },
     {
       parameter: 'Power Factor',
-      r: `${telemetry.pf1?.toFixed(4) ?? '1.0000'}`,
-      y: `${telemetry.pf2?.toFixed(4) ?? '1.0000'}`,
-      b: `${telemetry.pf3?.toFixed(4) ?? '1.0000'}`,
-      total: `${telemetry.pf_avg?.toFixed(4) ?? '1.0000'}`
+      r: `${telemetry.pf1?.toFixed(4) ?? '0.0000'}`,
+      y: `${telemetry.pf2?.toFixed(4) ?? '0.0000'}`,
+      b: `${telemetry.pf3?.toFixed(4) ?? '0.0000'}`,
+      total: `${telemetry.pf_avg?.toFixed(4) ?? '0.0000'}`
     },
     {
       parameter: 'Grid Frequency',
-      r: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
-      y: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
-      b: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`,
-      total: `${telemetry.freq?.toFixed(3) ?? '49.941'} Hz`
+      r: `${telemetry.freq?.toFixed(3) ?? '0.000'} Hz`,
+      y: `${telemetry.freq?.toFixed(3) ?? '0.000'} Hz`,
+      b: `${telemetry.freq?.toFixed(3) ?? '0.000'} Hz`,
+      total: `${telemetry.freq?.toFixed(3) ?? '0.000'} Hz`
     }
   ];
 
