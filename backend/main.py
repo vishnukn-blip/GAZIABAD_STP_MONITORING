@@ -660,7 +660,7 @@ async def receive_electrical_telemetry(
         target_device = data_dict.get("device_id") or device_id or "350435032683868"
         data_dict["device_id"] = target_device
 
-        now_str = datetime.now().isoformat()
+        now_str = datetime.utcnow().isoformat() + "Z"
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(

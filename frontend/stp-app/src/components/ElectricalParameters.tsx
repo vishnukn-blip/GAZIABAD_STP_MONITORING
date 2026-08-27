@@ -31,8 +31,22 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     if (data) {
       setTelemetry((prev: any) => ({ ...prev, ...data }));
       if (data.updated_at) {
-        const formatted = data.updated_at.replace('T', ' ').split('.')[0];
-        setLastUpdated(formatted);
+        let rawStr = data.updated_at;
+        if (!rawStr.endsWith('Z') && !rawStr.includes('+')) {
+          rawStr += 'Z';
+        }
+        const d = new Date(rawStr);
+        if (!isNaN(d.getTime())) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const hours = String(d.getHours()).padStart(2, '0');
+          const mins = String(d.getMinutes()).padStart(2, '0');
+          const secs = String(d.getSeconds()).padStart(2, '0');
+          setLastUpdated(`${year}-${month}-${day} ${hours}:${mins}:${secs}`);
+        } else {
+          setLastUpdated(data.updated_at.replace('T', ' ').split('.')[0]);
+        }
       } else {
         setLastUpdated(new Date().toLocaleTimeString());
       }
