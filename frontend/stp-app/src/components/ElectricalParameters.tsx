@@ -21,7 +21,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     pf1: 1.0, pf2: 1.0, pf3: 1.0, pf_avg: 1.0,
     freq: 49.941, kwh: 1.01
   });
-  const [lastUpdated, setLastUpdated] = useState<string>('Live');
+  const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
   const [isFetching, setIsFetching] = useState<boolean>(false);
 
   const fetchTelemetry = async () => {
@@ -30,7 +30,12 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const data = await getElectricalTelemetry(deviceId);
     if (data) {
       setTelemetry((prev: any) => ({ ...prev, ...data }));
-      setLastUpdated(new Date().toLocaleTimeString());
+      if (data.updated_at) {
+        const formatted = data.updated_at.replace('T', ' ').split('.')[0];
+        setLastUpdated(formatted);
+      } else {
+        setLastUpdated(new Date().toLocaleTimeString());
+      }
     }
     setIsFetching(false);
   };
@@ -165,7 +170,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             gap: '6px'
           }}>
             <RefreshCw size={14} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
-            Updated: {lastUpdated}
+            Latest Data Updated: {lastUpdated}
           </span>
 
           <span style={{

@@ -139,7 +139,10 @@ export const getElectricalTelemetry = async (deviceId: string) => {
   try {
     const { data } = await TelemetryAPI.get(`/api/telemetry/electrical/${deviceId}`);
     if (data && data.data) {
-      return data.data;
+      return {
+        ...data.data,
+        updated_at: data.timestamp
+      };
     }
   } catch {}
   return null;
