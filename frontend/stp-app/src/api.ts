@@ -160,4 +160,22 @@ export const getElectricalMeters = async (deviceId: string) => {
   return ["1"];
 };
 
+export const getTariffConfig = async (deviceId: string) => {
+  try {
+    const { data } = await TelemetryAPI.get(`/api/config/tariff/${deviceId}`);
+    if (data && data.data) {
+      return data.data;
+    }
+  } catch {}
+  return { tariff_rate: 7.50, sanctioned_load: 50.0, demand_charge: 275.0, duty_rate: 7.5 };
+};
+
+export const saveTariffConfig = async (payload: any) => {
+  try {
+    const { data } = await TelemetryAPI.post('/api/config/tariff', payload);
+    return data;
+  } catch {}
+  return null;
+};
+
 export default FrappeAPI;

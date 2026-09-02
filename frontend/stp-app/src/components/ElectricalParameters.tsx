@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers
+  Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers,
+  Calculator, Settings, DollarSign, TrendingUp, Check, X, Info
 } from 'lucide-react';
-import { getElectricalTelemetry, getElectricalMeters } from '../api';
+import { getElectricalTelemetry, getElectricalMeters, getTariffConfig, saveTariffConfig } from '../api';
 
 interface ElectricalParametersProps {
   deviceId?: string;
@@ -26,6 +27,45 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [selectedMeter, setSelectedMeter] = useState<string>('1');
   const [availableMeters, setAvailableMeters] = useState<string[]>(['1']);
+
+  // Tariff Configuration & Modal States
+  const [tariffConfig, setTariffConfig] = useState<any>({
+    tariff_rate: 7.50,
+    sanctioned_load: 50.0,
+    demand_charge: 275.0,
+    duty_rate: 7.5
+  });
+  const [showTariffModal, setShowTariffModal] = useState<boolean>(false);
+  const [showBreakdownModal, setShowBreakdownModal] = useState<boolean>(false);
+  const [tempTariff, setTempTariff] = useState<any>({ ...tariffConfig });
+  const [isSavingTariff, setIsSavingTariff] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadTariff = async () => {
+      if (!deviceId) return;
+      const res = await getTariffConfig(deviceId);
+      if (res) {
+        setTariffConfig(res);
+        setTempTariff(res);
+      }
+    };
+    loadTariff();
+  }, [deviceId]);
+
+  const handleSaveTariff = async () => {
+    setIsSavingTariff(true);
+    const payload = {
+      device_id: deviceId,
+      tariff_rate: parseFloat(tempTariff.tariff_rate) || 7.5,
+      sanctioned_load: parseFloat(tempTariff.sanctioned_load) || 50.0,
+      demand_charge: parseFloat(tempTariff.demand_charge) || 275.0,
+      duty_rate: parseFloat(tempTariff.duty_rate) || 7.5
+    };
+    await saveTariffConfig(payload);
+    setTariffConfig(payload);
+    setIsSavingTariff(false);
+    setShowTariffModal(false);
+  };
 
   const fetchTelemetry = async () => {
     if (!deviceId) return;
@@ -70,6 +110,43 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const interval = setInterval(fetchTelemetry, 5000);
     return () => clearInterval(interval);
   }, [deviceId, selectedMeter]);
+
+  // Bill Estimator Engine Calculations
+  const kwLoad = telemetry.total_kw || (telemetry.kw1 + telemetry.kw2 + telemetry.kw3) || 
+                 (telemetry.i_avg && telemetry.v_ll ? (telemetry.i_avg * telemetry.v_ll * 1.732 * (telemetry.pf_avg || 0.9)) / 1000 : 0);
+  
+  const dailyKwhEstimate = kwLoad * 24;
+  const monthlyKwhProjected = dailyKwhEstimate * 30;
+
+  const energyCharge = monthlyKwhProjected * (tariffConfig.tariff_rate || 7.5);
+  const fixedDemandCharge = (tariffConfig.sanctioned_load || 50) * (tariffConfig.demand_charge || 275);
+  const subtotalBeforeTax = energyCharge + fixedDemandCharge;
+
+  const pfVal = telemetry.pf_avg || 0.0;
+  let pfImpact = 0;
+  let pfStatusText = '';
+  let pfStatusType: 'bonus' | 'penalty' | 'neutral' = 'neutral';
+
+  if (pfVal > 0 && pfVal < 0.85) {
+    const drop = (0.85 - pfVal) * 100;
+    pfImpact = energyCharge * (0.02 * drop);
+    pfStatusText = `Low Power Factor Penalty (${pfVal.toFixed(3)}): Extra charge of ~₹${pfImpact.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/mo levied by DISCOM!`;
+    pfStatusType = 'penalty';
+  } else if (pfVal >= 0.95) {
+    pfImpact = -(energyCharge * 0.005);
+    pfStatusText = `High Power Factor Bonus (${pfVal.toFixed(3)}): Saving ~₹${Math.abs(pfImpact).toLocaleString('en-IN', { maximumFractionDigits: 0 })}/mo in DISCOM rebates!`;
+    pfStatusType = 'bonus';
+  } else if (pfVal >= 0.85) {
+    pfStatusText = `Normal Power Factor (${pfVal.toFixed(3)}): Standard billing zone (No penalty/rebate).`;
+    pfStatusType = 'neutral';
+  } else {
+    pfStatusText = `No active telemetry available to compute PF impact.`;
+    pfStatusType = 'neutral';
+  }
+
+  const electricityDuty = (energyCharge + fixedDemandCharge) * ((tariffConfig.duty_rate || 7.5) / 100);
+  const totalEstimatedMonthlyBill = subtotalBeforeTax + pfImpact + electricityDuty;
+  const estimatedDailyCost = totalEstimatedMonthlyBill / 30;
 
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
@@ -237,6 +314,150 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             <Cpu size={14} />
             Plant Telemetry Active
           </span>
+        </div>
+      </div>
+
+      {/* ⚡ MONTHLY ELECTRICITY BILL ESTIMATOR CARD */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+        borderRadius: '20px',
+        padding: '24px',
+        color: '#FFFFFF',
+        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.25)',
+        border: '1px solid #334155',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Header & Controls */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: 'rgba(56, 189, 248, 0.15)', padding: '10px', borderRadius: '12px', color: '#38BDF8' }}>
+              <Calculator size={24} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, letterSpacing: '-0.3px', color: '#F8FAFC' }}>
+                MONTHLY ELECTRICITY BILL ESTIMATOR
+              </h3>
+              <p style={{ fontSize: '12px', color: '#94A3B8', margin: '2px 0 0 0' }}>
+                Real-time industrial tariff calculation based on current plant power utilization
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => { setTempTariff({ ...tariffConfig }); setShowTariffModal(true); }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#F8FAFC',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Settings size={15} color="#38BDF8" />
+              Configure Tariff Rates
+            </button>
+            
+            <button
+              onClick={() => setShowBreakdownModal(true)}
+              style={{
+                background: '#0284C7',
+                border: 'none',
+                color: '#FFFFFF',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
+              }}
+            >
+              <TrendingUp size={15} />
+              View Cost Breakdown
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Metric Cards Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '18px' }}>
+          
+          {/* 1. PROJECTED MONTHLY BILL */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
+              PROJECTED MONTHLY BILL
+            </span>
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '-0.5px' }}>
+                ₹{totalEstimatedMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>/ month</span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
+              Includes Energy + Demand + Duty
+            </span>
+          </div>
+
+          {/* 2. DAILY RUNNING COST */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
+              ESTIMATED DAILY COST
+            </span>
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: '#4ADE80', letterSpacing: '-0.5px' }}>
+                ₹{estimatedDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
+              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>/ day</span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
+              Est. ~{dailyKwhEstimate.toFixed(1)} kWh / day
+            </span>
+          </div>
+
+          {/* 3. SANCTIONED LOAD & RATE */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
+              TARIFF & CONTRACT DEMAND
+            </span>
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <span style={{ fontSize: '24px', fontWeight: 900, color: '#FACC15' }}>
+                ₹{tariffConfig.tariff_rate || 7.50}
+              </span>
+              <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ kWh</span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
+              Sanctioned: {tariffConfig.sanctioned_load || 50} kW (@ ₹{tariffConfig.demand_charge}/kW)
+            </span>
+          </div>
+
+        </div>
+
+        {/* Power Factor Financial Status Alert */}
+        <div style={{
+          background: pfStatusType === 'bonus' ? 'rgba(34, 197, 94, 0.12)' : pfStatusType === 'penalty' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+          border: `1px solid ${pfStatusType === 'bonus' ? '#22C55E' : pfStatusType === 'penalty' ? '#EF4444' : '#475569'}`,
+          borderRadius: '12px',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '12px',
+          fontWeight: 700,
+          color: pfStatusType === 'bonus' ? '#4ADE80' : pfStatusType === 'penalty' ? '#FCA5A5' : '#E2E8F0'
+        }}>
+          {pfStatusType === 'bonus' && <Check size={18} color="#4ADE80" />}
+          {pfStatusType === 'penalty' && <AlertTriangle size={18} color="#FCA5A5" />}
+          {pfStatusType === 'neutral' && <Info size={18} color="#94A3B8" />}
+          <span>{pfStatusText}</span>
         </div>
       </div>
 
@@ -552,6 +773,260 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           </table>
         </div>
       </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* TARIFF CONFIGURATION MODAL DIALOG                     */}
+      {/* ---------------------------------------------------- */}
+      {showTariffModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            border: '1px solid #E2E8F0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={20} color="#0284C7" />
+                Configure Tariff & Demand
+              </h3>
+              <button
+                onClick={() => setShowTariffModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 20px 0' }}>
+              Set your state electricity board (e.g. UPPCL) tariff parameters to accurately calculate monthly industrial electricity costs.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Unit Tariff Rate (₹ / kWh)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={tempTariff.tariff_rate}
+                  onChange={(e) => setTempTariff({ ...tempTariff, tariff_rate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Sanctioned / Contract Load (kW)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={tempTariff.sanctioned_load}
+                  onChange={(e) => setTempTariff({ ...tempTariff, sanctioned_load: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  Fixed Demand Charge Rate (₹ / kW / month)
+                </label>
+                <input
+                  type="number"
+                  step="5"
+                  value={tempTariff.demand_charge}
+                  onChange={(e) => setTempTariff({ ...tempTariff, demand_charge: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  State Electricity Duty Tax (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={tempTariff.duty_rate}
+                  onChange={(e) => setTempTariff({ ...tempTariff, duty_rate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <button
+                onClick={() => setShowTariffModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid #CBD5E1',
+                  background: '#F8FAFC',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  color: '#475569'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTariff}
+                disabled={isSavingTariff}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#0284C7',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)'
+                }}
+              >
+                {isSavingTariff ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* DETAILED COST BREAKDOWN MODAL                        */}
+      {/* ---------------------------------------------------- */}
+      {showBreakdownModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            maxWidth: '540px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            border: '1px solid #E2E8F0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calculator size={20} color="#0284C7" />
+                Itemized Bill Breakdown
+              </h3>
+              <button
+                onClick={() => setShowBreakdownModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
+                <span style={{ fontWeight: 600, color: '#475569' }}>Projected Monthly Energy ({monthlyKwhProjected.toFixed(0)} kWh @ ₹{tariffConfig.tariff_rate}/kWh)</span>
+                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{energyCharge.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
+                <span style={{ fontWeight: 600, color: '#475569' }}>Fixed Demand Charge ({tariffConfig.sanctioned_load} kW @ ₹{tariffConfig.demand_charge}/kW)</span>
+                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{fixedDemandCharge.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
+                <span style={{ fontWeight: 600, color: pfImpact < 0 ? '#166534' : pfImpact > 0 ? '#991B1B' : '#475569' }}>
+                  Power Factor Surcharge / Bonus (PF: {pfVal.toFixed(3)})
+                </span>
+                <span style={{ fontWeight: 800, color: pfImpact < 0 ? '#166534' : pfImpact > 0 ? '#991B1B' : '#0F172A', fontFamily: 'monospace' }}>
+                  {pfImpact < 0 ? `-₹${Math.abs(pfImpact).toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : `+₹${pfImpact.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
+                <span style={{ fontWeight: 600, color: '#475569' }}>Govt. Electricity Duty Tax ({tariffConfig.duty_rate}%)</span>
+                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{electricityDuty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px 0', fontSize: '16px', fontWeight: 900, color: '#0284C7' }}>
+                <span>NET ESTIMATED BILL</span>
+                <span style={{ fontFamily: 'monospace' }}>₹{totalEstimatedMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowBreakdownModal(false)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: '#0F172A',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Close Window
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

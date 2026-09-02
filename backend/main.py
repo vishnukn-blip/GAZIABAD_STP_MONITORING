@@ -743,3 +743,53 @@ async def get_device_electrical_meters(device_id: str):
         print(f"Error fetching meters list: {e}")
     return {"status": "success", "device_id": device_id, "meters": ["1"]}
 
+
+class TariffConfigPayload(BaseModel):
+    device_id: str
+    tariff_rate: Optional[float] = 7.50
+    sanctioned_load: Optional[float] = 50.0
+    demand_charge: Optional[float] = 275.0
+    duty_rate: Optional[float] = 7.5
+
+
+@app.get("/api/config/tariff/{device_id}")
+async def get_tariff_config(device_id: str):
+    default_tariff = {
+        "device_id": device_id,
+        "tariff_rate": 7.50,
+        "sanctioned_load": 50.0,
+        "demand_charge": 275.0,
+        "duty_rate": 7.5
+    }
+    try:
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT json_data FROM config_store WHERE key = ?", (f"tariff_{device_id}",))
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0]:
+                data = json.loads(row[0])
+                return {"status": "success", "data": data}
+    except Exception as e:
+        print(f"Error reading tariff config: {e}")
+    return {"status": "success", "data": default_tariff}
+
+
+@app.post("/api/config/tariff")
+async def save_tariff_config(payload: TariffConfigPayload):
+    try:
+        data_dict = payload.dict()
+        key = f"tariff_{payload.device_id}"
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR REPLACE INTO config_store (key, json_data) VALUES (?, ?)", (key, json.dumps(data_dict)))
+            conn.commit()
+            conn.close()
+            return {"status": "success", "message": "Tariff config saved", "data": data_dict}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "error", "message": "Failed to save tariff config"}
+
+
