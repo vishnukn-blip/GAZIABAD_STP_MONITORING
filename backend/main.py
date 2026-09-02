@@ -726,3 +726,20 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
 
     return {"status": "no_data", "device_id": device_id, "meter_id": meter_id or "1", "timestamp": None, "has_data": False, "data": default_data}
 
+
+@app.get("/api/telemetry/electrical/{device_id}/meters")
+async def get_device_electrical_meters(device_id: str):
+    try:
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ?", (device_id,))
+            rows = cursor.fetchall()
+            conn.close()
+            meters = [r[0] for r in rows if r[0]]
+            if meters:
+                return {"status": "success", "device_id": device_id, "meters": sorted(meters, key=lambda x: int(x) if str(x).isdigit() else str(x))}
+    except Exception as e:
+        print(f"Error fetching meters list: {e}")
+    return {"status": "success", "device_id": device_id, "meters": ["1"]}
+

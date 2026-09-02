@@ -150,4 +150,14 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   return null;
 };
 
+export const getElectricalMeters = async (deviceId: string) => {
+  try {
+    const { data } = await TelemetryAPI.get(`/api/telemetry/electrical/${deviceId}/meters`);
+    if (data && data.meters && data.meters.length > 0) {
+      return data.meters;
+    }
+  } catch {}
+  return ["1"];
+};
+
 export default FrappeAPI;

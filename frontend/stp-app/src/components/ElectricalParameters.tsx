@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers
 } from 'lucide-react';
-import { getElectricalTelemetry } from '../api';
+import { getElectricalTelemetry, getElectricalMeters } from '../api';
 
 interface ElectricalParametersProps {
   deviceId?: string;
@@ -24,11 +24,19 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   });
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [selectedMeter, setSelectedMeter] = useState<string>('1');
+  const [availableMeters, setAvailableMeters] = useState<string[]>(['1']);
 
   const fetchTelemetry = async () => {
     if (!deviceId) return;
     setIsFetching(true);
-    const data = await getElectricalTelemetry(deviceId);
+    
+    const metersList = await getElectricalMeters(deviceId);
+    if (metersList && metersList.length > 0) {
+      setAvailableMeters(metersList);
+    }
+
+    const data = await getElectricalTelemetry(deviceId, selectedMeter);
     if (data) {
       setTelemetry(data);
       if (data.has_data && data.updated_at) {
@@ -61,7 +69,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     fetchTelemetry();
     const interval = setInterval(fetchTelemetry, 5000);
     return () => clearInterval(interval);
-  }, [deviceId]);
+  }, [deviceId, selectedMeter]);
 
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
@@ -158,6 +166,30 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Meter Selector Dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Gauge size={16} color="#9333EA" />
+            <select 
+              value={selectedMeter}
+              onChange={(e) => setSelectedMeter(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1px solid #E9D5FF',
+                background: '#FDF4FF',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#9333EA',
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              {availableMeters.map(m => (
+                <option key={m} value={m}>Meter ID: {m}</option>
+              ))}
+            </select>
+          </div>
+
           <select style={{
             padding: '8px 14px',
             borderRadius: '8px',
@@ -188,22 +220,6 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           }}>
             <RefreshCw size={14} style={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
             Latest Data Updated: {lastUpdated}
-          </span>
-
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 700,
-            background: '#FDF4FF',
-            color: '#9333EA',
-            border: '1px solid #F5D0FE',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <Gauge size={14} />
-            Meter ID: {telemetry.meter_id || '1'}
           </span>
 
           <span style={{
