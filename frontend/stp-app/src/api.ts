@@ -135,12 +135,14 @@ export const saveCentralMotors = async (motors: any[]) => {
   } catch {}
 };
 
-export const getElectricalTelemetry = async (deviceId: string) => {
+export const getElectricalTelemetry = async (deviceId: string, meterId?: string) => {
   try {
-    const { data } = await TelemetryAPI.get(`/api/telemetry/electrical/${deviceId}`);
+    const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;
+    const { data } = await TelemetryAPI.get(url);
     if (data && data.data) {
       return {
         ...data.data,
+        meter_id: data.meter_id || data.data.meter_id || "1",
         updated_at: data.timestamp
       };
     }

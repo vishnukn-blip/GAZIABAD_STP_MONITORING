@@ -193,6 +193,22 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           <span style={{
             fontSize: '11px',
             fontWeight: 700,
+            background: '#FDF4FF',
+            color: '#9333EA',
+            border: '1px solid #F5D0FE',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <Gauge size={14} />
+            Meter ID: {telemetry.meter_id || '1'}
+          </span>
+
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 700,
             background: '#F0F9FF',
             color: '#0284C7',
             border: '1px solid #BAE6FD',

@@ -451,6 +451,7 @@ DB_PATH = os.path.join(DB_DIR, "stp_config.db")
 
 class ElectricalTelemetryPayload(BaseModel):
     device_id: str
+    meter_id: Optional[str] = "1"
     v1n: Optional[float] = 234.60
     v2n: Optional[float] = 234.58
     v3n: Optional[float] = 231.81
@@ -488,12 +489,21 @@ def init_persistent_db():
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS electrical_telemetry (
-                device_id TEXT PRIMARY KEY,
+                device_id TEXT,
+                meter_id TEXT DEFAULT '1',
                 payload_json TEXT,
-                updated_at TEXT
+                updated_at TEXT,
+                PRIMARY KEY (device_id, meter_id)
             )
         """)
         conn.commit()
+
+        # Schema migration check to add meter_id if existing table was created with device_id only
+        try:
+            cursor.execute("ALTER TABLE electrical_telemetry ADD COLUMN meter_id TEXT DEFAULT '1'")
+            conn.commit()
+        except Exception:
+            pass
 
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'devices'")
         if not cursor.fetchone():
@@ -610,6 +620,7 @@ async def receive_electrical_telemetry(
     key: Optional[str] = Query(None),
     token: Optional[str] = Query(None),
     device_id: Optional[str] = Query("350435032683868"),
+    meter_id: Optional[str] = Query("1"),
     v1n: Optional[float] = Query(234.60),
     v2n: Optional[float] = Query(234.58),
     v3n: Optional[float] = Query(231.81),
@@ -641,7 +652,7 @@ async def receive_electrical_telemetry(
         else:
             try:
                 body_json = await request.json()
-                if isinstance(body_json, dict) and "device_id" in body_json:
+                if isinstance(body_json, dict) and ("device_id" in body_json or "meter_id" in body_json):
                     data_dict = body_json
             except Exception:
                 pass
@@ -649,6 +660,7 @@ async def receive_electrical_telemetry(
         if not data_dict:
             data_dict = {
                 "device_id": device_id,
+                "meter_id": meter_id,
                 "v1n": v1n, "v2n": v2n, "v3n": v3n, "v_ln": v_ln,
                 "v12": v12, "v23": v23, "v31": v31, "v_ll": v_ll,
                 "i1": i1, "i2": i2, "i3": i3, "i_avg": i_avg,
@@ -657,27 +669,36 @@ async def receive_electrical_telemetry(
                 "freq": freq, "kwh": kwh
             }
 
-        target_device = data_dict.get("device_id") or device_id or "350435032683868"
+        target_device = str(data_dict.get("device_id") or device_id or "350435032683868")
+        target_meter = str(data_dict.get("meter_id") or meter_id or "1")
         data_dict["device_id"] = target_device
+        data_dict["meter_id"] = target_meter
 
         now_str = datetime.utcnow().isoformat() + "Z"
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR REPLACE INTO electrical_telemetry (device_id, payload_json, updated_at) VALUES (?, ?, ?)",
-            (target_device, json.dumps(data_dict), now_str)
+            "INSERT OR REPLACE INTO electrical_telemetry (device_id, meter_id, payload_json, updated_at) VALUES (?, ?, ?, ?)",
+            (target_device, target_meter, json.dumps(data_dict), now_str)
         )
         conn.commit()
         conn.close()
-        return {"status": "success", "message": "Electrical telemetry updated successfully", "device_id": target_device, "timestamp": now_str}
+        return {
+            "status": "success", 
+            "message": "Electrical telemetry updated successfully", 
+            "device_id": target_device,
+            "meter_id": target_meter,
+            "timestamp": now_str
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/telemetry/electrical/{device_id}")
-async def get_electrical_telemetry(device_id: str):
+async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Query(None)):
     default_data = {
         "device_id": device_id,
+        "meter_id": meter_id or "1",
         "v1n": 0.0, "v2n": 0.0, "v3n": 0.0, "v_ln": 0.0,
         "v12": 0.0, "v23": 0.0, "v31": 0.0, "v_ll": 0.0,
         "i1": 0.0, "i2": 0.0, "i3": 0.0, "i_avg": 0.0,
@@ -690,15 +711,18 @@ async def get_electrical_telemetry(device_id: str):
         if os.path.exists(DB_PATH):
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("SELECT payload_json, updated_at FROM electrical_telemetry WHERE device_id = ?", (device_id,))
+            if meter_id:
+                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE device_id = ? AND meter_id = ?", (device_id, str(meter_id)))
+            else:
+                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE device_id = ? ORDER BY updated_at DESC LIMIT 1", (device_id,))
             row = cursor.fetchone()
             conn.close()
             if row and row[0]:
                 data_json = json.loads(row[0])
                 data_json["has_data"] = True
-                return {"status": "success", "device_id": device_id, "timestamp": row[1], "has_data": True, "data": data_json}
+                return {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
     except Exception as e:
         print(f"Error fetching electrical telemetry: {e}")
 
-    return {"status": "no_data", "device_id": device_id, "timestamp": None, "has_data": False, "data": default_data}
+    return {"status": "no_data", "device_id": device_id, "meter_id": meter_id or "1", "timestamp": None, "has_data": False, "data": default_data}
 
