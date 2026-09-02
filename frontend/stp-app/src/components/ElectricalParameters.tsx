@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers,
-  Calculator, Settings, DollarSign, TrendingUp, Check, X, Info
+  Calculator, Settings, TrendingUp, Check, X, Info
 } from 'lucide-react';
 import { getElectricalTelemetry, getElectricalMeters, getTariffConfig, saveTariffConfig } from '../api';
 
