@@ -157,9 +157,19 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
     const actualKwh = Math.abs(t.kwh || 0);
 
-    // In cumulative mode, calculate daily average based on days elapsed in current month (e.g. 3 days)
+    // Baseline kWh reading recorded on 1st of current month from database or manual tariff config
+    const configuredBaseline = (tariffConfig.meter_baselines && tariffConfig.meter_baselines[mId] !== undefined)
+      ? Number(tariffConfig.meter_baselines[mId])
+      : null;
+    const dbBaseline = t.start_of_month_kwh !== undefined ? Number(t.start_of_month_kwh) : 0;
+    const startKwh = configuredBaseline !== null ? configuredBaseline : dbBaseline;
+
+    // Calculate net MTD energy consumed in current month so far (subtract Sept 1st baseline)
+    const netMtdKwh = (actualKwh > startKwh && startKwh > 0) ? (actualKwh - startKwh) : actualKwh;
+
+    // In cumulative mode, calculate daily average based on net kWh consumed so far in current month
     const dailyKwh = billingMode === 'cumulative'
-      ? (actualKwh > 0 ? actualKwh / daysElapsed : kwLoad * 24)
+      ? (netMtdKwh > 0 ? netMtdKwh / daysElapsed : kwLoad * 24)
       : kwLoad * 24;
 
     const monthlyKwh = dailyKwh * totalDaysInMonth;
@@ -179,6 +189,8 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       rawKw,
       kwLoad,
       actualKwh,
+      startKwh,
+      netMtdKwh,
       dailyKwh,
       monthlyKwh,
       energyCharge,
@@ -517,7 +529,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
               {billingMode === 'cumulative'
-                ? `Actual ${selectedMeterData.actualKwh.toFixed(1)} kWh in ${daysElapsed} days (~${selectedMeterData.dailyKwh.toFixed(1)} kWh/day avg)`
+                ? `${selectedMeterData.netMtdKwh.toFixed(1)} kWh MTD in ${daysElapsed} days (~${selectedMeterData.dailyKwh.toFixed(1)} kWh/day avg)`
                 : `Est. ~₹${selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${selectedMeterData.kwLoad.toFixed(2)} kW load)`}
             </span>
           </div>
@@ -589,7 +601,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
                   <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                     <span>Load: {m.kwLoad.toFixed(2)} kW</span>
-                    <span>{billingMode === 'cumulative' ? `${m.actualKwh.toFixed(1)} kWh total` : `~${m.dailyKwh.toFixed(1)} kWh/day`}</span>
+                    <span>{billingMode === 'cumulative' ? `${m.netMtdKwh.toFixed(1)} kWh MTD` : `~${m.dailyKwh.toFixed(1)} kWh/day`}</span>
                   </div>
                 </div>
               );

@@ -773,12 +773,39 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                     (device_id, f"%{short_id}")
                 )
                 row = cursor.fetchone()
-            conn.close()
 
             if row and row[0]:
                 data_json = json.loads(row[0])
                 data_json["has_data"] = True
+                
+                # Query start of month baseline kWh
+                target_meter = row[2]
+                now_dt = datetime.utcnow()
+                start_of_month_prefix = now_dt.strftime("%Y-%m-01")
+                start_kwh = 0.0
+                try:
+                    cursor.execute(
+                        "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC LIMIT 1",
+                        (device_id, f"%{short_id}", str(target_meter), start_of_month_prefix)
+                    )
+                    start_row = cursor.fetchone()
+                    if not start_row:
+                        cursor.execute(
+                            "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at ASC LIMIT 1",
+                            (device_id, f"%{short_id}", str(target_meter))
+                        )
+                        start_row = cursor.fetchone()
+                    if start_row and start_row[0]:
+                        start_payload = json.loads(start_row[0])
+                        start_kwh = float(start_payload.get("kwh", 0.0))
+                except Exception as err:
+                    print(f"Error fetching start_kwh: {err}")
+                
+                data_json["start_of_month_kwh"] = start_kwh
+                conn.close()
                 return {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
+            
+            conn.close()
     except Exception as e:
         print(f"Error fetching electrical telemetry: {e}")
 
