@@ -777,14 +777,40 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
             if row and row[0]:
                 data_json = json.loads(row[0])
                 data_json["has_data"] = True
-                
-                # Query start of month baseline kWh & 24h rolling average
                 target_meter = row[2]
+
+                # Check if current payload has 0 values; if so, search for last non-zero payload for this meter
+                curr_kwh = float(data_json.get("kwh", 0) or 0)
+                curr_kw = float(data_json.get("total_kw", 0) or (float(data_json.get("kw1", 0) or 0) + float(data_json.get("kw2", 0) or 0) + float(data_json.get("kw3", 0) or 0)))
+                curr_i = float(data_json.get("i_avg", 0) or 0)
+                
+                if curr_kwh == 0 and curr_kw == 0 and curr_i == 0:
+                    cursor.execute(
+                        "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at DESC LIMIT 50",
+                        (device_id, f"%{short_id}", str(target_meter))
+                    )
+                    recent_rows = cursor.fetchall()
+                    for r in recent_rows:
+                        if r[0]:
+                            try:
+                                pj = json.loads(r[0])
+                                pkwh = float(pj.get("kwh", 0) or 0)
+                                pkw = float(pj.get("total_kw", 0) or (float(pj.get("kw1", 0) or 0) + float(pj.get("kw2", 0) or 0) + float(pj.get("kw3", 0) or 0)))
+                                pi = float(pj.get("i_avg", 0) or 0)
+                                if pkwh > 0 or pkw > 0 or pi > 0:
+                                    for k, v in pj.items():
+                                        if (k not in data_json or data_json[k] in (0, 0.0, None)) and v:
+                                            data_json[k] = v
+                                    break
+                            except Exception:
+                                pass
+
+                # Query start of month baseline kWh & 24h rolling average
                 now_dt = datetime.utcnow()
                 start_of_month_prefix = now_dt.strftime("%Y-%m-01")
                 start_kwh = 0.0
                 avg_24h_kw = 0.0
-                kwh_24h = 0.0
+                kwh_24h_delta = 0.0
                 try:
                     cursor.execute(
                         "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC LIMIT 1",
@@ -801,14 +827,22 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                         start_payload = json.loads(start_row[0])
                         start_kwh = float(start_payload.get("kwh", 0.0))
 
-                    # 24-Hour Actual kWh Delta Calculation (Method 1)
+                    # 24-Hour Actual kWh Delta Calculation
                     time_24h_ago = (now_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
                     cursor.execute(
                         "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC",
                         (device_id, f"%{short_id}", str(target_meter), time_24h_ago)
                     )
                     rows_24h = cursor.fetchall()
-                    kwh_24h_delta = 0.0
+
+                    # If less than 2 rows in last 24h, fallback to all historical rows for this meter
+                    if len(rows_24h) < 2:
+                        cursor.execute(
+                            "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at ASC",
+                            (device_id, f"%{short_id}", str(target_meter))
+                        )
+                        rows_24h = cursor.fetchall()
+
                     if rows_24h:
                         kwh_list = []
                         kw_list = []
@@ -820,13 +854,17 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                                     if kwh_val > 0:
                                         kwh_list.append(kwh_val)
                                     kw_val = float(pj.get("total_kw") or (float(pj.get("kw1") or 0) + float(pj.get("kw2") or 0) + float(pj.get("kw3") or 0)))
-                                    kw_list.append(kw_val)
+                                    if kw_val > 0:
+                                        kw_list.append(kw_val)
                                 except Exception:
                                     pass
                         if len(kwh_list) >= 2:
                             kwh_24h_delta = max(kwh_list) - min(kwh_list)
+                        elif len(kwh_list) == 1:
+                            kwh_24h_delta = kwh_list[0]
                         if kw_list:
                             avg_24h_kw = sum(kw_list) / len(kw_list)
+
                 except Exception as err:
                     print(f"Error fetching telemetry metrics: {err}")
                 
