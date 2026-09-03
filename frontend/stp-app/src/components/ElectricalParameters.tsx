@@ -91,19 +91,19 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const telemetryMap: { [mId: string]: any } = {};
     results.forEach((res, index) => {
       const mId = validMeters[index];
-      if (res && res.data) {
-        telemetryMap[mId] = res.data;
+      if (res) {
+        telemetryMap[mId] = res;
       }
     });
 
     setAllMetersTelemetry(telemetryMap);
 
-    const activeData = telemetryMap[activeMeter] || (results[0] ? results[0].data : null);
+    const activeData = telemetryMap[activeMeter] || results.find(r => r != null) || null;
     if (activeData) {
       setTelemetry(activeData);
-      const resMeta = results.find(r => r && r.meter_id === activeMeter) || results[0];
-      if (activeData.has_data && resMeta && resMeta.timestamp) {
-        let rawStr = resMeta.timestamp;
+      const rawTimestamp = activeData.timestamp || activeData.updated_at;
+      if (activeData.has_data && rawTimestamp) {
+        let rawStr = rawTimestamp;
         if (!rawStr.endsWith('Z') && !rawStr.includes('+')) {
           rawStr += 'Z';
         }
@@ -117,7 +117,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           const secs = String(d.getSeconds()).padStart(2, '0');
           setLastUpdated(`${year}-${month}-${day} ${hours}:${mins}:${secs}`);
         } else {
-          setLastUpdated(resMeta.timestamp.replace('T', ' ').split('.')[0]);
+          setLastUpdated(rawTimestamp.replace('T', ' ').split('.')[0]);
         }
       } else {
         setLastUpdated('No Telemetry Received');

@@ -760,12 +760,19 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                     "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at DESC LIMIT 1",
                     (device_id, f"%{short_id}", str(meter_id))
                 )
+                row = cursor.fetchone()
+                if not row:
+                    cursor.execute(
+                        "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) ORDER BY updated_at DESC LIMIT 1",
+                        (device_id, f"%{short_id}")
+                    )
+                    row = cursor.fetchone()
             else:
                 cursor.execute(
                     "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) ORDER BY updated_at DESC LIMIT 1",
                     (device_id, f"%{short_id}")
                 )
-            row = cursor.fetchone()
+                row = cursor.fetchone()
             conn.close()
 
             if row and row[0]:

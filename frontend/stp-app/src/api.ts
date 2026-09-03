@@ -139,11 +139,13 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   try {
     const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;
     const { data } = await TelemetryAPI.get(url);
-    if (data && data.data) {
+    if (data) {
       return {
-        ...data.data,
-        meter_id: data.meter_id || data.data.meter_id || "1",
-        updated_at: data.timestamp
+        status: data.status,
+        timestamp: data.timestamp,
+        has_data: data.has_data !== false,
+        meter_id: data.meter_id || (data.data && data.data.meter_id) || "1",
+        ...(data.data || {})
       };
     }
   } catch {}
