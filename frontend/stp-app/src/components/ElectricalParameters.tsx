@@ -28,6 +28,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [selectedMeter, setSelectedMeter] = useState<string>('1');
   const [availableMeters, setAvailableMeters] = useState<string[]>(['1']);
+  const [billingMode, setBillingMode] = useState<'realtime' | 'cumulative'>('realtime');
 
   // Tariff Configuration & Modal States
   const [tariffConfig, setTariffConfig] = useState<any>({
@@ -149,9 +150,16 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const t = allMetersTelemetry[mId] || {};
     const rawKw = Math.abs(t.total_kw || ((t.kw1 || 0) + (t.kw2 || 0) + (t.kw3 || 0)) || 0);
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
-    
-    const dailyKwh = kwLoad * 24;
-    const monthlyKwh = dailyKwh * 30;
+    const actualKwh = Math.abs(t.kwh || 0);
+
+    const dailyKwh = billingMode === 'cumulative'
+      ? (actualKwh > 0 ? actualKwh / 30 : kwLoad * 24)
+      : kwLoad * 24;
+
+    const monthlyKwh = billingMode === 'cumulative'
+      ? (actualKwh > 0 ? actualKwh : kwLoad * 24 * 30)
+      : dailyKwh * 30;
+
     const energyCharge = monthlyKwh * tariffRate;
 
     const pfVal = Math.abs(t.pf_avg || 0.0);
@@ -167,6 +175,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       meterId: mId,
       rawKw,
       kwLoad,
+      actualKwh,
       dailyKwh,
       monthlyKwh,
       energyCharge,
@@ -377,7 +386,57 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Segmented Mode Selector Switch */}
+            <div style={{
+              display: 'flex',
+              background: 'rgba(15, 23, 42, 0.6)',
+              padding: '3px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.15)'
+            }}>
+              <button
+                onClick={() => setBillingMode('realtime')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: billingMode === 'realtime' ? '#0284C7' : 'transparent',
+                  color: billingMode === 'realtime' ? '#FFFFFF' : '#94A3B8',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Zap size={13} color={billingMode === 'realtime' ? '#FFFFFF' : '#38BDF8'} />
+                ⚡ Real-Time Load Projection (kW)
+              </button>
+              <button
+                onClick={() => setBillingMode('cumulative')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: billingMode === 'cumulative' ? '#0284C7' : 'transparent',
+                  color: billingMode === 'cumulative' ? '#FFFFFF' : '#94A3B8',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Activity size={13} color={billingMode === 'cumulative' ? '#FFFFFF' : '#A855F7'} />
+                📊 Cumulative Meter Reading (kWh)
+              </button>
+            </div>
+
             <button
               onClick={() => { setTempTariff({ ...tariffConfig }); setShowTariffModal(true); }}
               style={{
@@ -424,10 +483,10 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
         {/* 3 Main Metric Summary Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
           
-          {/* 1. OVERALL PLANT PROJECTED BILL */}
+          {/* 1. OVERALL PLANT PROJECTED / CUMULATIVE BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.5px' }}>
-              OVERALL PLANT PROJECTED BILL
+              OVERALL PLANT {billingMode === 'cumulative' ? 'CUMULATIVE BILL' : 'PROJECTED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '-0.5px' }}>
@@ -436,14 +495,16 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Est. ~₹{totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({totalPlantDailyKwh.toFixed(1)} kWh/day across {availableMeters.length} meters)
+              {billingMode === 'cumulative'
+                ? `Actual ~${totalPlantDailyKwh.toFixed(1)} kWh accumulated across ${availableMeters.length} meters`
+                : `Est. ~₹${totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${totalPlantDailyKwh.toFixed(1)} kWh/day across ${availableMeters.length} meters)`}
             </span>
           </div>
 
-          {/* 2. SELECTED METER ESTIMATED BILL */}
+          {/* 2. SELECTED METER ESTIMATED / CUMULATIVE BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#A855F7', letterSpacing: '0.5px' }}>
-              METER ID: {selectedMeter} ESTIMATED BILL
+              METER ID: {selectedMeter} {billingMode === 'cumulative' ? 'CUMULATIVE BILL' : 'ESTIMATED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#C084FC', letterSpacing: '-0.5px' }}>
@@ -452,7 +513,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Est. ~₹{selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({selectedMeterData.kwLoad.toFixed(2)} kW load)
+              {billingMode === 'cumulative'
+                ? `Actual ${selectedMeterData.actualKwh.toFixed(1)} kWh accumulated reading`
+                : `Est. ~₹${selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${selectedMeterData.kwLoad.toFixed(2)} kW load)`}
             </span>
           </div>
 
@@ -523,7 +586,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
                   <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                     <span>Load: {m.kwLoad.toFixed(2)} kW</span>
-                    <span>~{m.dailyKwh.toFixed(1)} kWh/day</span>
+                    <span>{billingMode === 'cumulative' ? `${m.actualKwh.toFixed(1)} kWh total` : `~${m.dailyKwh.toFixed(1)} kWh/day`}</span>
                   </div>
                 </div>
               );
