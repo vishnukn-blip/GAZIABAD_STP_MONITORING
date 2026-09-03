@@ -862,6 +862,14 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                             kwh_24h_delta = max(kwh_list) - min(kwh_list)
                         elif len(kwh_list) == 1:
                             kwh_24h_delta = kwh_list[0]
+                        
+                        # Fallback to Month-to-Date (MTD) kWh if 24h delta is 0
+                        curr_kwh_val = float(data_json.get("kwh") or 0)
+                        if kwh_24h_delta == 0 and curr_kwh_val > start_kwh and start_kwh > 0:
+                            net_mtd = curr_kwh_val - start_kwh
+                            days_elapsed = max(1, now_dt.day)
+                            kwh_24h_delta = round(net_mtd / days_elapsed, 2)
+
                         if kw_list:
                             avg_24h_kw = sum(kw_list) / len(kw_list)
 

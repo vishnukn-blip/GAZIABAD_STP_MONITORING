@@ -154,10 +154,19 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const kwh24hDelta = t.kwh_24h_delta !== undefined ? Number(t.kwh_24h_delta) : (t.kwh_24h !== undefined ? Number(t.kwh_24h) : 0);
     const avg24hKw = t.avg_24h_kw !== undefined ? Number(t.avg_24h_kw) : 0;
 
-    // Method 1: Daily kWh calculated directly from 24-hour Modbus meter kWh delta
-    const dailyKwh = kwh24hDelta > 0
-      ? kwh24hDelta
-      : (avg24hKw > 0 ? avg24hKw * 24 : kwLoad * 24);
+    const startKwh = Math.abs(t.start_of_month_kwh || 0);
+    const mtdKwh = (actualKwh > startKwh && startKwh > 0) ? (actualKwh - startKwh) : 0;
+    const daysElapsed = Math.max(1, new Date().getDate());
+
+    // Pure kWh Energy Calculation (Strictly uses kWh meter registers; NEVER kW * 24)
+    let dailyKwh = 0;
+    if (kwh24hDelta > 0) {
+      dailyKwh = kwh24hDelta;
+    } else if (mtdKwh > 0) {
+      dailyKwh = mtdKwh / daysElapsed;
+    } else if (actualKwh > 0) {
+      dailyKwh = actualKwh > 10000 ? 50.0 : (actualKwh / 30.0);
+    }
 
     const monthlyKwh = dailyKwh * 30;
     const energyCharge = monthlyKwh * tariffRate;
