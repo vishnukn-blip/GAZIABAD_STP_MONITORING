@@ -151,21 +151,24 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
     const actualKwh = Math.abs(t.kwh || 0);
 
-    const kwh24hDelta = t.kwh_24h_delta !== undefined ? Number(t.kwh_24h_delta) : (t.kwh_24h !== undefined ? Number(t.kwh_24h) : 0);
+    const raw24hDelta = t.kwh_24h_delta !== undefined ? Number(t.kwh_24h_delta) : (t.kwh_24h !== undefined ? Number(t.kwh_24h) : 0);
     const avg24hKw = t.avg_24h_kw !== undefined ? Number(t.avg_24h_kw) : 0;
 
     const startKwh = Math.abs(t.start_of_month_kwh || 0);
     const mtdKwh = (actualKwh > startKwh && startKwh > 0) ? (actualKwh - startKwh) : 0;
     const daysElapsed = Math.max(1, new Date().getDate());
 
-    // Pure kWh Energy Calculation (Strictly uses kWh meter registers; NEVER kW * 24)
+    // Ensure 24h delta is not mistakenly set to total lifetime cumulative kWh reading
+    const valid24hDelta = (raw24hDelta > 0 && (actualKwh === 0 || raw24hDelta < actualKwh)) ? raw24hDelta : 0;
+
+    // Pure kWh Energy Calculation
     let dailyKwh = 0;
-    if (kwh24hDelta > 0) {
-      dailyKwh = kwh24hDelta;
+    if (valid24hDelta > 0) {
+      dailyKwh = valid24hDelta;
     } else if (mtdKwh > 0) {
       dailyKwh = mtdKwh / daysElapsed;
     } else if (actualKwh > 0) {
-      dailyKwh = actualKwh > 10000 ? 50.0 : (actualKwh / 30.0);
+      dailyKwh = actualKwh / 30.0;
     }
 
     const monthlyKwh = dailyKwh * 30;
@@ -185,7 +188,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       rawKw,
       kwLoad,
       avg24hKw,
-      kwh24hDelta,
+      kwh24hDelta: valid24hDelta,
       actualKwh,
       dailyKwh,
       monthlyKwh,
