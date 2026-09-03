@@ -786,13 +786,34 @@ async def get_device_electrical_meters(device_id: str):
             cursor = conn.cursor()
             short_id = device_id[-10:] if len(device_id) >= 6 else device_id
 
-            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE ?", (device_id, f"%{short_id}"))
+            cursor.execute("SELECT meter_id, updated_at FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE ?", (device_id, f"%{short_id}"))
             rows = cursor.fetchall()
             conn.close()
 
-            meters = [r[0] for r in rows if r[0]]
-            if meters:
-                return {"status": "success", "device_id": device_id, "meters": sorted(meters, key=lambda x: int(x) if str(x).isdigit() else str(x))}
+            now_utc = datetime.utcnow()
+            recent_meters = []
+            all_meters = []
+
+            for m_id, updated_str in rows:
+                if not m_id:
+                    continue
+                all_meters.append(m_id)
+                if updated_str:
+                    try:
+                        clean_str = updated_str.rstrip("Z").split(".")[0]
+                        updated_dt = datetime.fromisoformat(clean_str)
+                        # Check if posted within last 30 minutes (1800 seconds)
+                        if (now_utc - updated_dt).total_seconds() <= 1800:
+                            recent_meters.append(m_id)
+                    except Exception:
+                        recent_meters.append(m_id)
+                else:
+                    recent_meters.append(m_id)
+
+            meters_to_show = recent_meters if recent_meters else all_meters
+            if meters_to_show:
+                sorted_meters = sorted(list(set(meters_to_show)), key=lambda x: int(x) if str(x).isdigit() else str(x))
+                return {"status": "success", "device_id": device_id, "meters": sorted_meters}
     except Exception as e:
         print(f"Error fetching meters list: {e}")
     return {"status": "success", "device_id": device_id, "meters": ["1"]}
