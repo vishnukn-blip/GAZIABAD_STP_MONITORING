@@ -28,6 +28,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [selectedMeter, setSelectedMeter] = useState<string>('1');
   const [availableMeters, setAvailableMeters] = useState<string[]>(['1']);
+  const [billingMode, setBillingMode] = useState<'realtime' | 'rolling24h'>('realtime');
 
   // Tariff Configuration & Modal States
   const [tariffConfig, setTariffConfig] = useState<any>({
@@ -151,7 +152,18 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
     const actualKwh = Math.abs(t.kwh || 0);
 
-    const dailyKwh = kwLoad * 24;
+    const avg24hKw = t.avg_24h_kw !== undefined ? Number(t.avg_24h_kw) : 0;
+    const kwh24h = t.kwh_24h !== undefined ? Number(t.kwh_24h) : 0;
+
+    // Daily kWh calculation based on selected mode
+    const effectiveKw = billingMode === 'rolling24h'
+      ? (avg24hKw > 0 ? avg24hKw : kwLoad)
+      : kwLoad;
+
+    const dailyKwh = billingMode === 'rolling24h'
+      ? (kwh24h > 0 ? kwh24h : effectiveKw * 24)
+      : kwLoad * 24;
+
     const monthlyKwh = dailyKwh * 30;
     const energyCharge = monthlyKwh * tariffRate;
 
@@ -168,6 +180,8 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       meterId: mId,
       rawKw,
       kwLoad,
+      avg24hKw,
+      kwh24h,
       actualKwh,
       dailyKwh,
       monthlyKwh,
@@ -379,7 +393,57 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Segmented Mode Selector Switch */}
+            <div style={{
+              display: 'flex',
+              background: 'rgba(15, 23, 42, 0.6)',
+              padding: '3px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.15)'
+            }}>
+              <button
+                onClick={() => setBillingMode('realtime')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: billingMode === 'realtime' ? '#0284C7' : 'transparent',
+                  color: billingMode === 'realtime' ? '#FFFFFF' : '#94A3B8',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Zap size={13} color={billingMode === 'realtime' ? '#FFFFFF' : '#38BDF8'} />
+                ⚡ Real-Time Load (kW)
+              </button>
+              <button
+                onClick={() => setBillingMode('rolling24h')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: billingMode === 'rolling24h' ? '#0284C7' : 'transparent',
+                  color: billingMode === 'rolling24h' ? '#FFFFFF' : '#94A3B8',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Activity size={13} color={billingMode === 'rolling24h' ? '#FFFFFF' : '#A855F7'} />
+                📈 24-Hour Rolling Avg
+              </button>
+            </div>
+
             <button
               onClick={() => { setTempTariff({ ...tariffConfig }); setShowTariffModal(true); }}
               style={{
@@ -426,10 +490,10 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
         {/* 3 Main Metric Summary Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
           
-          {/* 1. OVERALL PLANT PROJECTED BILL */}
+          {/* 1. OVERALL PLANT PROJECTED / ROLLING BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.5px' }}>
-              OVERALL PLANT PROJECTED BILL
+              OVERALL PLANT {billingMode === 'rolling24h' ? '24H ROLLING AVG BILL' : 'PROJECTED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '-0.5px' }}>
@@ -438,14 +502,16 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Est. ~₹{totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({totalPlantDailyKwh.toFixed(1)} kWh/day across {availableMeters.length} meters)
+              {billingMode === 'rolling24h'
+                ? `Based on 24h rolling duty cycle (~${totalPlantDailyKwh.toFixed(1)} kWh/day across ${availableMeters.length} meters)`
+                : `Est. ~₹${totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${totalPlantDailyKwh.toFixed(1)} kWh/day across ${availableMeters.length} meters)`}
             </span>
           </div>
 
-          {/* 2. SELECTED METER ESTIMATED BILL */}
+          {/* 2. SELECTED METER ESTIMATED / ROLLING BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#A855F7', letterSpacing: '0.5px' }}>
-              METER ID: {selectedMeter} ESTIMATED BILL
+              METER ID: {selectedMeter} {billingMode === 'rolling24h' ? '24H AVG ESTIMATE' : 'ESTIMATED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#C084FC', letterSpacing: '-0.5px' }}>
@@ -454,7 +520,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Est. ~₹{selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({selectedMeterData.kwLoad.toFixed(2)} kW load)
+              {billingMode === 'rolling24h'
+                ? `Est. ~₹${selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (~${selectedMeterData.dailyKwh.toFixed(1)} kWh/day 24h avg)`
+                : `Est. ~₹${selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${selectedMeterData.kwLoad.toFixed(2)} kW load)`}
             </span>
           </div>
 
@@ -525,7 +593,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
                   <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                     <span>Load: {m.kwLoad.toFixed(2)} kW</span>
-                    <span>~{m.dailyKwh.toFixed(1)} kWh/day</span>
+                    <span>{billingMode === 'rolling24h' ? `~${m.dailyKwh.toFixed(1)} kWh/day (24h)` : `~${m.dailyKwh.toFixed(1)} kWh/day`}</span>
                   </div>
                 </div>
               );
