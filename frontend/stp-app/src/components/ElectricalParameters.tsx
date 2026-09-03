@@ -14,15 +14,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceId = "350435032683868",
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT"
 }) => {
-  const [telemetry, setTelemetry] = useState<any>({
-    v1n: 0.0, v2n: 0.0, v3n: 0.0, v_ln: 0.0,
-    v12: 0.0, v23: 0.0, v31: 0.0, v_ll: 0.0,
-    i1: 0.0, i2: 0.0, i3: 0.0, i_avg: 0.0,
-    kw1: 0.0, kw2: 0.0, kw3: 0.0, total_kw: 0.0,
-    pf1: 0.0, pf2: 0.0, pf3: 0.0, pf_avg: 0.0,
-    freq: 0.0, kwh: 0.0,
-    has_data: false
-  });
+  const [allMetersTelemetry, setAllMetersTelemetry] = useState<{ [meterId: string]: any }>({});
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [selectedMeter, setSelectedMeter] = useState<string>('1');
@@ -73,7 +65,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     
     let activeMeter = selectedMeter;
     const metersList = await getElectricalMeters(deviceId);
+    let validMeters = availableMeters;
     if (metersList && metersList.length > 0) {
+      validMeters = metersList;
       setAvailableMeters(metersList);
       if (!metersList.includes(selectedMeter)) {
         activeMeter = metersList[0];
@@ -81,11 +75,26 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       }
     }
 
-    const data = await getElectricalTelemetry(deviceId, activeMeter);
-    if (data) {
-      setTelemetry(data);
-      if (data.has_data && data.updated_at) {
-        let rawStr = data.updated_at;
+    // Concurrently fetch telemetry for all available meters
+    const telemetryPromises = validMeters.map(mId => getElectricalTelemetry(deviceId, mId));
+    const results = await Promise.all(telemetryPromises);
+
+    const telemetryMap: { [mId: string]: any } = {};
+    results.forEach((res, index) => {
+      const mId = validMeters[index];
+      if (res && res.data) {
+        telemetryMap[mId] = res.data;
+      }
+    });
+
+    setAllMetersTelemetry(telemetryMap);
+
+    const activeData = telemetryMap[activeMeter] || (results[0] ? results[0].data : null);
+    if (activeData) {
+      setTelemetry(activeData);
+      const resMeta = results.find(r => r && r.meter_id === activeMeter) || results[0];
+      if (activeData.has_data && resMeta && resMeta.timestamp) {
+        let rawStr = resMeta.timestamp;
         if (!rawStr.endsWith('Z') && !rawStr.includes('+')) {
           rawStr += 'Z';
         }
@@ -99,7 +108,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           const secs = String(d.getSeconds()).padStart(2, '0');
           setLastUpdated(`${year}-${month}-${day} ${hours}:${mins}:${secs}`);
         } else {
-          setLastUpdated(data.updated_at.replace('T', ' ').split('.')[0]);
+          setLastUpdated(resMeta.timestamp.replace('T', ' ').split('.')[0]);
         }
       } else {
         setLastUpdated('No Telemetry Received');
@@ -116,47 +125,73 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     return () => clearInterval(interval);
   }, [deviceId, selectedMeter]);
 
-  // Bill Estimator Engine Calculations
-  const rawKw = Math.abs(telemetry.total_kw || (telemetry.kw1 + telemetry.kw2 + telemetry.kw3) || 0);
-  const kwLoad = rawKw || (telemetry.i_avg && telemetry.v_ll ? (telemetry.i_avg * telemetry.v_ll * 1.732 * Math.abs(telemetry.pf_avg || 0.9)) / 1000 : 0);
-  
-  const dailyKwhEstimate = kwLoad * 24;
-  const monthlyKwhProjected = dailyKwhEstimate * 30;
+  // --------------------------------------------------------------------------
+  // MULTI-METER BILL ESTIMATOR ENGINE (Motor-by-Motor & Overall Plant Total)
+  // --------------------------------------------------------------------------
+  const tariffRate = tariffConfig.tariff_rate || 7.50;
+  const sanctionedLoad = tariffConfig.sanctioned_load || 50.0;
+  const demandRate = tariffConfig.demand_charge || 275.0;
+  const dutyRate = (tariffConfig.duty_rate || 7.5) / 100;
 
-  const energyCharge = monthlyKwhProjected * (tariffConfig.tariff_rate || 7.5);
-  const fixedDemandCharge = (tariffConfig.sanctioned_load || 50) * (tariffConfig.demand_charge || 275);
-  const subtotalBeforeTax = energyCharge + fixedDemandCharge;
+  const fixedDemandCharge = sanctionedLoad * demandRate;
 
-  const pfVal = Math.abs(telemetry.pf_avg || 0.0);
-  let pfImpact = 0;
-  let pfStatusText = '';
-  let pfStatusType: 'bonus' | 'penalty' | 'neutral' = 'neutral';
+  // Breakdown for every active meter/motor
+  const metersBreakdown = availableMeters.map((mId) => {
+    const t = allMetersTelemetry[mId] || {};
+    const rawKw = Math.abs(t.total_kw || ((t.kw1 || 0) + (t.kw2 || 0) + (t.kw3 || 0)) || 0);
+    const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
+    
+    const dailyKwh = kwLoad * 24;
+    const monthlyKwh = dailyKwh * 30;
+    const energyCharge = monthlyKwh * tariffRate;
 
-  if (pfVal > 0 && pfVal < 0.85) {
-    const drop = (0.85 - pfVal) * 100;
-    pfImpact = energyCharge * (0.02 * drop);
-    pfStatusText = `Low Power Factor Penalty (${pfVal.toFixed(3)}): Extra charge of ~₹${pfImpact.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/mo levied by DISCOM!`;
-    pfStatusType = 'penalty';
-  } else if (pfVal >= 0.95) {
-    pfImpact = -(energyCharge * 0.005);
-    pfStatusText = `High Power Factor Bonus (${pfVal.toFixed(3)}): Saving ~₹${Math.abs(pfImpact).toLocaleString('en-IN', { maximumFractionDigits: 0 })}/mo in DISCOM rebates!`;
-    pfStatusType = 'bonus';
-  } else if (pfVal >= 0.85) {
-    pfStatusText = `Normal Power Factor (${pfVal.toFixed(3)}): Standard billing zone (No penalty/rebate).`;
-    pfStatusType = 'neutral';
-  } else {
-    pfStatusText = `No active telemetry available to compute PF impact.`;
-    pfStatusType = 'neutral';
-  }
+    const pfVal = Math.abs(t.pf_avg || 0.0);
+    let pfImpact = 0;
+    if (pfVal > 0 && pfVal < 0.85) {
+      const drop = (0.85 - pfVal) * 100;
+      pfImpact = energyCharge * (0.02 * drop);
+    } else if (pfVal >= 0.95) {
+      pfImpact = -(energyCharge * 0.005);
+    }
 
-  const electricityDuty = (energyCharge + fixedDemandCharge) * ((tariffConfig.duty_rate || 7.5) / 100);
-  const totalEstimatedMonthlyBill = subtotalBeforeTax + pfImpact + electricityDuty;
-  const estimatedDailyCost = totalEstimatedMonthlyBill / 30;
+    return {
+      meterId: mId,
+      rawKw,
+      kwLoad,
+      dailyKwh,
+      monthlyKwh,
+      energyCharge,
+      pfImpact,
+      pfVal,
+      hasData: !!t.has_data
+    };
+  });
+
+  // Overall Plant Calculation (Sum of all active motors/meters + Fixed Demand + Govt Duty)
+  const totalPlantEnergyCharge = metersBreakdown.reduce((sum, item) => sum + item.energyCharge, 0);
+  const totalPlantPfImpact = metersBreakdown.reduce((sum, item) => sum + item.pfImpact, 0);
+  const totalPlantSubtotalBeforeTax = totalPlantEnergyCharge + fixedDemandCharge;
+  const totalPlantElectricityDuty = (totalPlantSubtotalBeforeTax + totalPlantPfImpact) * dutyRate;
+  const totalPlantMonthlyBill = totalPlantSubtotalBeforeTax + totalPlantPfImpact + totalPlantElectricityDuty;
+  const totalPlantDailyCost = totalPlantMonthlyBill / 30;
+  const totalPlantDailyKwh = metersBreakdown.reduce((sum, item) => sum + item.dailyKwh, 0);
+
+  // Selected Meter Individual Calculation
+  const selectedMeterData = metersBreakdown.find(m => m.meterId === selectedMeter) || metersBreakdown[0] || {
+    meterId: selectedMeter, rawKw: 0, kwLoad: 0, dailyKwh: 0, monthlyKwh: 0, energyCharge: 0, pfImpact: 0, pfVal: 0, hasData: false
+  };
+
+  const numMeters = Math.max(availableMeters.length, 1);
+  const meterShareFixedCharge = fixedDemandCharge / numMeters;
+  const selectedMeterSubtotal = selectedMeterData.energyCharge + meterShareFixedCharge;
+  const selectedMeterDuty = (selectedMeterSubtotal + selectedMeterData.pfImpact) * dutyRate;
+  const selectedMeterMonthlyBill = selectedMeterSubtotal + selectedMeterData.pfImpact + selectedMeterDuty;
+  const selectedMeterDailyCost = selectedMeterMonthlyBill / 30;
 
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
     supplyVoltage: { value: telemetry.v_ll ?? 0.0, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
-    realPower: { value: telemetry.total_kw ?? (telemetry.kw1 + telemetry.kw2 + telemetry.kw3), unit: 'kW', label: 'ACTIVE LOAD UTILIZATION' },
+    realPower: { value: telemetry.total_kw ?? ((telemetry.kw1 || 0) + (telemetry.kw2 || 0) + (telemetry.kw3 || 0)), unit: 'kW', label: 'ACTIVE LOAD UTILIZATION' },
     reactivePower: { value: 0.0, unit: 'kVAR', label: 'LAGGING REACTIVE DEMAND' },
     powerFactor: { value: telemetry.pf_avg ?? 0.0, label: 'SYSTEM EFFICIENCY (PF)', status: (telemetry.pf_avg > 0 && telemetry.pf_avg < 0.85 ? 'WARNING' : 'NORMAL') },
     totalEnergy: { value: telemetry.kwh ?? 0.0, unit: 'kWh', label: 'CUMULATIVE USAGE' }
@@ -189,7 +224,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       r: `${telemetry.kw1?.toFixed(4) ?? '0.0000'} kW`,
       y: `${telemetry.kw2?.toFixed(4) ?? '0.0000'} kW`,
       b: `${telemetry.kw3?.toFixed(4) ?? '0.0000'} kW`,
-      total: `${(telemetry.total_kw ?? (telemetry.kw1 + telemetry.kw2 + telemetry.kw3))?.toFixed(4)} kW`
+      total: `${(telemetry.total_kw ?? ((telemetry.kw1 || 0) + (telemetry.kw2 || 0) + (telemetry.kw3 || 0)))?.toFixed(4)} kW`
     },
     {
       parameter: 'Power Factor',
@@ -272,22 +307,6 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </select>
           </div>
 
-          <select style={{
-            padding: '8px 14px',
-            borderRadius: '8px',
-            border: '1px solid #CBD5E1',
-            background: '#F8FAFC',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: '#0F172A',
-            cursor: 'pointer',
-            outline: 'none'
-          }}>
-            <option>Last 24 hours</option>
-            <option>Last 7 days</option>
-            <option>Last 30 days</option>
-          </select>
-
           <span style={{
             fontSize: '11px',
             fontWeight: 700,
@@ -344,7 +363,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
                 MONTHLY ELECTRICITY BILL ESTIMATOR
               </h3>
               <p style={{ fontSize: '12px', color: '#94A3B8', margin: '2px 0 0 0' }}>
-                Real-time industrial tariff calculation based on current plant power utilization
+                Real-time multi-meter cost accumulation & overall plant tariff calculations
               </p>
             </div>
           </div>
@@ -393,42 +412,42 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '18px' }}>
+        {/* 3 Main Metric Summary Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
           
-          {/* 1. PROJECTED MONTHLY BILL */}
-          <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
-              PROJECTED MONTHLY BILL
+          {/* 1. OVERALL PLANT PROJECTED BILL */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '14px', padding: '16px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.5px' }}>
+              OVERALL PLANT PROJECTED BILL
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '-0.5px' }}>
-                ₹{totalEstimatedMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                ₹{totalPlantMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </span>
-              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>/ month</span>
+              <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Includes Energy + Demand + Duty
+              Sum of {availableMeters.length} active meters + Demand + Duty
             </span>
           </div>
 
-          {/* 2. DAILY RUNNING COST */}
+          {/* 2. SELECTED METER ESTIMATED BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
-              ESTIMATED DAILY COST
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#A855F7', letterSpacing: '0.5px' }}>
+              METER ID: {selectedMeter} ESTIMATED BILL
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: '#4ADE80', letterSpacing: '-0.5px' }}>
-                ₹{estimatedDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              <span style={{ fontSize: '28px', fontWeight: 900, color: '#C084FC', letterSpacing: '-0.5px' }}>
+                ₹{selectedMeterMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </span>
-              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 700 }}>/ day</span>
+              <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Est. ~{dailyKwhEstimate.toFixed(1)} kWh / day
+              Est. ~₹{selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({selectedMeterData.kwLoad.toFixed(2)} kW load)
             </span>
           </div>
 
-          {/* 3. SANCTIONED LOAD & RATE */}
+          {/* 3. TARIFF & CONTRACT DEMAND */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px' }}>
               TARIFF & CONTRACT DEMAND
@@ -446,24 +465,63 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
         </div>
 
-        {/* Power Factor Financial Status Alert */}
-        <div style={{
-          background: pfStatusType === 'bonus' ? 'rgba(34, 197, 94, 0.12)' : pfStatusType === 'penalty' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(148, 163, 184, 0.1)',
-          border: `1px solid ${pfStatusType === 'bonus' ? '#22C55E' : pfStatusType === 'penalty' ? '#EF4444' : '#475569'}`,
-          borderRadius: '12px',
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '12px',
-          fontWeight: 700,
-          color: pfStatusType === 'bonus' ? '#4ADE80' : pfStatusType === 'penalty' ? '#FCA5A5' : '#E2E8F0'
-        }}>
-          {pfStatusType === 'bonus' && <Check size={18} color="#4ADE80" />}
-          {pfStatusType === 'penalty' && <AlertTriangle size={18} color="#FCA5A5" />}
-          {pfStatusType === 'neutral' && <Info size={18} color="#94A3B8" />}
-          <span>{pfStatusText}</span>
+        {/* 📊 INDIVIDUAL MOTOR / METER COST BREAKDOWN CARDS */}
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 800, color: '#94A3B8', letterSpacing: '0.5px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Layers size={14} color="#38BDF8" />
+            INDIVIDUAL MOTOR / METER BILL CONTRIBUTION:
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+            {metersBreakdown.map((m) => {
+              const isSelected = m.meterId === selectedMeter;
+              // Calculate individual meter total with share of fixed charge and duty
+              const mShareFixed = fixedDemandCharge / numMeters;
+              const mSubtotal = m.energyCharge + mShareFixed;
+              const mDuty = (mSubtotal + m.pfImpact) * dutyRate;
+              const mTotalBill = mSubtotal + m.pfImpact + mDuty;
+
+              return (
+                <div
+                  key={m.meterId}
+                  onClick={() => setSelectedMeter(m.meterId)}
+                  style={{
+                    background: isSelected ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                    border: `1px solid ${isSelected ? '#A855F7' : 'rgba(255, 255, 255, 0.08)'}`,
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: isSelected ? '#E9D5FF' : '#F8FAFC' }}>
+                      Motor / Meter ID: {m.meterId}
+                    </span>
+                    {isSelected && (
+                      <span style={{ fontSize: '10px', background: '#A855F7', color: '#FFF', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        Active View
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '18px', fontWeight: 900, color: isSelected ? '#C084FC' : '#38BDF8', marginTop: '2px' }}>
+                    ₹{mTotalBill.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}> /mo</span>
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                    <span>Load: {m.kwLoad.toFixed(2)} kW</span>
+                    <span>~{m.dailyKwh.toFixed(1)} kWh/day</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
       </div>
 
       {/* Electrical Summary Stats Grid */}
@@ -984,32 +1042,32 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
             <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '14px', marginBottom: '16px', border: '1px solid #E2E8F0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
-                <span style={{ fontWeight: 600, color: '#475569' }}>Projected Monthly Energy ({monthlyKwhProjected.toFixed(0)} kWh @ ₹{tariffConfig.tariff_rate}/kWh)</span>
-                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{energyCharge.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span style={{ fontWeight: 600, color: '#475569' }}>Total Plant Energy Cost ({availableMeters.length} Meters @ ₹{tariffRate}/kWh)</span>
+                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{totalPlantEnergyCharge.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
-                <span style={{ fontWeight: 600, color: '#475569' }}>Fixed Demand Charge ({tariffConfig.sanctioned_load} kW @ ₹{tariffConfig.demand_charge}/kW)</span>
+                <span style={{ fontWeight: 600, color: '#475569' }}>Fixed Demand Charge ({sanctionedLoad} kW @ ₹{demandRate}/kW)</span>
                 <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{fixedDemandCharge.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
-                <span style={{ fontWeight: 600, color: pfImpact < 0 ? '#166534' : pfImpact > 0 ? '#991B1B' : '#475569' }}>
-                  Power Factor Surcharge / Bonus (PF: {pfVal.toFixed(3)})
+                <span style={{ fontWeight: 600, color: totalPlantPfImpact < 0 ? '#166534' : totalPlantPfImpact > 0 ? '#991B1B' : '#475569' }}>
+                  Total Power Factor Rebate / Penalty
                 </span>
-                <span style={{ fontWeight: 800, color: pfImpact < 0 ? '#166534' : pfImpact > 0 ? '#991B1B' : '#0F172A', fontFamily: 'monospace' }}>
-                  {pfImpact < 0 ? `-₹${Math.abs(pfImpact).toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : `+₹${pfImpact.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+                <span style={{ fontWeight: 800, color: totalPlantPfImpact < 0 ? '#166534' : totalPlantPfImpact > 0 ? '#991B1B' : '#0F172A', fontFamily: 'monospace' }}>
+                  {totalPlantPfImpact < 0 ? `-₹${Math.abs(totalPlantPfImpact).toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : `+₹${totalPlantPfImpact.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
                 </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #E2E8F0', fontSize: '13px' }}>
                 <span style={{ fontWeight: 600, color: '#475569' }}>Govt. Electricity Duty Tax ({tariffConfig.duty_rate}%)</span>
-                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{electricityDuty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>₹{totalPlantElectricityDuty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px 0', fontSize: '16px', fontWeight: 900, color: '#0284C7' }}>
-                <span>NET ESTIMATED BILL</span>
-                <span style={{ fontFamily: 'monospace' }}>₹{totalEstimatedMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span>OVERALL PLANT ESTIMATED BILL</span>
+                <span style={{ fontFamily: 'monospace' }}>₹{totalPlantMonthlyBill.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
