@@ -138,6 +138,11 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   // --------------------------------------------------------------------------
   // MULTI-METER BILL ESTIMATOR ENGINE (Motor-by-Motor & Overall Plant Total)
   // --------------------------------------------------------------------------
+  const now = new Date();
+  const daysElapsed = Math.max(1, now.getDate()); // e.g., 3 on Sept 3rd
+  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // e.g., 30 in Sept
+  const monthName = now.toLocaleString('default', { month: 'short' }); // e.g., "Sep"
+
   const tariffRate = tariffConfig.tariff_rate || 7.50;
   const sanctionedLoad = tariffConfig.sanctioned_load || 50.0;
   const demandRate = tariffConfig.demand_charge || 275.0;
@@ -152,14 +157,12 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
     const actualKwh = Math.abs(t.kwh || 0);
 
+    // In cumulative mode, calculate daily average based on days elapsed in current month (e.g. 3 days)
     const dailyKwh = billingMode === 'cumulative'
-      ? (actualKwh > 0 ? actualKwh / 30 : kwLoad * 24)
+      ? (actualKwh > 0 ? actualKwh / daysElapsed : kwLoad * 24)
       : kwLoad * 24;
 
-    const monthlyKwh = billingMode === 'cumulative'
-      ? (actualKwh > 0 ? actualKwh : kwLoad * 24 * 30)
-      : dailyKwh * 30;
-
+    const monthlyKwh = dailyKwh * totalDaysInMonth;
     const energyCharge = monthlyKwh * tariffRate;
 
     const pfVal = Math.abs(t.pf_avg || 0.0);
@@ -191,12 +194,12 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const totalPlantSubtotalBeforeTax = totalPlantEnergyCharge + fixedDemandCharge;
   const totalPlantElectricityDuty = (totalPlantSubtotalBeforeTax + totalPlantPfImpact) * dutyRate;
   const totalPlantMonthlyBill = totalPlantSubtotalBeforeTax + totalPlantPfImpact + totalPlantElectricityDuty;
-  const totalPlantDailyCost = totalPlantMonthlyBill / 30;
+  const totalPlantDailyCost = totalPlantMonthlyBill / totalDaysInMonth;
   const totalPlantDailyKwh = metersBreakdown.reduce((sum, item) => sum + item.dailyKwh, 0);
 
   // Selected Meter Individual Calculation
   const selectedMeterData = metersBreakdown.find(m => m.meterId === selectedMeter) || metersBreakdown[0] || {
-    meterId: selectedMeter, rawKw: 0, kwLoad: 0, dailyKwh: 0, monthlyKwh: 0, energyCharge: 0, pfImpact: 0, pfVal: 0, hasData: false
+    meterId: selectedMeter, rawKw: 0, kwLoad: 0, actualKwh: 0, dailyKwh: 0, monthlyKwh: 0, energyCharge: 0, pfImpact: 0, pfVal: 0, hasData: false
   };
 
   const numMeters = Math.max(availableMeters.length, 1);
@@ -204,7 +207,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const selectedMeterSubtotal = selectedMeterData.energyCharge + meterShareFixedCharge;
   const selectedMeterDuty = (selectedMeterSubtotal + selectedMeterData.pfImpact) * dutyRate;
   const selectedMeterMonthlyBill = selectedMeterSubtotal + selectedMeterData.pfImpact + selectedMeterDuty;
-  const selectedMeterDailyCost = selectedMeterMonthlyBill / 30;
+  const selectedMeterDailyCost = selectedMeterMonthlyBill / totalDaysInMonth;
 
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
@@ -486,7 +489,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           {/* 1. OVERALL PLANT PROJECTED / CUMULATIVE BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.5px' }}>
-              OVERALL PLANT {billingMode === 'cumulative' ? 'CUMULATIVE BILL' : 'PROJECTED BILL'}
+              OVERALL PLANT {billingMode === 'cumulative' ? `CUMULATIVE BILL (${monthName} Day 1-${daysElapsed})` : 'PROJECTED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '-0.5px' }}>
@@ -496,7 +499,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
               {billingMode === 'cumulative'
-                ? `Actual ~${totalPlantDailyKwh.toFixed(1)} kWh accumulated across ${availableMeters.length} meters`
+                ? `Pro-rated for ${daysElapsed} days of ${monthName} (~${totalPlantDailyKwh.toFixed(1)} kWh/day avg across ${availableMeters.length} meters)`
                 : `Est. ~₹${totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${totalPlantDailyKwh.toFixed(1)} kWh/day across ${availableMeters.length} meters)`}
             </span>
           </div>
@@ -504,7 +507,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           {/* 2. SELECTED METER ESTIMATED / CUMULATIVE BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#A855F7', letterSpacing: '0.5px' }}>
-              METER ID: {selectedMeter} {billingMode === 'cumulative' ? 'CUMULATIVE BILL' : 'ESTIMATED BILL'}
+              METER ID: {selectedMeter} {billingMode === 'cumulative' ? `CUMULATIVE BILL (Day 1-${daysElapsed})` : 'ESTIMATED BILL'}
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#C084FC', letterSpacing: '-0.5px' }}>
@@ -514,7 +517,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
               {billingMode === 'cumulative'
-                ? `Actual ${selectedMeterData.actualKwh.toFixed(1)} kWh accumulated reading`
+                ? `Actual ${selectedMeterData.actualKwh.toFixed(1)} kWh in ${daysElapsed} days (~${selectedMeterData.dailyKwh.toFixed(1)} kWh/day avg)`
                 : `Est. ~₹${selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (${selectedMeterData.kwLoad.toFixed(2)} kW load)`}
             </span>
           </div>
