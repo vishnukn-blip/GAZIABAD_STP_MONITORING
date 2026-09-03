@@ -801,37 +801,39 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                         start_payload = json.loads(start_row[0])
                         start_kwh = float(start_payload.get("kwh", 0.0))
 
-                    # 24-Hour Rolling Average
+                    # 24-Hour Actual kWh Delta Calculation (Method 1)
                     time_24h_ago = (now_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
                     cursor.execute(
                         "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC",
                         (device_id, f"%{short_id}", str(target_meter), time_24h_ago)
                     )
                     rows_24h = cursor.fetchall()
+                    kwh_24h_delta = 0.0
                     if rows_24h:
-                        kw_list = []
                         kwh_list = []
+                        kw_list = []
                         for r in rows_24h:
                             if r[0]:
                                 try:
                                     pj = json.loads(r[0])
-                                    kw_val = float(pj.get("total_kw") or (float(pj.get("kw1") or 0) + float(pj.get("kw2") or 0) + float(pj.get("kw3") or 0)))
-                                    kw_list.append(kw_val)
                                     kwh_val = float(pj.get("kwh") or 0)
                                     if kwh_val > 0:
                                         kwh_list.append(kwh_val)
+                                    kw_val = float(pj.get("total_kw") or (float(pj.get("kw1") or 0) + float(pj.get("kw2") or 0) + float(pj.get("kw3") or 0)))
+                                    kw_list.append(kw_val)
                                 except Exception:
                                     pass
+                        if len(kwh_list) >= 2:
+                            kwh_24h_delta = max(kwh_list) - min(kwh_list)
                         if kw_list:
                             avg_24h_kw = sum(kw_list) / len(kw_list)
-                        if len(kwh_list) >= 2:
-                            kwh_24h = max(kwh_list) - min(kwh_list)
                 except Exception as err:
                     print(f"Error fetching telemetry metrics: {err}")
                 
                 data_json["start_of_month_kwh"] = start_kwh
                 data_json["avg_24h_kw"] = round(avg_24h_kw, 2)
-                data_json["kwh_24h"] = round(kwh_24h, 2)
+                data_json["kwh_24h_delta"] = round(kwh_24h_delta, 2)
+                data_json["kwh_24h"] = round(kwh_24h_delta, 2)
                 conn.close()
                 return {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
             
