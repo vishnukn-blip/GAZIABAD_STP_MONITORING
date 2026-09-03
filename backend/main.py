@@ -753,24 +753,21 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
         if os.path.exists(DB_PATH):
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
+            short_id = device_id[-10:] if len(device_id) >= 6 else device_id
+
             if meter_id:
                 cursor.execute(
-                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%') AND meter_id = ? ORDER BY updated_at DESC LIMIT 1",
-                    (device_id, str(meter_id))
+                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at DESC LIMIT 1",
+                    (device_id, f"%{short_id}", str(meter_id))
                 )
             else:
                 cursor.execute(
-                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%') ORDER BY updated_at DESC LIMIT 1",
-                    (device_id,)
+                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) ORDER BY updated_at DESC LIMIT 1",
+                    (device_id, f"%{short_id}")
                 )
             row = cursor.fetchone()
-            
-            # Fallback search if exact device_id has no match
-            if not row and meter_id:
-                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE meter_id = ? ORDER BY updated_at DESC LIMIT 1", (str(meter_id),))
-                row = cursor.fetchone()
-
             conn.close()
+
             if row and row[0]:
                 data_json = json.loads(row[0])
                 data_json["has_data"] = True
@@ -787,15 +784,12 @@ async def get_device_electrical_meters(device_id: str):
         if os.path.exists(DB_PATH):
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%'", (device_id,))
-            rows = cursor.fetchall()
-            
-            # Fallback: get all DISTINCT meter_id in database if exact device_id returns empty
-            if not rows:
-                cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry")
-                rows = cursor.fetchall()
+            short_id = device_id[-10:] if len(device_id) >= 6 else device_id
 
+            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE ?", (device_id, f"%{short_id}"))
+            rows = cursor.fetchall()
             conn.close()
+
             meters = [r[0] for r in rows if r[0]]
             if meters:
                 return {"status": "success", "device_id": device_id, "meters": sorted(meters, key=lambda x: int(x) if str(x).isdigit() else str(x))}
