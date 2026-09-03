@@ -684,14 +684,41 @@ async def receive_electrical_telemetry(
                 "freq": freq, "kwh": kwh
             }
 
-        target_device = str(data_dict.get("device_id") or device_id or "350435032683868")
-        target_meter = str(data_dict.get("meter_id") or meter_id or "1")
+        qp = dict(request.query_params)
+        req_dev = qp.get("device_id")
+        req_meter = qp.get("meter_id")
+
+        target_device = str(req_dev or data_dict.get("device_id") or device_id or "350435032683868")
+        target_meter = str(req_meter or data_dict.get("meter_id") or meter_id or "1")
         data_dict["device_id"] = target_device
         data_dict["meter_id"] = target_meter
 
         now_str = datetime.utcnow().isoformat() + "Z"
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        
+        # Ensure composite PK schema migration is active
+        try:
+            cursor.execute("PRAGMA table_info(electrical_telemetry)")
+            info = cursor.fetchall()
+            pk_cols = [row[1] for row in info if row[5] > 0]
+            if len(pk_cols) < 2:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS electrical_telemetry_v2 (
+                        device_id TEXT,
+                        meter_id TEXT DEFAULT '1',
+                        payload_json TEXT,
+                        updated_at TEXT,
+                        PRIMARY KEY (device_id, meter_id)
+                    )
+                """)
+                cursor.execute("INSERT OR IGNORE INTO electrical_telemetry_v2 SELECT device_id, COALESCE(meter_id, '1'), payload_json, updated_at FROM electrical_telemetry")
+                cursor.execute("DROP TABLE electrical_telemetry")
+                cursor.execute("ALTER TABLE electrical_telemetry_v2 RENAME TO electrical_telemetry")
+                conn.commit()
+        except Exception:
+            pass
+
         cursor.execute(
             "INSERT OR REPLACE INTO electrical_telemetry (device_id, meter_id, payload_json, updated_at) VALUES (?, ?, ?, ?)",
             (target_device, target_meter, json.dumps(data_dict), now_str)
@@ -727,10 +754,22 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             if meter_id:
-                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE device_id = ? AND meter_id = ?", (device_id, str(meter_id)))
+                cursor.execute(
+                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%') AND meter_id = ? ORDER BY updated_at DESC LIMIT 1",
+                    (device_id, str(meter_id))
+                )
             else:
-                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE device_id = ? ORDER BY updated_at DESC LIMIT 1", (device_id,))
+                cursor.execute(
+                    "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%') ORDER BY updated_at DESC LIMIT 1",
+                    (device_id,)
+                )
             row = cursor.fetchone()
+            
+            # Fallback search if exact device_id has no match
+            if not row and meter_id:
+                cursor.execute("SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE meter_id = ? ORDER BY updated_at DESC LIMIT 1", (str(meter_id),))
+                row = cursor.fetchone()
+
             conn.close()
             if row and row[0]:
                 data_json = json.loads(row[0])
@@ -748,8 +787,14 @@ async def get_device_electrical_meters(device_id: str):
         if os.path.exists(DB_PATH):
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ?", (device_id,))
+            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE '%350435032683868%' OR device_id LIKE '%360436032683868%'", (device_id,))
             rows = cursor.fetchall()
+            
+            # Fallback: get all DISTINCT meter_id in database if exact device_id returns empty
+            if not rows:
+                cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry")
+                rows = cursor.fetchall()
+
             conn.close()
             meters = [r[0] for r in rows if r[0]]
             if meters:
