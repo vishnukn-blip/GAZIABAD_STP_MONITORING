@@ -158,8 +158,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const mtdKwh = (actualKwh > startKwh && startKwh > 0) ? (actualKwh - startKwh) : 0;
     const daysElapsed = Math.max(1, new Date().getDate());
 
-    // Ensure 24h delta is not mistakenly set to total lifetime cumulative kWh reading
-    const valid24hDelta = (raw24hDelta > 0 && (actualKwh === 0 || raw24hDelta < actualKwh)) ? raw24hDelta : 0;
+    // Ensure 24h delta is physically realistic (cannot exceed max 24h physical motor capacity kwLoad * 24)
+    const maxPhysicalDailyKwh = kwLoad > 0 ? (kwLoad * 24.0) : 50.0;
+    const valid24hDelta = (raw24hDelta > 0 && raw24hDelta <= maxPhysicalDailyKwh) ? raw24hDelta : 0;
 
     // Pure kWh Energy Calculation
     let dailyKwh = 0;
@@ -170,6 +171,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     } else if (actualKwh > 0) {
       dailyKwh = actualKwh / 30.0;
     }
+    dailyKwh = Math.min(dailyKwh, maxPhysicalDailyKwh);
 
     const monthlyKwh = dailyKwh * 30;
     const energyCharge = monthlyKwh * tariffRate;

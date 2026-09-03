@@ -812,20 +812,30 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                 avg_24h_kw = 0.0
                 kwh_24h_delta = 0.0
                 try:
+                    # Query start of month non-zero kWh baseline
                     cursor.execute(
-                        "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC LIMIT 1",
+                        "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? AND updated_at >= ? ORDER BY updated_at ASC LIMIT 50",
                         (device_id, f"%{short_id}", str(target_meter), start_of_month_prefix)
                     )
-                    start_row = cursor.fetchone()
-                    if not start_row:
+                    start_rows = cursor.fetchall()
+                    if not start_rows:
                         cursor.execute(
-                            "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at ASC LIMIT 1",
+                            "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at ASC LIMIT 50",
                             (device_id, f"%{short_id}", str(target_meter))
                         )
-                        start_row = cursor.fetchone()
-                    if start_row and start_row[0]:
-                        start_payload = json.loads(start_row[0])
-                        start_kwh = float(start_payload.get("kwh", 0.0))
+                        start_rows = cursor.fetchall()
+                    
+                    if start_rows:
+                        for sr in start_rows:
+                            if sr[0]:
+                                try:
+                                    sp = json.loads(sr[0])
+                                    sk = float(sp.get("kwh") or 0)
+                                    if sk > 0:
+                                        start_kwh = sk
+                                        break
+                                except Exception:
+                                    pass
 
                     # 24-Hour Actual kWh Delta Calculation
                     time_24h_ago = (now_dt - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
@@ -835,13 +845,9 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                     )
                     rows_24h = cursor.fetchall()
 
-                    # If less than 2 rows in last 24h, fallback to all historical rows for this meter
-                    if len(rows_24h) < 2:
-                        cursor.execute(
-                            "SELECT payload_json FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) AND meter_id = ? ORDER BY updated_at ASC",
-                            (device_id, f"%{short_id}", str(target_meter))
-                        )
-                        rows_24h = cursor.fetchall()
+                    curr_kwh_val = float(data_json.get("kwh") or 0)
+                    kw_val = float(data_json.get("total_kw") or (float(data_json.get("kw1") or 0) + float(data_json.get("kw2") or 0) + float(data_json.get("kw3") or 0)))
+                    max_physical_daily_kwh = (kw_val * 24.0) if kw_val > 0 else 50.0
 
                     if rows_24h:
                         kwh_list = []
@@ -850,31 +856,33 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                             if r[0]:
                                 try:
                                     pj = json.loads(r[0])
-                                    kwh_val = float(pj.get("kwh") or 0)
-                                    if kwh_val > 0:
-                                        kwh_list.append(kwh_val)
-                                    kw_val = float(pj.get("total_kw") or (float(pj.get("kw1") or 0) + float(pj.get("kw2") or 0) + float(pj.get("kw3") or 0)))
-                                    if kw_val > 0:
-                                        kw_list.append(kw_val)
+                                    kwh_v = float(pj.get("kwh") or 0)
+                                    if kwh_v > 0:
+                                        kwh_list.append(kwh_v)
+                                    kw_v = float(pj.get("total_kw") or (float(pj.get("kw1") or 0) + float(pj.get("kw2") or 0) + float(pj.get("kw3") or 0)))
+                                    if kw_v > 0:
+                                        kw_list.append(kw_v)
                                 except Exception:
                                     pass
-                        curr_kwh_val = float(data_json.get("kwh") or 0)
                         if len(kwh_list) >= 2:
                             diff = max(kwh_list) - min(kwh_list)
-                            if 0 < diff < (curr_kwh_val if curr_kwh_val > 0 else 99999):
+                            # A 24h delta must be physically realistic (cannot exceed max physical capacity or lifetime value)
+                            if 0 < diff <= max_physical_daily_kwh:
                                 kwh_24h_delta = diff
                         
-                        # Fallback to Month-to-Date (MTD) kWh if 24h delta is 0
-                        if kwh_24h_delta == 0:
-                            if curr_kwh_val > start_kwh and start_kwh > 0:
-                                net_mtd = curr_kwh_val - start_kwh
-                                days_elapsed = max(1, now_dt.day)
-                                kwh_24h_delta = round(net_mtd / days_elapsed, 2)
-                            elif curr_kwh_val > 0:
-                                kwh_24h_delta = round(curr_kwh_val / 30.0, 2)
-
                         if kw_list:
                             avg_24h_kw = sum(kw_list) / len(kw_list)
+
+                    # Fallback to Month-to-Date (MTD) daily rate if 24h delta is 0 or unrealistic
+                    if kwh_24h_delta == 0:
+                        if curr_kwh_val > start_kwh and start_kwh > 0:
+                            net_mtd = curr_kwh_val - start_kwh
+                            days_elapsed = max(1, now_dt.day)
+                            daily_est = net_mtd / days_elapsed
+                            kwh_24h_delta = min(daily_est, max_physical_daily_kwh)
+                        elif curr_kwh_val > 0:
+                            daily_est = curr_kwh_val / 30.0
+                            kwh_24h_delta = min(daily_est, max_physical_daily_kwh)
 
                 except Exception as err:
                     print(f"Error fetching telemetry metrics: {err}")
