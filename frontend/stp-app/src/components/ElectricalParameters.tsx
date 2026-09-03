@@ -71,12 +71,17 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     if (!deviceId) return;
     setIsFetching(true);
     
+    let activeMeter = selectedMeter;
     const metersList = await getElectricalMeters(deviceId);
     if (metersList && metersList.length > 0) {
       setAvailableMeters(metersList);
+      if (!metersList.includes(selectedMeter)) {
+        activeMeter = metersList[0];
+        setSelectedMeter(activeMeter);
+      }
     }
 
-    const data = await getElectricalTelemetry(deviceId, selectedMeter);
+    const data = await getElectricalTelemetry(deviceId, activeMeter);
     if (data) {
       setTelemetry(data);
       if (data.has_data && data.updated_at) {
@@ -112,8 +117,8 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   }, [deviceId, selectedMeter]);
 
   // Bill Estimator Engine Calculations
-  const kwLoad = telemetry.total_kw || (telemetry.kw1 + telemetry.kw2 + telemetry.kw3) || 
-                 (telemetry.i_avg && telemetry.v_ll ? (telemetry.i_avg * telemetry.v_ll * 1.732 * (telemetry.pf_avg || 0.9)) / 1000 : 0);
+  const rawKw = Math.abs(telemetry.total_kw || (telemetry.kw1 + telemetry.kw2 + telemetry.kw3) || 0);
+  const kwLoad = rawKw || (telemetry.i_avg && telemetry.v_ll ? (telemetry.i_avg * telemetry.v_ll * 1.732 * Math.abs(telemetry.pf_avg || 0.9)) / 1000 : 0);
   
   const dailyKwhEstimate = kwLoad * 24;
   const monthlyKwhProjected = dailyKwhEstimate * 30;
@@ -122,7 +127,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const fixedDemandCharge = (tariffConfig.sanctioned_load || 50) * (tariffConfig.demand_charge || 275);
   const subtotalBeforeTax = energyCharge + fixedDemandCharge;
 
-  const pfVal = telemetry.pf_avg || 0.0;
+  const pfVal = Math.abs(telemetry.pf_avg || 0.0);
   let pfImpact = 0;
   let pfStatusText = '';
   let pfStatusType: 'bonus' | 'penalty' | 'neutral' = 'neutral';
