@@ -498,12 +498,27 @@ def init_persistent_db():
         """)
         conn.commit()
 
-        # Schema migration check to add meter_id if existing table was created with device_id only
+        # Schema migration check: ensure composite PRIMARY KEY (device_id, meter_id)
         try:
-            cursor.execute("ALTER TABLE electrical_telemetry ADD COLUMN meter_id TEXT DEFAULT '1'")
-            conn.commit()
-        except Exception:
-            pass
+            cursor.execute("PRAGMA table_info(electrical_telemetry)")
+            info = cursor.fetchall()
+            pk_cols = [row[1] for row in info if row[5] > 0]
+            if len(pk_cols) < 2:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS electrical_telemetry_v2 (
+                        device_id TEXT,
+                        meter_id TEXT DEFAULT '1',
+                        payload_json TEXT,
+                        updated_at TEXT,
+                        PRIMARY KEY (device_id, meter_id)
+                    )
+                """)
+                cursor.execute("INSERT OR IGNORE INTO electrical_telemetry_v2 SELECT device_id, COALESCE(meter_id, '1'), payload_json, updated_at FROM electrical_telemetry")
+                cursor.execute("DROP TABLE electrical_telemetry")
+                cursor.execute("ALTER TABLE electrical_telemetry_v2 RENAME TO electrical_telemetry")
+                conn.commit()
+        except Exception as err:
+            print(f"Migration check for electrical_telemetry: {err}")
 
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'devices'")
         if not cursor.fetchone():
