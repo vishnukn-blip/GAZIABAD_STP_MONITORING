@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Activity, Gauge, Cpu, RefreshCw, AlertTriangle, Layers,
-  Calculator, Settings, TrendingUp, Check, X, Info
+  Calculator, Settings, TrendingUp, X
 } from 'lucide-react';
 import { getElectricalTelemetry, getElectricalMeters, getTariffConfig, saveTariffConfig } from '../api';
 
@@ -14,6 +14,15 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceId = "350435032683868",
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT"
 }) => {
+  const [telemetry, setTelemetry] = useState<any>({
+    v1n: 0.0, v2n: 0.0, v3n: 0.0, v_ln: 0.0,
+    v12: 0.0, v23: 0.0, v31: 0.0, v_ll: 0.0,
+    i1: 0.0, i2: 0.0, i3: 0.0, i_avg: 0.0,
+    kw1: 0.0, kw2: 0.0, kw3: 0.0, total_kw: 0.0,
+    pf1: 0.0, pf2: 0.0, pf3: 0.0, pf_avg: 0.0,
+    freq: 0.0, kwh: 0.0,
+    has_data: false
+  });
   const [allMetersTelemetry, setAllMetersTelemetry] = useState<{ [meterId: string]: any }>({});
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
   const [isFetching, setIsFetching] = useState<boolean>(false);
@@ -427,7 +436,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
             </div>
             <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-              Sum of {availableMeters.length} active meters + Demand + Duty
+              Est. ~₹{totalPlantDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day ({totalPlantDailyKwh.toFixed(1)} kWh/day across {availableMeters.length} meters)
             </span>
           </div>
 
