@@ -210,11 +210,10 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index }) => 
 
 const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   const defaultDevs = [
-    { name: 'STP-DEV-001', device_name: 'STP Telemetry Device', device_id: '863110085106451', api_key: 'chinnu' },
-    { name: 'STP PLANT A', device_name: 'STP PLANT A', device_id: '350435032683868', api_key: 'chinnu' },
-    { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu' },
-    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu' },
-    { name: 'STP PLANT D', device_name: 'STP PLANT D', device_id: '350435032681912', api_key: 'chinnu' }
+    { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.667200, longitude: 77.371100, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.648000, longitude: 77.382000, assigned_user: 'wabag@nimblevision.io' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
   const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
@@ -224,8 +223,10 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
     d.device_name === devId
   ) || {
     device_id: devId,
-    device_name: devId === '863110085106451' ? 'STP Telemetry Device' : devId,
-    name: devId
+    device_name: devId === '350435032683868' ? 'VASUNDHARA SECTOR 7 , 8MLD PLANT' : devId,
+    name: devId,
+    latitude: 28.657521,
+    longitude: 77.376303
   };
 
   const defaultTanks = [

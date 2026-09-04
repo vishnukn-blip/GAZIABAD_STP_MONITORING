@@ -34,9 +34,9 @@ const DEFAULT_LOCAL_USERS = [
 
 export const DEFAULT_LOCAL_DEVICES = [
   { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.667200, longitude: 77.371100, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
   { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
+  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.648000, longitude: 77.382000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
@@ -552,7 +552,7 @@ const AdminPage: React.FC = () => {
               </div>
               <div className="form-actions">
                 <button className="btn-primary" onClick={saveDevice}><Save size={14} /> {editingDevice ? 'Update' : 'Create in Frappe'}</button>
-                {editingDevice && <button className="btn-secondary" onClick={() => { setEditingDevice(null); setDeviceForm({ device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1 }); }}><X size={14} /> Cancel</button>}
+                {editingDevice && <button className="btn-secondary" onClick={() => { setEditingDevice(null); setDeviceForm({ device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: '', is_active: 1 }); }}><X size={14} /> Cancel</button>}
               </div>
             </div>
             <div className="admin-table-card">
@@ -564,17 +564,21 @@ const AdminPage: React.FC = () => {
                       <td><code>{d.name}</code></td>
                       <td>{d.device_name}</td>
                       <td><code>{d.device_id}</code></td>
-                      <td><code style={{ color: '#0284C7' }}>{d.latitude ?? 28.6685}</code></td>
-                      <td><code style={{ color: '#0284C7' }}>{d.longitude ?? 77.4390}</code></td>
+                      <td><code style={{ color: '#0284C7' }}>{d.latitude ?? 28.657521}</code></td>
+                      <td><code style={{ color: '#0284C7' }}>{d.longitude ?? 77.376303}</code></td>
                       <td>
-                        {((d.assigned_user || 'wabag@nimblevision.io').split(',').map((u: string) => u.trim()).filter(Boolean)).map((uStr: string) => (
+                        {((d.assigned_user || 'wabag@nimblevision.io')
+                          .split(',')
+                          .map((u: string) => u.trim())
+                          .filter((uStr: string) => uStr && (users.some((u: any) => (u.email || u.name) === uStr) || uStr === 'wabag@nimblevision.io'))
+                        ).map((uStr: string) => (
                           <span key={uStr} style={{ display: 'inline-block', background: '#0284C722', border: '1px solid #0284C755', color: '#38BDF8', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, marginRight: '4px', marginBottom: '2px' }}>
                             {uStr}
                           </span>
                         ))}
                       </td>
                       <td className="actions">
-                        <button className="icon-btn" onClick={() => { setEditingDevice(d); setDeviceForm({ device_name: d.device_name, device_id: d.device_id, api_key: d.api_key || 'chinnu', api_token: d.api_token || '257bbec888a81696529ee979804cca59', latitude: d.latitude ?? 28.6685, longitude: d.longitude ?? 77.4390, assigned_user: d.assigned_user, is_active: d.is_active }); }}><Edit2 size={14} /></button>
+                        <button className="icon-btn" onClick={() => { setEditingDevice(d); setDeviceForm({ device_name: d.device_name, device_id: d.device_id, api_key: d.api_key || 'chinnu', api_token: d.api_token || '257bbec888a81696529ee979804cca59', latitude: d.latitude ?? 28.657521, longitude: d.longitude ?? 77.376303, assigned_user: d.assigned_user || '', is_active: d.is_active }); }}><Edit2 size={14} /></button>
                         <button className="icon-btn danger" onClick={() => setConfirmDevice(d)}><Trash2 size={14} /></button>
                       </td>
                     </tr>
