@@ -90,6 +90,17 @@ const AdminPage: React.FC = () => {
         return;
       }
     } catch {}
+
+    const localUsersStr = localStorage.getItem('stp_local_users');
+    if (localUsersStr) {
+      try {
+        const parsed = JSON.parse(localUsersStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed);
+          return;
+        }
+      } catch {}
+    }
     setUsers(DEFAULT_LOCAL_USERS);
   };
 
@@ -111,18 +122,24 @@ const AdminPage: React.FC = () => {
           send_welcome_email: 0, roles: [{ role: 'System User' }]
         });
       }
-      fetchUsers();
-      setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
-      setEditingUser(null);
-    } catch (err: any) {
-      const localUsers = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
-      const fullNameStr = `${userForm.first_name} ${userForm.last_name}`.trim();
-      const updated = [...localUsers, { name: userForm.email, email: userForm.email, full_name: fullNameStr, first_name: userForm.first_name, enabled: 1 }];
-      localStorage.setItem('stp_local_users', JSON.stringify(updated));
-      setUsers(updated);
-      setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
-      setEditingUser(null);
-    }
+    } catch (err: any) {}
+
+    const localUsers = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
+    const fullNameStr = `${userForm.first_name} ${userForm.last_name}`.trim() || userForm.email;
+    const newUserObj = {
+      name: userForm.email,
+      email: userForm.email,
+      full_name: fullNameStr,
+      first_name: userForm.first_name || userForm.email.split('@')[0],
+      enabled: 1
+    };
+    const updated = localUsers.some((u: any) => u.email === userForm.email)
+      ? localUsers.map((u: any) => u.email === userForm.email ? { ...u, ...newUserObj } : u)
+      : [...localUsers, newUserObj];
+    localStorage.setItem('stp_local_users', JSON.stringify(updated));
+    setUsers(updated);
+    setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
+    setEditingUser(null);
   };
 
   const [devices, setDevices] = useState<any[]>([]);
@@ -489,9 +506,11 @@ const AdminPage: React.FC = () => {
                     onChange={e => setDeviceForm({ ...deviceForm, longitude: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                  <label>Assigned Frappe Users <span className="hint">(Check all users who can view this device)</span></label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', background: '#0F172A', padding: '12px', borderRadius: '8px', border: '1px solid #334155', maxHeight: '160px', overflowY: 'auto' }}>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px 10px', borderRadius: '6px', background: (deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? '#0284C7' : '#1E293B', color: '#FFF', fontSize: '12px', fontWeight: 600 }}>
+                  <label style={{ fontWeight: 600, color: '#334155', fontSize: '13px', marginBottom: '6px', display: 'block' }}>
+                    Assigned Frappe Users <span style={{ color: '#64748B', fontWeight: 400 }}>(Check all users who can view this device)</span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', background: '#FFFFFF', padding: '12px 16px', borderRadius: '10px', border: '1px solid #CBD5E1', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)', maxHeight: '180px', overflowY: 'auto' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px', background: (deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? '#EFF6FF' : '#F8FAFC', border: `1px solid ${(deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? '#3B82F6' : '#E2E8F0'}`, color: (deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? '#1D4ED8' : '#334155', fontSize: '13px', fontWeight: (deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? 600 : 500 }}>
                       <input
                         type="checkbox"
                         checked={(deviceForm.assigned_user || '').includes('wabag@nimblevision.io')}
@@ -502,15 +521,16 @@ const AdminPage: React.FC = () => {
                             : currentArr.filter((u: string) => u !== 'wabag@nimblevision.io');
                           setDeviceForm({ ...deviceForm, assigned_user: nextArr.join(', ') });
                         }}
+                        style={{ width: '15px', height: '15px', accentColor: '#2563EB', cursor: 'pointer' }}
                       />
-                      Wabag User (wabag@nimblevision.io)
+                      Wabag User <span style={{ opacity: 0.7, fontSize: '11px' }}>(wabag@nimblevision.io)</span>
                     </label>
                     {users.map(u => {
                       const uEmail = u.email || u.name;
                       if (uEmail === 'wabag@nimblevision.io') return null;
                       const isSelected = (deviceForm.assigned_user || '').includes(uEmail);
                       return (
-                        <label key={u.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px 10px', borderRadius: '6px', background: isSelected ? '#0284C7' : '#1E293B', color: '#FFF', fontSize: '12px', fontWeight: 600 }}>
+                        <label key={u.name || uEmail} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px', background: isSelected ? '#EFF6FF' : '#F8FAFC', border: `1px solid ${isSelected ? '#3B82F6' : '#E2E8F0'}`, color: isSelected ? '#1D4ED8' : '#334155', fontSize: '13px', fontWeight: isSelected ? 600 : 500 }}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -521,8 +541,9 @@ const AdminPage: React.FC = () => {
                                 : currentArr.filter((u: string) => u !== uEmail);
                               setDeviceForm({ ...deviceForm, assigned_user: nextArr.join(', ') });
                             }}
+                            style={{ width: '15px', height: '15px', accentColor: '#2563EB', cursor: 'pointer' }}
                           />
-                          {u.full_name || u.first_name || uEmail} ({uEmail})
+                          {u.full_name || u.first_name || uEmail} <span style={{ opacity: 0.7, fontSize: '11px' }}>({uEmail})</span>
                         </label>
                       );
                     })}

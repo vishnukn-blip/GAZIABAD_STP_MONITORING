@@ -359,67 +359,57 @@ const DashboardPage: React.FC = () => {
 
   const loadUserDevices = async () => {
     const defaultDevs = [
-      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu' },
+      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
 
+    let allDevices = defaultDevs;
     const centralDevs = await getCentralDevices();
     if (centralDevs && centralDevs.length > 0) {
       localStorage.setItem('stp_local_devices', JSON.stringify(centralDevs));
-      setUserDevices(centralDevs);
-      return centralDevs;
-    }
-
-    const localDevicesStr = localStorage.getItem('stp_local_devices');
-    let allDevices = defaultDevs;
-    
-    if (localDevicesStr) {
-      try {
-        const parsed = JSON.parse(localDevicesStr);
-        if (parsed.some((d: any) => 
-          d.device_name === 'STP PLANT A' || 
-          d.device_name === 'STP PLANT D' || 
-          d.device_name === 'STP Telemetry Device' || 
-          d.device_id === '863110085106451' || 
-          d.device_id === '350435032683869' || 
-          d.device_id === '12345'
-        )) {
-          localStorage.removeItem('stp_local_devices');
-          localStorage.removeItem('stp_local_tanks');
-          localStorage.removeItem('stp_local_motors');
-          allDevices = defaultDevs;
-        } else {
-          allDevices = parsed;
-        }
-      } catch {}
+      allDevices = centralDevs;
+    } else {
+      const localDevicesStr = localStorage.getItem('stp_local_devices');
+      if (localDevicesStr) {
+        try {
+          const parsed = JSON.parse(localDevicesStr);
+          if (parsed.some((d: any) => 
+            d.device_name === 'STP PLANT A' || 
+            d.device_name === 'STP PLANT D' || 
+            d.device_name === 'STP Telemetry Device' || 
+            d.device_id === '863110085106451' || 
+            d.device_id === '350435032683869' || 
+            d.device_id === '12345'
+          )) {
+            localStorage.removeItem('stp_local_devices');
+            localStorage.removeItem('stp_local_tanks');
+            localStorage.removeItem('stp_local_motors');
+            allDevices = defaultDevs;
+          } else {
+            allDevices = parsed;
+          }
+        } catch {}
+      }
     }
 
     const isUserAssigned = (d: any) => {
       if (!username || username === 'Administrator' || username === 'admin') return true;
-      if (!d.assigned_user && !d.assigned_users) return true;
-
+      
       const userEmail = (username || '').toLowerCase().trim();
-      const wabagEmail = 'wabag@nimblevision.io';
+      if (!userEmail) return false;
 
-      if (Array.isArray(d.assigned_users)) {
-        const lowerList = d.assigned_users.map((u: string) => (u || '').toLowerCase().trim());
-        return lowerList.includes(userEmail) || lowerList.includes(wabagEmail);
-      }
+      const assignedStr = (d.assigned_user || d.assigned_users || '').toString().toLowerCase();
+      if (!assignedStr) return false;
 
-      if (typeof d.assigned_user === 'string' && d.assigned_user) {
-        const usersList = d.assigned_user.split(',').map((u: string) => (u || '').toLowerCase().trim());
-        return usersList.includes(userEmail) || usersList.includes(wabagEmail) || d.assigned_user === '';
-      }
-
-      return true;
+      const userList = assignedStr.split(',').map((u: string) => u.trim()).filter(Boolean);
+      return userList.includes(userEmail);
     };
 
     const userDevs = allDevices.filter(isUserAssigned);
-    const devicesList = userDevs.length > 0 ? userDevs : allDevices;
-    setUserDevices(devicesList);
-    return devicesList;
+    setUserDevices(userDevs);
+    return userDevs;
   };
 
   const fetchLayoutForDevice = async (devId: string) => {
