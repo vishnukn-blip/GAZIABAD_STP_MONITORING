@@ -488,16 +488,45 @@ const AdminPage: React.FC = () => {
                   <input className="form-input" type="number" step="0.000001" placeholder="e.g. 77.439000" value={deviceForm.longitude}
                     onChange={e => setDeviceForm({ ...deviceForm, longitude: parseFloat(e.target.value) || 0 })} />
                 </div>
-                <div className="form-group">
-                  <label>Assigned Frappe User</label>
-                  <select className="form-select" value={deviceForm.assigned_user}
-                    onChange={e => setDeviceForm({ ...deviceForm, assigned_user: e.target.value })}>
-                    <option value="">Select user...</option>
-                    <option value="Administrator">Administrator (admin)</option>
-                    {users.map(u => (
-                      <option key={u.name} value={u.name}>{u.full_name} ({u.email || u.name})</option>
-                    ))}
-                  </select>
+                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                  <label>Assigned Frappe Users <span className="hint">(Check all users who can view this device)</span></label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px', background: '#0F172A', padding: '12px', borderRadius: '8px', border: '1px solid #334155', maxHeight: '160px', overflowY: 'auto' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px 10px', borderRadius: '6px', background: (deviceForm.assigned_user || '').includes('wabag@nimblevision.io') ? '#0284C7' : '#1E293B', color: '#FFF', fontSize: '12px', fontWeight: 600 }}>
+                      <input
+                        type="checkbox"
+                        checked={(deviceForm.assigned_user || '').includes('wabag@nimblevision.io')}
+                        onChange={(e) => {
+                          const currentArr = (deviceForm.assigned_user || '').split(',').map((u: string) => u.trim()).filter(Boolean);
+                          const nextArr = e.target.checked
+                            ? Array.from(new Set([...currentArr, 'wabag@nimblevision.io']))
+                            : currentArr.filter((u: string) => u !== 'wabag@nimblevision.io');
+                          setDeviceForm({ ...deviceForm, assigned_user: nextArr.join(', ') });
+                        }}
+                      />
+                      Wabag User (wabag@nimblevision.io)
+                    </label>
+                    {users.map(u => {
+                      const uEmail = u.email || u.name;
+                      if (uEmail === 'wabag@nimblevision.io') return null;
+                      const isSelected = (deviceForm.assigned_user || '').includes(uEmail);
+                      return (
+                        <label key={u.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px 10px', borderRadius: '6px', background: isSelected ? '#0284C7' : '#1E293B', color: '#FFF', fontSize: '12px', fontWeight: 600 }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const currentArr = (deviceForm.assigned_user || '').split(',').map((u: string) => u.trim()).filter(Boolean);
+                              const nextArr = e.target.checked
+                                ? Array.from(new Set([...currentArr, uEmail]))
+                                : currentArr.filter((u: string) => u !== uEmail);
+                              setDeviceForm({ ...deviceForm, assigned_user: nextArr.join(', ') });
+                            }}
+                          />
+                          {u.full_name || u.first_name || uEmail} ({uEmail})
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               <div className="form-actions">
@@ -507,7 +536,7 @@ const AdminPage: React.FC = () => {
             </div>
             <div className="admin-table-card">
               <table className="admin-table">
-                <thead><tr><th>DocType Name</th><th>Device Name</th><th>Device ID</th><th>Latitude</th><th>Longitude</th><th>Assigned User</th><th>Actions</th></tr></thead>
+                <thead><tr><th>DocType Name</th><th>Device Name</th><th>Device ID</th><th>Latitude</th><th>Longitude</th><th>Assigned Users</th><th>Actions</th></tr></thead>
                 <tbody>
                   {devices.map(d => (
                     <tr key={d.name}>
@@ -516,7 +545,13 @@ const AdminPage: React.FC = () => {
                       <td><code>{d.device_id}</code></td>
                       <td><code style={{ color: '#0284C7' }}>{d.latitude ?? 28.6685}</code></td>
                       <td><code style={{ color: '#0284C7' }}>{d.longitude ?? 77.4390}</code></td>
-                      <td>{d.assigned_user}</td>
+                      <td>
+                        {((d.assigned_user || 'wabag@nimblevision.io').split(',').map((u: string) => u.trim()).filter(Boolean)).map((uStr: string) => (
+                          <span key={uStr} style={{ display: 'inline-block', background: '#0284C722', border: '1px solid #0284C755', color: '#38BDF8', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, marginRight: '4px', marginBottom: '2px' }}>
+                            {uStr}
+                          </span>
+                        ))}
+                      </td>
                       <td className="actions">
                         <button className="icon-btn" onClick={() => { setEditingDevice(d); setDeviceForm({ device_name: d.device_name, device_id: d.device_id, api_key: d.api_key || 'chinnu', api_token: d.api_token || '257bbec888a81696529ee979804cca59', latitude: d.latitude ?? 28.6685, longitude: d.longitude ?? 77.4390, assigned_user: d.assigned_user, is_active: d.is_active }); }}><Edit2 size={14} /></button>
                         <button className="icon-btn danger" onClick={() => setConfirmDevice(d)}><Trash2 size={14} /></button>

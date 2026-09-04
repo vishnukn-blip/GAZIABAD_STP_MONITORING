@@ -396,9 +396,27 @@ const DashboardPage: React.FC = () => {
       } catch {}
     }
 
-    const userDevs = allDevices.filter((d: any) => 
-      !d.assigned_user || d.assigned_user === 'wabag@nimblevision.io' || d.assigned_user === username
-    );
+    const isUserAssigned = (d: any) => {
+      if (!username || username === 'Administrator' || username === 'admin') return true;
+      if (!d.assigned_user && !d.assigned_users) return true;
+
+      const userEmail = (username || '').toLowerCase().trim();
+      const wabagEmail = 'wabag@nimblevision.io';
+
+      if (Array.isArray(d.assigned_users)) {
+        const lowerList = d.assigned_users.map((u: string) => (u || '').toLowerCase().trim());
+        return lowerList.includes(userEmail) || lowerList.includes(wabagEmail);
+      }
+
+      if (typeof d.assigned_user === 'string' && d.assigned_user) {
+        const usersList = d.assigned_user.split(',').map((u: string) => (u || '').toLowerCase().trim());
+        return usersList.includes(userEmail) || usersList.includes(wabagEmail) || d.assigned_user === '';
+      }
+
+      return true;
+    };
+
+    const userDevs = allDevices.filter(isUserAssigned);
     const devicesList = userDevs.length > 0 ? userDevs : allDevices;
     setUserDevices(devicesList);
     return devicesList;
