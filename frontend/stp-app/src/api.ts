@@ -135,6 +135,21 @@ export const saveCentralMotors = async (motors: any[]) => {
   } catch {}
 };
 
+export const getCentralUsers = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/users');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralUsers = async (users: any[]) => {
+  try {
+    await TelemetryAPI.post('/api/config/users', users);
+  } catch {}
+};
+
 export const getElectricalTelemetry = async (deviceId: string, meterId?: string) => {
   try {
     const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;

@@ -9,7 +9,8 @@ import {
   frappeGetList, frappeCreate, frappeUpdate, frappeDelete,
   getCentralDevices, saveCentralDevices,
   getCentralTanks, saveCentralTanks,
-  getCentralMotors, saveCentralMotors
+  getCentralMotors, saveCentralMotors,
+  getCentralUsers, saveCentralUsers
 } from '../api';
 
 const RUN_KEYS = ['current_1', 'current_2', 'current_3', 'current_4', 'low_pressure'];
@@ -91,6 +92,13 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
+    const centralUsers = await getCentralUsers();
+    if (centralUsers && centralUsers.length > 0) {
+      localStorage.setItem('stp_local_users', JSON.stringify(centralUsers));
+      setUsers(centralUsers);
+      return;
+    }
+
     const localUsersStr = localStorage.getItem('stp_local_users');
     if (localUsersStr) {
       try {
@@ -137,6 +145,7 @@ const AdminPage: React.FC = () => {
       ? localUsers.map((u: any) => u.email === userForm.email ? { ...u, ...newUserObj } : u)
       : [...localUsers, newUserObj];
     localStorage.setItem('stp_local_users', JSON.stringify(updated));
+    saveCentralUsers(updated);
     setUsers(updated);
     setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
     setEditingUser(null);
@@ -744,8 +753,9 @@ const AdminPage: React.FC = () => {
       {confirmUser && <ConfirmModal msg={`Disable/Delete user "${confirmUser.full_name}" in Frappe?`} onYes={async () => {
         try { await frappeDelete('User', confirmUser.name); } catch {}
         const current = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
-        const updated = current.filter((u: any) => u.name !== confirmUser.name);
+        const updated = current.filter((u: any) => u.name !== confirmUser.name && u.email !== confirmUser.email);
         localStorage.setItem('stp_local_users', JSON.stringify(updated));
+        saveCentralUsers(updated);
         setUsers(updated);
         setConfirmUser(null);
       }} onNo={() => setConfirmUser(null)} />}

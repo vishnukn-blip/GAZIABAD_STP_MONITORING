@@ -439,9 +439,14 @@ DEFAULT_CENTRAL_MOTORS = [
     {"name": "MOTOR_D_5", "motor_name": "M5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
 ]
 
+DEFAULT_CENTRAL_USERS = [
+    {"name": "wabag@nimblevision.io", "email": "wabag@nimblevision.io", "full_name": "Wabag User", "first_name": "Wabag", "enabled": 1}
+]
+
 CENTRAL_DEVICES = list(DEFAULT_CENTRAL_DEVICES)
 CENTRAL_TANKS = list(DEFAULT_CENTRAL_TANKS)
 CENTRAL_MOTORS = list(DEFAULT_CENTRAL_MOTORS)
+CENTRAL_USERS = list(DEFAULT_CENTRAL_USERS)
 
 FRAPPE_BASE_URL = os.getenv("FRAPPE_URL", "http://localhost:8000")
 
@@ -531,6 +536,10 @@ def init_persistent_db():
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'motors'")
         if not cursor.fetchone():
             cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('motors', ?)", (json.dumps(DEFAULT_CENTRAL_MOTORS),))
+
+        cursor.execute("SELECT json_data FROM config_store WHERE key = 'users'")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('users', ?)", (json.dumps(DEFAULT_CENTRAL_USERS),))
 
         conn.commit()
         conn.close()
@@ -627,6 +636,26 @@ async def get_config_motors():
 async def save_config_motors(motors: list[dict]):
     save_persistent_data("motors", motors)
     return {"status": "success", "count": len(motors)}
+
+
+@app.get("/api/config/users")
+async def get_config_users():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/User?fields=[\"name\",\"email\",\"full_name\",\"first_name\",\"enabled\"]&limit_page_length=200")
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    return data
+    except Exception:
+        pass
+    return get_persistent_data("users", DEFAULT_CENTRAL_USERS)
+
+
+@app.post("/api/config/users")
+async def save_config_users(users: list[dict]):
+    save_persistent_data("users", users)
+    return {"status": "success", "count": len(users)}
 
 
 @app.post("/api/telemetry/electrical")
