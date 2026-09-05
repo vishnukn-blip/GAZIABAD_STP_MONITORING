@@ -658,6 +658,28 @@ async def save_config_users(users: list[dict]):
     return {"status": "success", "count": len(users)}
 
 
+@app.get("/api/config/motor-specs")
+async def get_config_motor_specs():
+    return get_persistent_data("motor_specs", {})
+
+
+@app.post("/api/config/motor-specs")
+async def save_config_motor_specs(specs: dict):
+    save_persistent_data("motor_specs", specs)
+    return {"status": "success"}
+
+
+@app.get("/api/config/motor-service-logs")
+async def get_config_motor_service_logs():
+    return get_persistent_data("motor_service_logs", {})
+
+
+@app.post("/api/config/motor-service-logs")
+async def save_config_motor_service_logs(logs: dict):
+    save_persistent_data("motor_service_logs", logs)
+    return {"status": "success"}
+
+
 @app.post("/api/telemetry/electrical")
 async def receive_electrical_telemetry(
     request: Request,

@@ -150,6 +150,36 @@ export const saveCentralUsers = async (users: any[]) => {
   } catch {}
 };
 
+export const getCentralMotorSpecs = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/motor-specs');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralMotorSpecs = async (specsMap: any) => {
+  try {
+    await TelemetryAPI.post('/api/config/motor-specs', specsMap);
+  } catch {}
+};
+
+export const getCentralServiceLogs = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/motor-service-logs');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralServiceLogs = async (logsMap: any) => {
+  try {
+    await TelemetryAPI.post('/api/config/motor-service-logs', logsMap);
+  } catch {}
+};
+
 export const getElectricalTelemetry = async (deviceId: string, meterId?: string) => {
   try {
     const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;

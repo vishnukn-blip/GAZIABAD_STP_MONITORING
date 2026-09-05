@@ -8,6 +8,7 @@ import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
 import { CameraMonitoring } from '../components/CameraMonitoring';
 import { ElectricalParameters } from '../components/ElectricalParameters';
+import { MotorDetailsModal } from '../components/MotorDetailsModal';
 
 const POLL_INTERVAL = 5000;
 
@@ -18,9 +19,10 @@ interface TankCardProps {
   telemetry: TankTelemetry | null;
   index: number;
   total: number;
+  onSelectMotor?: (motor: any, tankName: string) => void;
 }
 
-const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index }) => {
+const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSelectMotor }) => {
   const level = telemetry?.water_level_percent ?? 0;
   const capacity = tankLayout.capacity_liters || 8000000;
   const volume = Math.round((level / 100) * capacity);
@@ -173,21 +175,31 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index }) => 
           const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${mi + 1}`;
           const isRunning = ms?.is_running ?? false;
           const isTripped = ms?.is_tripped ?? false;
+          const motorObj = { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped };
 
           return (
-            <div key={motor.id || mi} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: isTripped ? '#FEF2F2' : isRunning ? '#ECFDF5' : '#F8FAFC',
-              border: `1px solid ${isTripped ? '#FCA5A5' : isRunning ? '#A7F3D0' : '#CBD5E1'}`,
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: isTripped ? '#DC2626' : isRunning ? '#059669' : '#475569',
-              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)'
-            }}>
+            <div
+              key={motor.id || mi}
+              onClick={() => onSelectMotor?.(motorObj, tankDisplayName)}
+              title="Click to view Specs, Breakdown Warning & Service History"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: isTripped ? '#FEF2F2' : isRunning ? '#ECFDF5' : '#F8FAFC',
+                border: `1px solid ${isTripped ? '#FCA5A5' : isRunning ? '#A7F3D0' : '#CBD5E1'}`,
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: isTripped ? '#DC2626' : isRunning ? '#059669' : '#475569',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease, boxShadow 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(15, 23, 42, 0.03)'; }}
+            >
               <Power size={12} color={isTripped ? '#DC2626' : isRunning ? '#059669' : '#64748B'} />
               <span>{motorDisplayName}</span>
               <span style={{
@@ -357,6 +369,7 @@ const DashboardPage: React.FC = () => {
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'telemetry' | 'camera' | 'electrical'>('telemetry');
+  const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
 
   const loadUserDevices = async () => {
     const defaultDevs = [
@@ -690,6 +703,7 @@ const DashboardPage: React.FC = () => {
                               telemetry={tankTelemetry}
                               index={idx}
                               total={layout.tanks.length}
+                              onSelectMotor={(m, tName) => setSelectedMotorModal({ motor: m, tankName: tName })}
                             />
                           );
                         })}
@@ -718,6 +732,14 @@ const DashboardPage: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* Motor Specifications, Continuous Run Tracking & Service History Modal */}
+      <MotorDetailsModal
+        motor={selectedMotorModal?.motor}
+        tankName={selectedMotorModal?.tankName || ''}
+        isOpen={!!selectedMotorModal}
+        onClose={() => setSelectedMotorModal(null)}
+      />
     </div>
   );
 };
