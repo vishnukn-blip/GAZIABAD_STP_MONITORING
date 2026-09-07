@@ -374,12 +374,17 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
 
                   <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '14px' }}>
                     <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Max Continuous Limit</div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{specs.max_continuous_hours} Hours</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{specs.max_continuous_hours || 8} Hours</div>
                   </div>
 
-                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '14px' }}>
-                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Service Interval</div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>Every {specs.recommended_service_hours} Hours</div>
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ fontSize: '11px', color: '#D97706', fontWeight: 700, textTransform: 'uppercase' }}>Grease / Bearing Check</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#B45309', marginTop: '4px' }}>Every 2,000h or 3 Months</div>
+                  </div>
+
+                  <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ fontSize: '11px', color: '#0284C7', fontWeight: 700, textTransform: 'uppercase' }}>Full Service & Overhaul</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#0369A1', marginTop: '4px' }}>Every 4,000–5,000h or 1 Year</div>
                   </div>
                 </div>
               </div>
