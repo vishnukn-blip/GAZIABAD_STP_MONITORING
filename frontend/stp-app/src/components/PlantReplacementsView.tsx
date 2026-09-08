@@ -425,16 +425,16 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                       {/* Replaced Part Details */}
                       <td style={{ padding: '16px', maxWidth: '240px' }}>
                         <div style={{ fontSize: '12px', color: '#0F172A', fontWeight: 700 }}>
-                          ✨ New: {rec.new_part_details}
+                          New: {rec.new_part_details}
                         </div>
                         {rec.old_part_details && (
                           <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                            ♻️ Old: {rec.old_part_details}
+                            Old: {rec.old_part_details}
                           </div>
                         )}
                         {rec.reason_notes && (
                           <div style={{ fontSize: '11px', color: '#0284C7', marginTop: '4px', fontStyle: 'italic' }}>
-                            📝 {rec.reason_notes}
+                            {rec.reason_notes}
                           </div>
                         )}
                       </td>
