@@ -22,6 +22,8 @@ def setup():
                 {"fieldname": "device_id", "fieldtype": "Data", "label": "Device ID", "reqd": 1, "in_list_view": 1},
                 {"fieldname": "api_key", "fieldtype": "Data", "label": "API Key", "reqd": 1},
                 {"fieldname": "api_token", "fieldtype": "Password", "label": "API Token", "reqd": 1},
+                {"fieldname": "latitude", "fieldtype": "Float", "label": "Latitude", "default": "28.6685"},
+                {"fieldname": "longitude", "fieldtype": "Float", "label": "Longitude", "default": "77.4390"},
                 {"fieldname": "assigned_user", "fieldtype": "Link", "label": "Assigned User", "options": "User", "reqd": 1, "in_list_view": 1},
                 {"fieldname": "is_active", "fieldtype": "Check", "label": "Is Active", "default": "1"},
             ],
