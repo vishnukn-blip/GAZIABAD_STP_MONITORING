@@ -680,6 +680,17 @@ async def save_config_motor_service_logs(logs: dict):
     return {"status": "success"}
 
 
+@app.get("/api/config/plant-replacements")
+async def get_config_plant_replacements():
+    return get_persistent_data("plant_replacements", [])
+
+
+@app.post("/api/config/plant-replacements")
+async def save_config_plant_replacements(replacements: list[dict]):
+    save_persistent_data("plant_replacements", replacements)
+    return {"status": "success", "count": len(replacements)}
+
+
 @app.post("/api/telemetry/electrical")
 async def receive_electrical_telemetry(
     request: Request,

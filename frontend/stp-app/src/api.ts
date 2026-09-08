@@ -180,6 +180,21 @@ export const saveCentralServiceLogs = async (logsMap: any) => {
   } catch {}
 };
 
+export const getCentralPlantReplacements = async () => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/config/plant-replacements');
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+export const saveCentralPlantReplacements = async (replacements: any[]) => {
+  try {
+    await TelemetryAPI.post('/api/config/plant-replacements', replacements);
+  } catch {}
+};
+
 export const getElectricalTelemetry = async (deviceId: string, meterId?: string) => {
   try {
     const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;
