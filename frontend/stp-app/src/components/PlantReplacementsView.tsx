@@ -46,18 +46,21 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     reason_notes: 'Motor winding burnout due to power fluctuation. Replaced with upgraded 75 HP ABB motor.'
   });
 
-  // Load from Central SQLite API with default seed data fallback
+  // Load from Central SQLite API and ensure plant-specific records exist
   useEffect(() => {
     const loadRecords = async () => {
       try {
         const centralData = await getCentralPlantReplacements();
-        if (centralData && Array.isArray(centralData) && centralData.length > 0) {
-          setRecords(centralData);
-        } else {
-          // Initial demonstration seed records
-          const seedRecords: ReplacementRecord[] = [
+        let allData: ReplacementRecord[] = (centralData && Array.isArray(centralData)) ? centralData : [];
+
+        // Check if there are records for this specific plant deviceId
+        const hasDeviceRecords = allData.some(r => r.device_id === deviceId);
+
+        if (!hasDeviceRecords && deviceId) {
+          // Add default seed records specifically tagged for this plant deviceId
+          const deviceSeedRecords: ReplacementRecord[] = [
             {
-              id: 'rep_1',
+              id: `rep_${deviceId}_1`,
               device_id: deviceId,
               replacement_date: '2026-08-20',
               category: 'Motor',
@@ -74,7 +77,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               reason_notes: 'Stator winding insulation breakdown. Upgraded to IE3 high efficiency motor.'
             },
             {
-              id: 'rep_2',
+              id: `rep_${deviceId}_2`,
               device_id: deviceId,
               replacement_date: '2026-07-15',
               category: 'Sensor / Transmitter',
@@ -91,7 +94,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               reason_notes: '4-20mA loop output drift due to moisture ingress. Replaced with IP68 radar sensor.'
             },
             {
-              id: 'rep_3',
+              id: `rep_${deviceId}_3`,
               device_id: deviceId,
               replacement_date: '2026-06-02',
               category: 'Valves & Piping',
@@ -108,23 +111,25 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               reason_notes: 'Heavy internal corrosion causing sludge leakage.'
             }
           ];
-          setRecords(seedRecords);
-          await saveCentralPlantReplacements(seedRecords);
+          allData = [...deviceSeedRecords, ...allData];
+          await saveCentralPlantReplacements(allData);
         }
+
+        setRecords(allData);
       } catch {}
     };
 
     loadRecords();
   }, [deviceId]);
 
-  // Handle Adding New Replacement Record
+  // Handle Adding New Replacement Record for Current Plant
   const handleAddRecord = async () => {
     if (!formData.component_name || !formData.vendor_name) return;
 
     const total_cost = Number(formData.part_cost || 0) + Number(formData.labor_cost || 0);
 
     const newRecord: ReplacementRecord = {
-      id: `rep_${Date.now()}`,
+      id: `rep_${deviceId}_${Date.now()}`,
       device_id: deviceId,
       ...formData,
       quantity: Number(formData.quantity || 1),
@@ -165,15 +170,18 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     await saveCentralPlantReplacements(updated);
   };
 
-  // Filter Records by Selected Category
-  const filteredRecords = selectedCategory === 'ALL'
-    ? records
-    : records.filter(r => r.category === selectedCategory);
+  // 1. Filter records strictly belonging to the currently selected plant deviceId
+  const currentPlantRecords = records.filter(r => r.device_id === deviceId);
 
-  // Financial KPI Summaries
-  const totalExpenditure = records.reduce((sum, r) => sum + r.total_cost, 0);
-  const totalHardwareCost = records.reduce((sum, r) => sum + r.part_cost, 0);
-  const totalLaborCost = records.reduce((sum, r) => sum + r.labor_cost, 0);
+  // 2. Filter Records by Selected Category for current plant
+  const filteredRecords = selectedCategory === 'ALL'
+    ? currentPlantRecords
+    : currentPlantRecords.filter(r => r.category === selectedCategory);
+
+  // 3. Financial KPI Summaries computed exclusively for the selected plant
+  const totalExpenditure = currentPlantRecords.reduce((sum, r) => sum + r.total_cost, 0);
+  const totalHardwareCost = currentPlantRecords.reduce((sum, r) => sum + r.part_cost, 0);
+  const totalLaborCost = currentPlantRecords.reduce((sum, r) => sum + r.labor_cost, 0);
 
   // Check Active Warranty Status
   const isUnderWarranty = (recDateStr: string, warrantyMonths: number) => {
@@ -182,7 +190,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     return new Date() < expiryDate;
   };
 
-  const activeWarrantyCount = records.filter(r => isUnderWarranty(r.replacement_date, r.warranty_months)).length;
+  const activeWarrantyCount = currentPlantRecords.filter(r => isUnderWarranty(r.replacement_date, r.warranty_months)).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
@@ -235,7 +243,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
           </button>
         </div>
 
-        {/* Overview KPI Cards */}
+        {/* Overview KPI Cards for Active Plant */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -351,7 +359,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               {filteredRecords.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#64748B', fontWeight: 600 }}>
-                    No component replacement logs found for category: {selectedCategory}.
+                    No component replacement logs found for {deviceName} {selectedCategory !== 'ALL' ? `(${selectedCategory})` : ''}.
                   </td>
                 </tr>
               ) : (
@@ -503,7 +511,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                     Record Component Replacement & Expense
                   </h3>
                   <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
-                    Log hardware replacements, vendor invoice numbers, and financial costs
+                    Plant: <strong>{deviceName}</strong> ({deviceId})
                   </p>
                 </div>
               </div>
