@@ -731,7 +731,7 @@ const DashboardPage: React.FC = () => {
             ) : activeTab === 'maintenance' ? (
               <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} />
             ) : activeTab === 'replacements' ? (
-              <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} />
+              <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>

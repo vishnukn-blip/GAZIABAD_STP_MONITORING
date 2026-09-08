@@ -5,6 +5,7 @@ import { getCentralPlantReplacements, saveCentralPlantReplacements } from '../ap
 interface PlantReplacementsViewProps {
   deviceId: string;
   deviceName: string;
+  layout?: any;
 }
 
 export interface ReplacementRecord {
@@ -25,16 +26,24 @@ export interface ReplacementRecord {
   reason_notes: string;
 }
 
-export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ deviceId, deviceName }) => {
+export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ deviceId, deviceName, layout }) => {
   const [records, setRecords] = useState<ReplacementRecord[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+
+  // Extract plant motor/tank names dynamically if available
+  const plantTanks = layout?.tanks || [];
+  const firstTank = plantTanks[0];
+  const firstMotor = firstTank?.motors?.[0];
+  const motorName = firstMotor ? (firstMotor.name || firstMotor.label || 'Plant Motor 1') : 'Plant Motor 1';
+  const tankName = firstTank ? (firstTank.name || 'TANK_A') : 'TANK_A';
+  const defaultMotorComponent = `${motorName} (${tankName})`;
 
   // Form State
   const [formData, setFormData] = useState<Omit<ReplacementRecord, 'id' | 'device_id' | 'total_cost'>>({
     replacement_date: new Date().toISOString().split('T')[0],
     category: 'Motor',
-    component_name: 'M1_60_HP (TANK_A)',
+    component_name: defaultMotorComponent,
     quantity: 1,
     old_part_details: 'Kirloskar 60 HP Motor (S/N: KBL-2021-992)',
     new_part_details: 'ABB 75 HP High-Efficiency Motor (S/N: ABB-2026-441)',
@@ -45,6 +54,14 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     warranty_months: 12,
     reason_notes: 'Motor winding burnout due to power fluctuation. Replaced with upgraded 75 HP ABB motor.'
   });
+
+  // Update component_name form state when defaultMotorComponent changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      component_name: defaultMotorComponent
+    }));
+  }, [defaultMotorComponent]);
 
   // Load from Central SQLite API and ensure plant-specific records exist
   useEffect(() => {
@@ -57,14 +74,14 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
         const hasDeviceRecords = allData.some(r => r.device_id === deviceId);
 
         if (!hasDeviceRecords && deviceId) {
-          // Add default seed records specifically tagged for this plant deviceId
+          // Add default seed records specifically tagged and named for this plant deviceId
           const deviceSeedRecords: ReplacementRecord[] = [
             {
               id: `rep_${deviceId}_1`,
               device_id: deviceId,
               replacement_date: '2026-08-20',
               category: 'Motor',
-              component_name: 'M1_60_HP (TANK_A)',
+              component_name: defaultMotorComponent,
               quantity: 1,
               old_part_details: 'Kirloskar 60 HP (S/N: KBL-8821)',
               new_part_details: 'ABB IE3 75 HP Motor (S/N: ABB-90412)',
@@ -81,7 +98,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               device_id: deviceId,
               replacement_date: '2026-07-15',
               category: 'Sensor / Transmitter',
-              component_name: 'Inlet Sump Ultrasonic Level Sensor',
+              component_name: `${deviceName} Ultrasonic Level Sensor`,
               quantity: 1,
               old_part_details: 'Siemens Probe LU (Faulty signal)',
               new_part_details: 'Endress+Hauser FMR20 Radar Sensor',
@@ -98,7 +115,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               device_id: deviceId,
               replacement_date: '2026-06-02',
               category: 'Valves & Piping',
-              component_name: 'Filter Feed Motorized Butterfly Valve 150mm',
+              component_name: `${deviceName} Motorized Butterfly Valve 150mm`,
               quantity: 2,
               old_part_details: 'Cast Iron Disc Valve (Corroded)',
               new_part_details: 'SS316 Pneumatic Butterfly Valve',
@@ -113,6 +130,19 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
           ];
           allData = [...deviceSeedRecords, ...allData];
           await saveCentralPlantReplacements(allData);
+        } else {
+          // Replace legacy generic seed component names with current plant motor/tank names
+          let modified = false;
+          allData = allData.map(r => {
+            if (r.device_id === deviceId && r.component_name === 'M1_60_HP (TANK_A)') {
+              modified = true;
+              return { ...r, component_name: defaultMotorComponent };
+            }
+            return r;
+          });
+          if (modified) {
+            await saveCentralPlantReplacements(allData);
+          }
         }
 
         setRecords(allData);
@@ -120,7 +150,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     };
 
     loadRecords();
-  }, [deviceId]);
+  }, [deviceId, deviceName, defaultMotorComponent]);
 
   // Handle Adding New Replacement Record for Current Plant
   const handleAddRecord = async () => {
@@ -149,7 +179,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     setFormData({
       replacement_date: new Date().toISOString().split('T')[0],
       category: 'Motor',
-      component_name: '',
+      component_name: defaultMotorComponent,
       quantity: 1,
       old_part_details: '',
       new_part_details: '',
@@ -559,7 +589,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Component Name & Location *</label>
                   <input
                     type="text"
-                    placeholder="e.g. M1_60_HP (TANK_A) or Inlet Level Sensor"
+                    placeholder={`e.g. ${defaultMotorComponent} or Level Sensor`}
                     value={formData.component_name}
                     onChange={e => setFormData({ ...formData, component_name: e.target.value })}
                     style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
@@ -594,7 +624,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                   <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Old Part Details (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Kirloskar 60 HP Motor (Burnt Stator)"
+                    placeholder="e.g. Kirloskar Motor (Burnt Stator)"
                     value={formData.old_part_details}
                     onChange={e => setFormData({ ...formData, old_part_details: e.target.value })}
                     style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
