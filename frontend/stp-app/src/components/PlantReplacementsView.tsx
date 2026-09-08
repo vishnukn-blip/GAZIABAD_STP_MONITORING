@@ -345,7 +345,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
         {/* Category Filters */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-            📜 Component Replacements & Expenditure Log ({filteredRecords.length})
+            Component Replacements & Expenditure Log ({filteredRecords.length})
           </h3>
 
           {/* Filter Pills */}
@@ -425,16 +425,16 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                       {/* Replaced Part Details */}
                       <td style={{ padding: '16px', maxWidth: '240px' }}>
                         <div style={{ fontSize: '12px', color: '#0F172A', fontWeight: 700 }}>
-                          ✨ New: {rec.new_part_details}
+                          New: {rec.new_part_details}
                         </div>
                         {rec.old_part_details && (
                           <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                            ♻️ Old: {rec.old_part_details}
+                            Old: {rec.old_part_details}
                           </div>
                         )}
                         {rec.reason_notes && (
                           <div style={{ fontSize: '11px', color: '#0284C7', marginTop: '4px', fontStyle: 'italic' }}>
-                            📝 {rec.reason_notes}
+                            Note: {rec.reason_notes}
                           </div>
                         )}
                       </td>
@@ -443,7 +443,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                       <td style={{ padding: '16px' }}>
                         <div style={{ fontWeight: 700, color: '#334155' }}>{rec.vendor_name}</div>
                         <div style={{ fontSize: '11px', color: '#0284C7', fontWeight: 700, marginTop: '2px' }}>
-                          📄 {rec.invoice_no || 'N/A'}
+                          Invoice: {rec.invoice_no || 'N/A'}
                         </div>
                       </td>
 
@@ -468,7 +468,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                           color: activeWarranty ? '#9333EA' : '#64748B',
                           border: `1px solid ${activeWarranty ? '#D8B4FE' : '#CBD5E1'}`
                         }}>
-                          {activeWarranty ? `🛡️ Active (${rec.warranty_months} Mo)` : 'Expired'}
+                          {activeWarranty ? `Active (${rec.warranty_months} Mo)` : 'Expired'}
                         </span>
                       </td>
 
@@ -574,12 +574,12 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                     onChange={e => setFormData({ ...formData, category: e.target.value as any })}
                     style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
                   >
-                    <option value="Motor">⚙️ Motor</option>
-                    <option value="Pump / Impeller">💧 Pump / Impeller</option>
-                    <option value="Sensor / Transmitter">📡 Sensor / Transmitter</option>
-                    <option value="Electrical & VFD">⚡ Electrical & VFD</option>
-                    <option value="Valves & Piping">🚰 Valves & Piping</option>
-                    <option value="Other Equipment">🛠️ Other Equipment</option>
+                    <option value="Motor">Motor</option>
+                    <option value="Pump / Impeller">Pump / Impeller</option>
+                    <option value="Sensor / Transmitter">Sensor / Transmitter</option>
+                    <option value="Electrical & VFD">Electrical & VFD</option>
+                    <option value="Valves & Piping">Valves & Piping</option>
+                    <option value="Other Equipment">Other Equipment</option>
                   </select>
                 </div>
               </div>
@@ -667,7 +667,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                 gap: '10px'
               }}>
                 <h5 style={{ fontSize: '12px', fontWeight: 800, color: '#059669', margin: 0, textTransform: 'uppercase' }}>
-                  💰 Financial Costing Breakdown (₹)
+                  Financial Costing Breakdown (₹)
                 </h5>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div>
