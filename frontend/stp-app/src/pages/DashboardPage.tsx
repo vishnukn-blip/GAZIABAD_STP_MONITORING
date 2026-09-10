@@ -692,6 +692,14 @@ const DashboardPage: React.FC = () => {
     };
 
     evaluateMaintenanceAlarms();
+
+    const handleServiceLogged = () => {
+      evaluateMaintenanceAlarms();
+    };
+    window.addEventListener('stp_service_logged', handleServiceLogged);
+    return () => {
+      window.removeEventListener('stp_service_logged', handleServiceLogged);
+    };
   }, [layout, selectedDeviceId, activeTab]);
 
   const handleLogout = () => { logout(); navigate('/'); };

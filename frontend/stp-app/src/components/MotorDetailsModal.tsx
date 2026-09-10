@@ -57,20 +57,26 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       try {
         const centralSpecsMap = await getCentralMotorSpecs();
         if (centralSpecsMap && centralSpecsMap[motorId]) {
-          setSpecs(centralSpecsMap[motorId]);
-          setIsUnderMaintenance(!!centralSpecsMap[motorId].under_maintenance);
+          const mSpec = centralSpecsMap[motorId];
+          setSpecs(mSpec);
+          setIsUnderMaintenance(!!mSpec.under_maintenance);
+          const curHours = mSpec.total_run_hours ?? mSpec.running_hours ?? 3550;
+          setNewLog(prev => ({ ...prev, running_hours: curHours.toString() }));
         } else {
           // Hardcoded fallback spec based on motor name
           const hpVal = motorId.includes('75') ? 75 : motorId.includes('40') ? 40 : motorId.includes('30') ? 30 : 60;
-          setSpecs({
+          const fallbackSpec = {
             hp: hpVal,
             kw: Math.round(hpVal * 0.746),
             rated_current: Math.round(hpVal * 1.3),
             rated_voltage: 415,
             manufacturer: 'Kirloskar Brothers / ABB',
             max_continuous_hours: 8,
-            recommended_service_hours: 500
-          });
+            recommended_service_hours: 500,
+            total_run_hours: 3550
+          };
+          setSpecs(fallbackSpec);
+          setNewLog(prev => ({ ...prev, running_hours: '3550' }));
         }
       } catch {}
 
@@ -133,12 +139,18 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
     const lCost = parseFloat(newLog.labor_cost) || 0;
     const tCost = pCost + lCost;
 
+    const currentTotalRunHours = specs.total_run_hours ?? specs.running_hours ?? 3550;
+    let serviceRunHours = parseInt(newLog.running_hours);
+    if (isNaN(serviceRunHours) || serviceRunHours <= 0) {
+      serviceRunHours = currentTotalRunHours;
+    }
+
     const logEntry = {
       id: Date.now().toString(),
       service_date: newLog.service_date,
       service_type: newLog.service_type,
       technician: newLog.technician,
-      running_hours: newLog.running_hours,
+      running_hours: serviceRunHours.toString(),
       part_cost: pCost,
       labor_cost: lCost,
       total_cost: tCost,
@@ -182,8 +194,6 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       setIsUnderMaintenance(false);
       const centralSpecs = (await getCentralMotorSpecs()) || {};
       const currentMotorSpec = centralSpecs[motorId] || specs;
-      const currentTotalRunHours = currentMotorSpec.total_run_hours ?? currentMotorSpec.running_hours ?? 2050;
-      const serviceRunHours = parseInt(newLog.running_hours) || currentTotalRunHours;
       
       const isOverhaulType = 
         newLog.service_type?.toLowerCase().includes('overhaul') || 
@@ -206,13 +216,14 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       await saveCentralMotorSpecs(centralSpecs);
     } catch {}
 
+    window.dispatchEvent(new CustomEvent('stp_service_logged'));
     setShowLogForm(false);
     if (onLogSaved) onLogSaved();
     setNewLog({
       service_date: new Date().toISOString().split('T')[0],
       service_type: 'Bearing Greasing',
       technician: 'WABAG Service Team',
-      running_hours: '1500',
+      running_hours: (specs.total_run_hours || 3550).toString(),
       part_cost: '1500',
       labor_cost: '1000',
       notes: '',
