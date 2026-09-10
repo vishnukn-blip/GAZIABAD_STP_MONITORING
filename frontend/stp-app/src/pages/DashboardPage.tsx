@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign } from 'lucide-react';
+import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
@@ -11,6 +11,7 @@ import { ElectricalParameters } from '../components/ElectricalParameters';
 import { MotorDetailsModal } from '../components/MotorDetailsModal';
 import { MotorMaintenanceView } from '../components/MotorMaintenanceView';
 import { PlantReplacementsView } from '../components/PlantReplacementsView';
+import { OverallPlantMap } from '../components/OverallPlantMap';
 
 const POLL_INTERVAL = 5000;
 
@@ -461,7 +462,7 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('telemetry');
+  const [activeTab, setActiveTab] = useState<'telemetry' | 'map' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('telemetry');
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
   const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number }>>({});
   
@@ -939,6 +940,28 @@ const DashboardPage: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('map')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 22px',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'map' ? '#0284C7' : '#F1F5F9',
+            color: activeTab === 'map' ? '#FFFFFF' : '#64748B',
+            boxShadow: activeTab === 'map' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <MapPin size={18} />
+          Overall Plant Map
+        </button>
+
+        <button
           onClick={() => setActiveTab('camera')}
           style={{
             display: 'flex',
@@ -1041,7 +1064,16 @@ const DashboardPage: React.FC = () => {
 
         {!loading && layout && (
           <>
-            {activeTab === 'camera' ? (
+            {activeTab === 'map' ? (
+              <OverallPlantMap
+                userDevices={userDevices}
+                deviceStatusMap={deviceStatusMap}
+                onSelectDevice={(devId) => {
+                  setSelectedDeviceId(devId);
+                  setActiveTab('telemetry');
+                }}
+              />
+            ) : activeTab === 'camera' ? (
               <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} />
             ) : activeTab === 'electrical' ? (
               <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
