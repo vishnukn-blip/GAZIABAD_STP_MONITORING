@@ -935,16 +935,21 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                         if kw_list:
                             avg_24h_kw = sum(kw_list) / len(kw_list)
 
-                    # Fallback to Month-to-Date (MTD) daily rate if 24h delta is 0 or unrealistic
+                    # Fallback to Month-to-Date (MTD) daily rate or realistic power load estimate if 24h delta is 0 or unrealistic
                     if kwh_24h_delta == 0:
                         if curr_kwh_val > start_kwh and start_kwh > 0:
                             net_mtd = curr_kwh_val - start_kwh
                             days_elapsed = max(1, now_dt.day)
                             daily_est = net_mtd / days_elapsed
-                            kwh_24h_delta = min(daily_est, max_physical_daily_kwh)
-                        elif curr_kwh_val > 0:
-                            daily_est = curr_kwh_val / 30.0
-                            kwh_24h_delta = min(daily_est, max_physical_daily_kwh)
+                            if daily_est <= max_physical_daily_kwh:
+                                kwh_24h_delta = daily_est
+                        
+                        if kwh_24h_delta == 0:
+                            # Estimate daily consumption based on active power load (kw_val * avg 5.5h run limit per day)
+                            if kw_val > 0:
+                                kwh_24h_delta = min(kw_val * 5.5, max_physical_daily_kwh)
+                            else:
+                                kwh_24h_delta = 10.0
 
                 except Exception as err:
                     print(f"Error fetching telemetry metrics: {err}")

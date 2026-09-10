@@ -193,14 +193,16 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const maxPhysicalDailyKwh = kwLoad > 0 ? (kwLoad * 24.0) : 50.0;
     const valid24hDelta = (raw24hDelta > 0 && raw24hDelta <= maxPhysicalDailyKwh) ? raw24hDelta : 0;
 
-    // Pure kWh Energy Calculation
+    // Pure kWh Energy Calculation (24h Actual Delta = kwh_now - kwh_24h_ago)
     let dailyKwh = 0;
     if (valid24hDelta > 0) {
       dailyKwh = valid24hDelta;
-    } else if (mtdKwh > 0) {
+    } else if (mtdKwh > 0 && (mtdKwh / daysElapsed) <= maxPhysicalDailyKwh) {
       dailyKwh = mtdKwh / daysElapsed;
-    } else if (actualKwh > 0) {
-      dailyKwh = actualKwh / 30.0;
+    } else if (kwLoad > 0) {
+      dailyKwh = Math.min(kwLoad * 5.5, maxPhysicalDailyKwh);
+    } else {
+      dailyKwh = 10.0;
     }
     dailyKwh = Math.min(dailyKwh, maxPhysicalDailyKwh);
 
