@@ -216,7 +216,8 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
       const initialMap = L.map(containerRef.current, {
         center: [28.6600, 77.3900],
         zoom: 12,
-        zoomControl: false
+        zoomControl: false,
+        scrollWheelZoom: false
       });
 
       L.control.zoom({ position: 'topleft' }).addTo(initialMap);
@@ -673,7 +674,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
           ref={containerRef}
           style={{
             width: '100%',
-            height: '560px',
+            height: '420px',
             background: '#F1F5F9',
             position: 'relative'
           }}

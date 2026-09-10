@@ -139,6 +139,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
       center: [finalLat, finalLng],
       zoom: 13,
       zoomControl: true,
+      scrollWheelZoom: false,
       attributionControl: true
     });
 
