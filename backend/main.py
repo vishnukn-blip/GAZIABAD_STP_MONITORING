@@ -945,9 +945,9 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Que
                                 kwh_24h_delta = daily_est
                         
                         if kwh_24h_delta == 0:
-                            # Estimate daily consumption based on active power load (kw_val * avg 5.5h run limit per day)
+                            # Estimate daily consumption based on active power load (kw_val * avg 2.5h actual motor duty per day)
                             if kw_val > 0:
-                                kwh_24h_delta = min(kw_val * 5.5, max_physical_daily_kwh)
+                                kwh_24h_delta = min(kw_val * 2.5, max_physical_daily_kwh)
                             else:
                                 kwh_24h_delta = 10.0
 

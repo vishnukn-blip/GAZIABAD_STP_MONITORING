@@ -200,7 +200,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     } else if (mtdKwh > 0 && (mtdKwh / daysElapsed) <= maxPhysicalDailyKwh) {
       dailyKwh = mtdKwh / daysElapsed;
     } else if (kwLoad > 0) {
-      dailyKwh = Math.min(kwLoad * 5.5, maxPhysicalDailyKwh);
+      dailyKwh = Math.min(kwLoad * 2.5, maxPhysicalDailyKwh);
     } else {
       dailyKwh = 10.0;
     }
