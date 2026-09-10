@@ -178,16 +178,28 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
         await saveCentralPlantReplacements([newReplRecord, ...replacements]);
       }
 
-      // Clear under_maintenance status and sync total_run_hours with logged service hours so alarm clears
+      // Clear under_maintenance status and update service run hour markers according to service type
       setIsUnderMaintenance(false);
       const centralSpecs = (await getCentralMotorSpecs()) || {};
       const currentMotorSpec = centralSpecs[motorId] || specs;
-      const serviceRunHours = parseInt(newLog.running_hours) || currentMotorSpec.total_run_hours || 2050;
+      const currentTotalRunHours = currentMotorSpec.total_run_hours ?? currentMotorSpec.running_hours ?? 2050;
+      const serviceRunHours = parseInt(newLog.running_hours) || currentTotalRunHours;
       
+      const isOverhaulType = 
+        newLog.service_type?.toLowerCase().includes('overhaul') || 
+        newLog.service_type?.toLowerCase().includes('rewind');
+
+      const isGreaseType = 
+        newLog.service_type?.toLowerCase().includes('greasing') || 
+        newLog.service_type?.toLowerCase().includes('bearing') ||
+        isOverhaulType;
+
       const updatedSpec = {
         ...currentMotorSpec,
         under_maintenance: false,
-        total_run_hours: serviceRunHours
+        total_run_hours: Math.max(currentTotalRunHours, serviceRunHours),
+        last_grease_hours: isGreaseType ? serviceRunHours : (currentMotorSpec.last_grease_hours || 0),
+        last_overhaul_hours: isOverhaulType ? serviceRunHours : (currentMotorSpec.last_overhaul_hours || 0)
       };
       setSpecs(updatedSpec);
       centralSpecs[motorId] = updatedSpec;
@@ -628,13 +640,13 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
 
                     <button
                       onClick={async () => {
-                        const lastGreaseLog = serviceLogs.find((l: any) => 
-                          l.service_type?.toLowerCase().includes('greasing') || 
-                          l.service_type?.toLowerCase().includes('bearing')
-                        );
-                        const lastHrs = lastGreaseLog ? (parseInt(lastGreaseLog.running_hours) || 0) : 0;
-
-                        const updated = { ...specs, total_run_hours: lastHrs };
+                        const curHours = specs.total_run_hours ?? specs.running_hours ?? 2050;
+                        const updated = {
+                          ...specs,
+                          under_maintenance: false,
+                          last_grease_hours: curHours,
+                          last_overhaul_hours: curHours
+                        };
                         setSpecs(updated);
                         try {
                           const centralSpecs = (await getCentralMotorSpecs()) || {};

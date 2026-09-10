@@ -312,8 +312,13 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                 );
 
                 // Operating hours recorded at last service (0 if never serviced)
-                const lastGreaseHours = lastGreaseLog ? (parseInt(lastGreaseLog.running_hours) || 0) : 0;
-                const lastOverhaulHours = lastOverhaulLog ? (parseInt(lastOverhaulLog.running_hours) || 0) : 0;
+                const lastGreaseHours = lastGreaseLog 
+                  ? (parseInt(lastGreaseLog.running_hours) || 0) 
+                  : (motorSpec.last_grease_hours || 0);
+
+                const lastOverhaulHours = lastOverhaulLog 
+                  ? (parseInt(lastOverhaulLog.running_hours) || 0) 
+                  : (motorSpec.last_overhaul_hours || 0);
 
                 // Hours elapsed since last service
                 const hoursSinceGrease = Math.max(0, currentMotorRunHours - lastGreaseHours);
@@ -472,13 +477,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
 
                     {/* Grease / Bearing Check Countdown (2,000 Hours / 3 Months) */}
                     <td style={{ padding: '16px' }}>
-                      {overhaulOverdue ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '4px 10px', borderRadius: '6px' }}>
-                            Included in Overhaul
-                          </span>
-                        </div>
-                      ) : greaseOverdue ? (
+                      {greaseOverdue ? (
                         <div style={{
                           background: '#FEF3C7',
                           border: '1px solid #F59E0B',

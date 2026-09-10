@@ -667,15 +667,21 @@ const DashboardPage: React.FC = () => {
               l.service_type?.toLowerCase().includes('overhaul')
             );
 
-            const lastGreaseHours = lastGreaseLog ? (parseInt(lastGreaseLog.running_hours) || 0) : 0;
-            const lastOverhaulHours = lastOverhaulLog ? (parseInt(lastOverhaulLog.running_hours) || 0) : 0;
+            const lastGreaseHours = lastGreaseLog 
+              ? (parseInt(lastGreaseLog.running_hours) || 0) 
+              : (motorSpec.last_grease_hours || 0);
+
+            const lastOverhaulHours = lastOverhaulLog 
+              ? (parseInt(lastOverhaulLog.running_hours) || 0) 
+              : (motorSpec.last_overhaul_hours || 0);
 
             const hoursSinceGrease = Math.max(0, currentHours - lastGreaseHours);
             const hoursSinceOverhaul = Math.max(0, currentHours - lastOverhaulHours);
 
             if (hoursSinceOverhaul >= 5000) {
               overhaulAlarms.push({ motorName: motorDisplayName, tankName, hours: currentHours });
-            } else if (hoursSinceGrease >= 2000) {
+            }
+            if (hoursSinceGrease >= 2000) {
               greaseNotifs.push({ motorName: motorDisplayName, tankName, hours: currentHours });
             }
           });
