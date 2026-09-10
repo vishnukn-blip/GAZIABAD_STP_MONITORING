@@ -417,7 +417,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               Total Location Devices
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              Mapped: <strong style={{ color: '#0F172A' }}>{totalDevicesCount}</strong> | Unmapped: <strong style={{ color: '#64748B' }}>0</strong>
+              Registered STP Plants
             </div>
           </div>
         </div>
@@ -452,7 +452,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               Online & Active
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              Mapped: <strong style={{ color: '#059669' }}>{onlineCount}</strong> | Unmapped: <strong style={{ color: '#64748B' }}>0</strong>
+              Pumps Running Normal
             </div>
           </div>
         </div>
@@ -487,7 +487,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               Offline / Standby
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              Mapped: <strong style={{ color: '#334155' }}>{offlineCount}</strong> | Unmapped: <strong style={{ color: '#64748B' }}>0</strong>
+              Plants Idle on Standby
             </div>
           </div>
         </div>
@@ -522,7 +522,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               Faults & Trips
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              Mapped: <strong style={{ color: '#DC2626' }}>{faultCount}</strong> | Unmapped: <strong style={{ color: '#64748B' }}>0</strong>
+              Tripped Motor Alarms
             </div>
           </div>
         </div>
