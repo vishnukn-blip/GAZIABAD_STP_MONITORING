@@ -17,13 +17,16 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   layout
 }) => {
   const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
+    // Modbus Slave ID 1 is PLC main controller. Motors start from Slave ID 2 (M1), Slave ID 3 (M2), Slave ID 4 (M3), etc.
+    const meterNum = parseInt(mId, 10);
+    const targetMotorIndex = !isNaN(meterNum) && meterNum >= 2 ? (meterNum - 2) : 0;
+
     if (layout?.tanks) {
-      const idx = parseInt(mId, 10) - 1;
       let counter = 0;
       for (const tank of layout.tanks) {
         if (tank.motors && tank.motors.length > 0) {
           for (const m of tank.motors) {
-            if (m.meter_id === mId || counter === idx) {
+            if (m.meter_id === mId || counter === targetMotorIndex) {
               const name = m.name || m.motor_name || m.label;
               if (name) return name;
             }
@@ -37,12 +40,13 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     }
     const defaultNames: Record<string, string> = {
       '1': 'M1_60_HP',
-      '2': 'M2_75_HP',
-      '3': 'M3_60_HP',
-      '4': 'M4_40_HP',
-      '5': 'M5_30_HP'
+      '2': 'M1_60_HP',
+      '3': 'M2_75_HP',
+      '4': 'M3_60_HP',
+      '5': 'M4_40_HP',
+      '6': 'M5_30_HP'
     };
-    return defaultNames[mId] || `Motor ${mId}`;
+    return defaultNames[mId] || `M${targetMotorIndex + 1}`;
   };
 
   const [telemetry, setTelemetry] = useState<any>({
