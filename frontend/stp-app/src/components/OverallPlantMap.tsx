@@ -2,9 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  MapPin, Layers, RefreshCw, Search, Maximize2,
-  Activity, CheckCircle2, AlertTriangle, Radio, Navigation,
-  Droplets, Zap, ShieldAlert, Cpu
+  MapPin, RefreshCw, Search, Maximize2,
+  CheckCircle2, AlertTriangle, Radio, Cpu
 } from 'lucide-react';
 
 interface OverallPlantMapProps {
