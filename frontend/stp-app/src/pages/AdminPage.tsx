@@ -41,10 +41,10 @@ export const DEFAULT_LOCAL_DEVICES = [
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
-  { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-  { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-  { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-  { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, display_order: 1 }
+  { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, depth_meters: 10.2, display_order: 1 },
+  { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, depth_meters: 11.74, display_order: 1 },
+  { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 },
+  { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 }
 ];
 
 export const DEFAULT_LOCAL_MOTORS = [
@@ -224,7 +224,7 @@ const AdminPage: React.FC = () => {
 
   const [tanks, setTanks] = useState<any[]>([]);
   const [tankForm, setTankForm] = useState({
-    tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, display_order: 1
+    tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1
   });
   const [editingTank, setEditingTank] = useState<any | null>(null);
   const [confirmTank, setConfirmTank] = useState<any | null>(null);
@@ -232,7 +232,7 @@ const AdminPage: React.FC = () => {
   const fetchTanks = async () => {
     try {
       const data = await frappeGetList('STP Tank',
-        ['name', 'tank_name', 'device', 'variant', 'capacity_liters', 'display_order']);
+        ['name', 'tank_name', 'device', 'variant', 'capacity_liters', 'depth_meters', 'display_order']);
       if (data && data.length > 0) {
         setTanks(data);
         return;
@@ -289,7 +289,7 @@ const AdminPage: React.FC = () => {
     localStorage.setItem('stp_local_tanks', JSON.stringify(updatedList));
     saveCentralTanks(updatedList);
     setTanks(updatedList);
-    setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, display_order: 1 });
+    setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 });
     setEditingTank(null);
   };
 
@@ -637,22 +637,27 @@ const AdminPage: React.FC = () => {
                 <div className="form-group">
                   <label>Capacity (Liters)</label>
                   <input type="number" className="form-input" value={tankForm.capacity_liters}
-                    onChange={e => setTankForm({ ...tankForm, capacity_liters: parseInt(e.target.value) })} />
+                    onChange={e => setTankForm({ ...tankForm, capacity_liters: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div className="form-group">
+                  <label>Tank Depth (Meters)</label>
+                  <input type="number" step="0.01" className="form-input" placeholder="e.g. 11.74" value={tankForm.depth_meters}
+                    onChange={e => setTankForm({ ...tankForm, depth_meters: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
                   <label>Display Order</label>
                   <input type="number" className="form-input" min="1" value={tankForm.display_order}
-                    onChange={e => setTankForm({ ...tankForm, display_order: parseInt(e.target.value) })} />
+                    onChange={e => setTankForm({ ...tankForm, display_order: parseInt(e.target.value) || 1 })} />
                 </div>
               </div>
               <div className="form-actions">
                 <button className="btn-primary" onClick={saveTank}><Save size={14} /> {editingTank ? 'Update' : 'Add to Frappe'}</button>
-                {editingTank && <button className="btn-secondary" onClick={() => { setEditingTank(null); setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 10000, display_order: 1 }); }}><X size={14} /> Cancel</button>}
+                {editingTank && <button className="btn-secondary" onClick={() => { setEditingTank(null); setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 }); }}><X size={14} /> Cancel</button>}
               </div>
             </div>
             <div className="admin-table-card">
               <table className="admin-table">
-                <thead><tr><th>Doc Name</th><th>Tank Name</th><th>Device</th><th>Variant</th><th>Capacity</th><th>Order</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Doc Name</th><th>Tank Name</th><th>Device</th><th>Variant</th><th>Capacity</th><th>Depth (m)</th><th>Order</th><th>Actions</th></tr></thead>
                 <tbody>
                   {tanks.map(t => (
                     <tr key={t.name}>
@@ -661,9 +666,10 @@ const AdminPage: React.FC = () => {
                       <td>{t.device}</td>
                       <td><span className={`variant-badge ${t.variant}`}>{t.variant}</span></td>
                       <td>{t.capacity_liters?.toLocaleString()} L</td>
+                      <td><strong style={{ color: '#0284C7' }}>{t.depth_meters ?? (t.name === 'TANK_A' ? 10.2 : t.name === 'TANK_B' ? 11.74 : 10.0)} m</strong></td>
                       <td>{t.display_order}</td>
                       <td className="actions">
-                        <button className="icon-btn" onClick={() => { setEditingTank(t); setTankForm({ tank_name: t.tank_name, device: t.device, variant: t.variant, capacity_liters: t.capacity_liters, display_order: t.display_order }); }}><Edit2 size={14} /></button>
+                        <button className="icon-btn" onClick={() => { setEditingTank(t); setTankForm({ tank_name: t.tank_name, device: t.device, variant: t.variant, capacity_liters: t.capacity_liters, depth_meters: t.depth_meters ?? 10.0, display_order: t.display_order }); }}><Edit2 size={14} /></button>
                         <button className="icon-btn danger" onClick={() => setConfirmTank(t)}><Trash2 size={14} /></button>
                       </td>
                     </tr>

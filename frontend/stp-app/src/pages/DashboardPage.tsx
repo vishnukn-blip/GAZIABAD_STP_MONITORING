@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -27,6 +27,10 @@ interface TankCardProps {
 const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSelectMotor }) => {
   const level = telemetry?.water_level_percent ?? 0;
   const capacity = tankLayout.capacity_liters || 8000000;
+  const totalDepthMeters = (tankLayout as any).depth_meters || 
+    (tankLayout.name === 'TANK_A' || (tankLayout as any).tank_name === 'TANK_A' ? 10.2 : 
+     tankLayout.name === 'TANK_B' || (tankLayout as any).tank_name === 'TANK_B' ? 11.74 : 10.0);
+  const currentDepthMeters = ((level / 100) * totalDepthMeters).toFixed(2);
   const volume = Math.round((level / 100) * capacity);
   const tankDisplayName = tankLayout.name || (tankLayout as any).tank_name || telemetry?.tank_name || `Tank ${index + 1}`;
   const fillHeight = Math.max(0, Math.min(100, level));
@@ -35,26 +39,31 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
     <div style={{
       background: '#FFFFFF',
       border: '1px solid #CBD5E1',
-      borderRadius: '16px',
-      padding: '24px',
+      borderRadius: '20px',
+      padding: '20px 24px',
       boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       gap: '16px',
       flex: 1,
-      minWidth: '280px',
-      maxWidth: '420px'
+      minWidth: '320px',
+      maxWidth: '440px'
     }}>
       {/* Tank Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ background: '#F0F9FF', padding: '6px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
-            <Droplets size={18} color="#0284C7" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: '#F0F9FF', padding: '8px', borderRadius: '10px', border: '1px solid #BAE6FD' }}>
+            <Droplets size={20} color="#0284C7" />
           </div>
-          <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-            {tankDisplayName}
-          </h4>
+          <div>
+            <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.2px' }}>
+              {tankDisplayName}
+            </h4>
+            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
+              Capacity: {capacity.toLocaleString()} L
+            </div>
+          </div>
         </div>
 
         <span style={{
@@ -80,83 +89,165 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
         </span>
       </div>
 
-      {/* Simple Water Tank Container */}
-      <div style={{
-        position: 'relative',
-        width: '100%',
-        maxWidth: '220px',
-        height: '270px',
-        border: '3px solid #94A3B8',
-        borderRadius: '24px 24px 16px 16px',
-        background: '#F8FAFC',
-        overflow: 'hidden',
-        boxShadow: 'inset 0 2px 10px rgba(15, 23, 42, 0.06)'
-      }}>
-        {/* Scale Ticks */}
+      {/* Main SCADA Tank & Meter Visual Row */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', width: '100%', justifyContent: 'center' }}>
+        
+        {/* Left Side: Physical Depth Meter Gauge Column */}
         <div style={{
-          position: 'absolute',
-          right: '8px',
-          top: '12px',
-          bottom: '12px',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '10px',
-          color: '#64748B',
-          fontWeight: 700,
-          zIndex: 3
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '16px',
+          padding: '12px 10px',
+          width: '90px',
+          boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.03)'
         }}>
-          <span>100%</span>
-          <span>75%</span>
-          <span>50%</span>
-          <span>25%</span>
-          <span>0%</span>
+          <div style={{ fontSize: '10px', fontWeight: 800, color: '#0284C7', textAlign: 'center', letterSpacing: '0.3px' }}>
+            DEPTH METER
+          </div>
+          
+          <div style={{
+            position: 'relative',
+            width: '18px',
+            height: '150px',
+            background: '#E2E8F0',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            margin: '8px 0',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.12)'
+          }}>
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: `${fillHeight}%`,
+              background: 'linear-gradient(180deg, #10B981 0%, #059669 100%)',
+              transition: 'height 0.8s ease-in-out',
+              borderRadius: '0 0 10px 10px'
+            }} />
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '14px', fontWeight: 900, color: '#059669', lineHeight: 1 }}>
+              {currentDepthMeters}m
+            </div>
+            <div style={{ fontSize: '9px', fontWeight: 700, color: '#64748B', marginTop: '3px' }}>
+              Max: {totalDepthMeters}m
+            </div>
+          </div>
         </div>
 
-        {/* Dynamic Water Liquid Fill */}
+        {/* Center: Cylindrical Water Tank */}
         <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: `${fillHeight}%`,
-          background: 'linear-gradient(180deg, #38BDF8 0%, #0284C7 100%)',
-          transition: 'height 0.8s ease-in-out',
-          zIndex: 1
+          position: 'relative',
+          flex: 1,
+          maxWidth: '220px',
+          height: '240px',
+          border: '3px solid #94A3B8',
+          borderRadius: '24px 24px 16px 16px',
+          background: '#F1F5F9',
+          overflow: 'hidden',
+          boxShadow: 'inset 0 2px 10px rgba(15, 23, 42, 0.08)'
         }}>
-          {/* Surface reflection */}
+          {/* Scale Ticks (Right Side of Tank) */}
           <div style={{
             position: 'absolute',
-            top: 0,
+            right: '8px',
+            top: '12px',
+            bottom: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            fontSize: '9px',
+            color: '#475569',
+            fontWeight: 800,
+            zIndex: 3,
+            textShadow: '0 1px 2px rgba(255,255,255,0.8)'
+          }}>
+            <span>100%</span>
+            <span>75%</span>
+            <span>50%</span>
+            <span>25%</span>
+            <span>0%</span>
+          </div>
+
+          {/* Dynamic Water Liquid Fill */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
             left: 0,
             right: 0,
-            height: '6px',
-            background: 'rgba(255, 255, 255, 0.6)',
-            boxShadow: '0 1px 4px rgba(255, 255, 255, 0.8)'
-          }} />
+            height: `${fillHeight}%`,
+            background: 'linear-gradient(180deg, #38BDF8 0%, #0284C7 100%)',
+            transition: 'height 0.8s ease-in-out',
+            zIndex: 1
+          }}>
+            {/* Surface wave reflection */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '6px',
+              background: 'rgba(255, 255, 255, 0.7)',
+              boxShadow: '0 1px 4px rgba(255, 255, 255, 0.9)'
+            }} />
+          </div>
+
+          {/* Unobstructed Center Percentage Indicator */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 4,
+            textAlign: 'center',
+            pointerEvents: 'none'
+          }}>
+            <span style={{
+              fontSize: '36px',
+              fontWeight: 900,
+              color: fillHeight > 50 ? '#FFFFFF' : '#0284C7',
+              textShadow: fillHeight > 50 
+                ? '0 2px 8px rgba(0, 0, 0, 0.55)' 
+                : '0 1px 4px rgba(255, 255, 255, 0.9)',
+              letterSpacing: '-1px'
+            }}>
+              {level}%
+            </span>
+          </div>
         </div>
 
-        {/* Center Digital Percentage Overlay */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          borderRadius: '12px',
-          padding: '10px 16px',
-          textAlign: 'center',
-          color: '#FFFFFF',
-          zIndex: 4,
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
-        }}>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: '#38BDF8', letterSpacing: '-0.5px' }}>
-            {level}%
+      </div>
+
+      {/* Clean Telemetry Metrics Banner (Below Tank) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        width: '100%',
+        background: '#F8FAFC',
+        border: '1px solid #E2E8F0',
+        borderRadius: '12px',
+        padding: '10px 12px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>WATER DEPTH</div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#059669', marginTop: '2px' }}>
+            {currentDepthMeters}m / {totalDepthMeters}m
           </div>
-          <div style={{ fontSize: '11px', color: '#CBD5E1', fontWeight: 600, marginTop: '2px', whiteSpace: 'nowrap' }}>
-            {volume.toLocaleString()} / {capacity.toLocaleString()} L
+        </div>
+
+        <div style={{ width: '1px', height: '24px', background: '#CBD5E1' }} />
+
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>CURRENT VOLUME</div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0284C7', marginTop: '2px' }}>
+            {volume.toLocaleString()} L
           </div>
         </div>
       </div>
@@ -244,10 +335,10 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   };
 
   const defaultTanks = [
-    { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-    { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, display_order: 1 },
-    { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, display_order: 1 }
+    { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, depth_meters: 10.2, display_order: 1 },
+    { name: 'TANK_B', tank_name: 'TANK_B', device: '350435032680674', variant: 'main', capacity_liters: 8000000, depth_meters: 11.74, display_order: 1 },
+    { name: 'TANK_C', tank_name: 'TANK_C', device: '350435032689659', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 },
+    { name: 'TANK_D', tank_name: 'TANK_D', device: '350435032681912', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 }
   ];
   const localTanksStr = localStorage.getItem('stp_local_tanks');
   let allTanks = defaultTanks;
@@ -372,6 +463,32 @@ const DashboardPage: React.FC = () => {
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('telemetry');
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number }>>({});
+  
+  const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
+    greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
+    overhaulAlarms: Array<{ motorName: string; tankName: string; hours: number }>;
+  }>({ greaseNotifs: [], overhaulAlarms: [] });
+  const [dismissedAlarms, setDismissedAlarms] = useState<boolean>(false);
+  const [dismissedGreaseAlarms, setDismissedGreaseAlarms] = useState<boolean>(false);
+
+  const fetchAllDevicesTelemetry = async (devices: any[]) => {
+    if (!devices || devices.length === 0) return;
+    const statusMap: Record<string, { activeMotors: number; trippedMotors: number }> = {};
+    await Promise.all(
+      devices.map(async (d) => {
+        try {
+          const { data } = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } });
+          if (data && data.tanks) {
+            const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
+            const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
+            statusMap[d.device_id] = { activeMotors: act, trippedMotors: trip };
+          }
+        } catch {}
+      })
+    );
+    setDeviceStatusMap(prev => ({ ...prev, ...statusMap }));
+  };
 
   const loadUserDevices = async () => {
     const defaultDevs = [
@@ -458,6 +575,15 @@ const DashboardPage: React.FC = () => {
 
       setTelemetry(data);
 
+      if (data?.tanks) {
+        const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
+        const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
+        setDeviceStatusMap(prev => ({
+          ...prev,
+          [devId]: { activeMotors: act, trippedMotors: trip }
+        }));
+      }
+
       if (data?.history && Array.isArray(data.history) && data.history.length > 0) {
         setAccumulatedHistory(data.history);
       }
@@ -473,6 +599,12 @@ const DashboardPage: React.FC = () => {
     setSelectedDeviceId(newDevId);
     selectedDeviceIdRef.current = newDevId;
     setAccumulatedHistory([]);
+
+    // ⚡ Instant synchronous layout switch (0ms delay)
+    const dynamicLayout = buildDeviceLayoutFromLocal(newDevId);
+    setLayout(dynamicLayout);
+
+    // Asynchronous background synchronization
     fetchLayoutForDevice(newDevId);
     fetchTelemetryForDevice(newDevId);
   };
@@ -486,16 +618,74 @@ const DashboardPage: React.FC = () => {
 
       await fetchLayoutForDevice(initialDevId);
       await fetchTelemetryForDevice(initialDevId);
+      fetchAllDevicesTelemetry(devs);
       setLoading(false);
     };
     init();
 
     timerRef.current = window.setInterval(() => {
       fetchTelemetryForDevice(selectedDeviceIdRef.current);
+      if (userDevices.length > 0) {
+        fetchAllDevicesTelemetry(userDevices);
+      }
     }, POLL_INTERVAL);
 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
+
+  useEffect(() => {
+    const evaluateMaintenanceAlarms = async () => {
+      if (!layout?.tanks) return;
+      try {
+        const [specsMap, logsMap] = await Promise.all([
+          getCentralMotorSpecs(),
+          getCentralServiceLogs()
+        ]);
+
+        const greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }> = [];
+        const overhaulAlarms: Array<{ motorName: string; tankName: string; hours: number }> = [];
+
+        layout.tanks.forEach((tank) => {
+          const tankName = tank.name || (tank as any).tank_name || 'Tank';
+          tank.motors.forEach((m) => {
+            const motorDisplayName = m.name || (m as any).motor_name || 'Motor';
+            const motorId = m.name || motorDisplayName;
+            const defaultHours = 500;
+            const motorSpec = specsMap?.[motorId] || { total_run_hours: defaultHours };
+            const currentHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultHours;
+
+            const logs = logsMap?.[motorId] || [];
+            const lastGreaseLog = logs.find((l: any) => 
+              l.service_type?.toLowerCase().includes('greasing') || 
+              l.service_type?.toLowerCase().includes('bearing') ||
+              l.service_type?.toLowerCase().includes('rewind') ||
+              l.service_type?.toLowerCase().includes('overhaul')
+            );
+            const lastOverhaulLog = logs.find((l: any) => 
+              l.service_type?.toLowerCase().includes('rewind') || 
+              l.service_type?.toLowerCase().includes('overhaul')
+            );
+
+            const lastGreaseHours = lastGreaseLog ? (parseInt(lastGreaseLog.running_hours) || 0) : 0;
+            const lastOverhaulHours = lastOverhaulLog ? (parseInt(lastOverhaulLog.running_hours) || 0) : 0;
+
+            const hoursSinceGrease = Math.max(0, currentHours - lastGreaseHours);
+            const hoursSinceOverhaul = Math.max(0, currentHours - lastOverhaulHours);
+
+            if (hoursSinceOverhaul >= 5000) {
+              overhaulAlarms.push({ motorName: motorDisplayName, tankName, hours: currentHours });
+            } else if (hoursSinceGrease >= 2000) {
+              greaseNotifs.push({ motorName: motorDisplayName, tankName, hours: currentHours });
+            }
+          });
+        });
+
+        setMaintenanceAlerts({ greaseNotifs, overhaulAlarms });
+      } catch {}
+    };
+
+    evaluateMaintenanceAlarms();
+  }, [layout, selectedDeviceId, activeTab]);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -589,6 +779,133 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 🚨 5,000 RUN HOURS CRITICAL OVERHAUL ALARM BANNER */}
+      {maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
+        <div style={{
+          background: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
+          color: '#FFFFFF',
+          padding: '14px 20px',
+          borderRadius: '14px',
+          margin: '16px 0 8px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 6px 24px rgba(220, 38, 38, 0.4)',
+          border: '2px solid #EF4444'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ background: '#FFFFFF', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertTriangle size={24} color="#DC2626" />
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🚨 CRITICAL MAINTENANCE ALARM: 5,000 RUN HOURS REACHED!</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#FEE2E2', marginTop: '3px', fontWeight: 600 }}>
+                {maintenanceAlerts.overhaulAlarms.map(a => `${a.motorName} in ${a.tankName} (${a.hours.toLocaleString()}h)`).join(' · ')} — Full Overhaul Service Required Immediately!
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => setActiveTab('maintenance')}
+              style={{
+                background: '#FFFFFF',
+                color: '#991B1B',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+              }}
+            >
+              🛠️ Open Maintenance
+            </button>
+            <button
+              onClick={() => setDismissedAlarms(true)}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.4)',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ 2,000 RUN HOURS GREASE & BEARING CHECK POPUP NOTIFICATION BANNER */}
+      {maintenanceAlerts.greaseNotifs.length > 0 && !dismissedGreaseAlarms && (
+        <div style={{
+          background: 'linear-gradient(90deg, #78350F 0%, #D97706 50%, #78350F 100%)',
+          color: '#FFFFFF',
+          padding: '12px 18px',
+          borderRadius: '12px',
+          margin: '16px 0 8px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
+          border: '1px solid #F59E0B'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: '#FFFFFF', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={20} color="#D97706" />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800 }}>
+                ⚠️ PREVENTIVE MAINTENANCE POPUP: 2,000 RUN HOURS REACHED!
+              </div>
+              <div style={{ fontSize: '12px', color: '#FEF3C7', marginTop: '2px', fontWeight: 600 }}>
+                {maintenanceAlerts.greaseNotifs.map(g => `${g.motorName} in ${g.tankName} (${g.hours.toLocaleString()}h)`).join(' · ')} — Grease & Bearing Check Due Now!
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => setActiveTab('maintenance')}
+              style={{
+                background: '#FFFFFF',
+                color: '#78350F',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              View Maintenance Schedule
+            </button>
+            <button
+              onClick={() => setDismissedGreaseAlarms(true)}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.4)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Dashboard View Navigation Tabs */}
       <div style={{
@@ -727,7 +1044,7 @@ const DashboardPage: React.FC = () => {
             {activeTab === 'camera' ? (
               <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} />
             ) : activeTab === 'electrical' ? (
-              <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} />
+              <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
             ) : activeTab === 'maintenance' ? (
               <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} />
             ) : activeTab === 'replacements' ? (
@@ -766,8 +1083,12 @@ const DashboardPage: React.FC = () => {
                     deviceName={layout.device_name}
                     waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
                     activeMotorsCount={activeMotors}
+                    trippedMotorsCount={trippedMotors}
                     latitude={layout.latitude}
                     longitude={layout.longitude}
+                    userDevices={userDevices}
+                    deviceStatusMap={deviceStatusMap}
+                    onSelectDevice={handleDeviceChange}
                   />
                 </div>
 

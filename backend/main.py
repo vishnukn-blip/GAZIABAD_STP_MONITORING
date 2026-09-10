@@ -404,16 +404,16 @@ async def get_telemetry_direct(
 # ── Centralized Store Endpoints (Cross-Browser Syncing) ────────────────────────
 DEFAULT_CENTRAL_DEVICES = [
     {"name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_id": "350435032683868", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.657521, "longitude": 77.376303, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
-    {"name": "VASUNDHARA SECTOR 17", "device_name": "VASUNDHARA SECTOR 17", "device_id": "350435032680674", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.667200, "longitude": 77.371100, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
+    {"name": "VASUNDHARA SECTOR 19", "device_name": "VASUNDHARA SECTOR 19", "device_id": "350435032680674", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.667200, "longitude": 77.371100, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
     {"name": "STP PLANT C", "device_name": "STP PLANT C", "device_id": "350435032689659", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.672000, "longitude": 77.442000, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
     {"name": "VAISHALI SECTOR 6", "device_name": "VAISHALI SECTOR 6", "device_id": "350435032681912", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.648000, "longitude": 77.382000, "assigned_user": "wabag@nimblevision.io", "is_active": 1}
 ]
 
 DEFAULT_CENTRAL_TANKS = [
-    {"name": "TANK_A", "tank_name": "TANK_A", "device": "350435032683868", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
-    {"name": "TANK_B", "tank_name": "TANK_B", "device": "350435032680674", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
-    {"name": "TANK_C", "tank_name": "TANK_C", "device": "350435032689659", "variant": "main", "capacity_liters": 8000000, "display_order": 1},
-    {"name": "TANK_D", "tank_name": "TANK_D", "device": "350435032681912", "variant": "main", "capacity_liters": 8000000, "display_order": 1}
+    {"name": "TANK_A", "tank_name": "TANK_A", "device": "350435032683868", "variant": "main", "capacity_liters": 8000000, "depth_meters": 10.2, "display_order": 1},
+    {"name": "TANK_B", "tank_name": "TANK_B", "device": "350435032680674", "variant": "main", "capacity_liters": 8000000, "depth_meters": 11.74, "display_order": 1},
+    {"name": "TANK_C", "tank_name": "TANK_C", "device": "350435032689659", "variant": "main", "capacity_liters": 8000000, "depth_meters": 10.0, "display_order": 1},
+    {"name": "TANK_D", "tank_name": "TANK_D", "device": "350435032681912", "variant": "main", "capacity_liters": 8000000, "depth_meters": 10.0, "display_order": 1}
 ]
 
 DEFAULT_CENTRAL_MOTORS = [

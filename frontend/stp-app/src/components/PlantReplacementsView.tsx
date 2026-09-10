@@ -12,7 +12,7 @@ export interface ReplacementRecord {
   id: string;
   device_id: string;
   replacement_date: string;
-  category: 'Motor' | 'Pump / Impeller' | 'Sensor / Transmitter' | 'Electrical & VFD' | 'Valves & Piping' | 'Other Equipment';
+  category: 'Motor' | 'Pump / Impeller' | 'Sensor / Transmitter' | 'Electrical & VFD' | 'Valves & Piping' | 'Bearing & Rewinding' | 'Other Equipment';
   component_name: string;
   quantity: number;
   old_part_details: string;
@@ -126,22 +126,99 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
               total_cost: 32000,
               warranty_months: 12,
               reason_notes: 'Heavy internal corrosion causing sludge leakage.'
+            },
+            {
+              id: `rep_${deviceId}_4`,
+              device_id: deviceId,
+              replacement_date: '2026-08-20',
+              category: 'Bearing & Rewinding',
+              component_name: defaultMotorComponent,
+              quantity: 1,
+              old_part_details: 'Flushed Worn Grease & Inspected Bearings',
+              new_part_details: 'NLGI Grade 2 Lithium Complex High-Temp Grease Packing',
+              vendor_name: 'WABAG Maintenance Team',
+              invoice_no: 'SRV-2026-9041',
+              part_cost: 1500,
+              labor_cost: 1000,
+              total_cost: 2500,
+              warranty_months: 6,
+              reason_notes: 'Routine 2,000h scheduled bearing greasing and seal flush.'
+            },
+            {
+              id: `rep_${deviceId}_5`,
+              device_id: deviceId,
+              replacement_date: '2026-06-15',
+              category: 'Bearing & Rewinding',
+              component_name: defaultMotorComponent,
+              quantity: 1,
+              old_part_details: 'SKF 6314 C3 Bearing (Noise/Vibration)',
+              new_part_details: 'SKF Explorer 6314 C3 Deep Groove Ball Bearing',
+              vendor_name: 'SKF Authorized Service',
+              invoice_no: 'SRV-2026-6621',
+              part_cost: 8500,
+              labor_cost: 3000,
+              total_cost: 11500,
+              warranty_months: 12,
+              reason_notes: 'Replaced DE bearing & mechanical seal due to minor vibration.'
             }
           ];
           allData = [...deviceSeedRecords, ...allData];
           await saveCentralPlantReplacements(allData);
         } else {
-          // Replace legacy generic seed component names with current plant motor/tank names
-          let modified = false;
-          allData = allData.map(r => {
-            if (r.device_id === deviceId && r.component_name === 'M1_60_HP (TANK_A)') {
-              modified = true;
-              return { ...r, component_name: defaultMotorComponent };
-            }
-            return r;
-          });
-          if (modified) {
+          // Ensure plant has Bearing & Rewinding seed records if missing
+          const hasBearingRecords = allData.some(r => r.device_id === deviceId && r.category === 'Bearing & Rewinding');
+          if (!hasBearingRecords && deviceId) {
+            const bearingSeedRecords: ReplacementRecord[] = [
+              {
+                id: `rep_${deviceId}_greasing`,
+                device_id: deviceId,
+                replacement_date: '2026-08-20',
+                category: 'Bearing & Rewinding',
+                component_name: defaultMotorComponent,
+                quantity: 1,
+                old_part_details: 'Flushed Worn Grease & Inspected Bearings',
+                new_part_details: 'NLGI Grade 2 Lithium Complex High-Temp Grease Packing',
+                vendor_name: 'WABAG Maintenance Team',
+                invoice_no: 'SRV-2026-9041',
+                part_cost: 1500,
+                labor_cost: 1000,
+                total_cost: 2500,
+                warranty_months: 6,
+                reason_notes: 'Routine 2,000h scheduled bearing greasing and seal flush.'
+              },
+              {
+                id: `rep_${deviceId}_rewind`,
+                device_id: deviceId,
+                replacement_date: '2026-06-15',
+                category: 'Bearing & Rewinding',
+                component_name: defaultMotorComponent,
+                quantity: 1,
+                old_part_details: 'SKF 6314 C3 Bearing & Damaged Stator Coil',
+                new_part_details: 'SKF Explorer 6314 C3 Bearing & Motor Rewinding',
+                vendor_name: 'ABB Motors Repair Works',
+                invoice_no: 'SRV-2026-6621',
+                part_cost: 32000,
+                labor_cost: 6500,
+                total_cost: 38500,
+                warranty_months: 12,
+                reason_notes: 'Replaced DE/NDE bearings and completed Class H stator rewinding.'
+              }
+            ];
+            allData = [...bearingSeedRecords, ...allData];
             await saveCentralPlantReplacements(allData);
+          } else {
+            // Replace legacy generic seed component names with current plant motor/tank names
+            let modified = false;
+            allData = allData.map(r => {
+              if (r.device_id === deviceId && r.component_name === 'M1_60_HP (TANK_A)') {
+                modified = true;
+                return { ...r, component_name: defaultMotorComponent };
+              }
+              return r;
+            });
+            if (modified) {
+              await saveCentralPlantReplacements(allData);
+            }
           }
         }
 
@@ -350,7 +427,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
 
           {/* Filter Pills */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {['ALL', 'Motor', 'Pump / Impeller', 'Sensor / Transmitter', 'Electrical & VFD', 'Valves & Piping'].map(cat => (
+            {['ALL', 'Motor', 'Bearing & Rewinding', 'Pump / Impeller', 'Sensor / Transmitter', 'Electrical & VFD', 'Valves & Piping'].map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -555,193 +632,213 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
             </div>
 
             {/* Modal Form Body */}
-            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Replacement Date *</label>
-                  <input
-                    type="date"
-                    value={formData.replacement_date}
-                    onChange={e => setFormData({ ...formData, replacement_date: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
+            {(() => {
+              const isBearingCategory = formData.category === 'Bearing & Rewinding';
+              return (
+                <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                        {isBearingCategory ? 'Service / Maintenance Date *' : 'Replacement Date *'}
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.replacement_date}
+                        onChange={e => setFormData({ ...formData, replacement_date: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
 
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Category *</label>
-                  <select
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value as any })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Category *</label>
+                      <select
+                        value={formData.category}
+                        onChange={e => setFormData({ ...formData, category: e.target.value as any })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      >
+                        <option value="Motor">⚙️ Motor</option>
+                        <option value="Bearing & Rewinding">🛢️ Bearing & Rewinding</option>
+                        <option value="Pump / Impeller">💧 Pump / Impeller</option>
+                        <option value="Sensor / Transmitter">📡 Sensor / Transmitter</option>
+                        <option value="Electrical & VFD">⚡ Electrical & VFD</option>
+                        <option value="Valves & Piping">🚰 Valves & Piping</option>
+                        <option value="Other Equipment">🛠️ Other Equipment</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Component Name & Location *</label>
+                      <input
+                        type="text"
+                        placeholder={`e.g. ${defaultMotorComponent} or Level Sensor`}
+                        value={formData.component_name}
+                        onChange={e => setFormData({ ...formData, component_name: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.quantity}
+                        onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                        {isBearingCategory ? 'Service Work / New Parts Installed *' : 'New Part Details / Model *'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={isBearingCategory ? "e.g. SKF 6314 C3 Bearings / Class H Copper Rewinding" : "e.g. ABB 75 HP IE3 Motor (S/N: 99402)"}
+                        value={formData.new_part_details}
+                        onChange={e => setFormData({ ...formData, new_part_details: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                        {isBearingCategory ? 'Initial Condition / Replaced Parts' : 'Old Part Details (Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={isBearingCategory ? "e.g. Worn DE bearing / Burnt stator coils / Dried grease" : "e.g. Kirloskar Motor (Burnt Stator)"}
+                        value={formData.old_part_details}
+                        onChange={e => setFormData({ ...formData, old_part_details: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                        {isBearingCategory ? 'Service Vendor / Workshop Name *' : 'Vendor / Supplier Name *'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={isBearingCategory ? "e.g. SKF Authorized Service / WABAG Team" : "e.g. ABB India Ltd / WABAG Spares"}
+                        value={formData.vendor_name}
+                        onChange={e => setFormData({ ...formData, vendor_name: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Invoice / PO Reference No. *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. INV-2026-9042"
+                        value={formData.invoice_no}
+                        onChange={e => setFormData({ ...formData, invoice_no: e.target.value })}
+                        style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Financial Cost Inputs */}
+                  <div style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}>
+                    <h5 style={{ fontSize: '12px', fontWeight: 800, color: '#059669', margin: 0, textTransform: 'uppercase' }}>
+                      💰 Financial Costing Breakdown (₹)
+                    </h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>
+                          {isBearingCategory ? 'Spare Parts / Grease Cost (₹)' : 'Hardware Part Cost (₹)'}
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={formData.part_cost}
+                          onChange={e => setFormData({ ...formData, part_cost: parseFloat(e.target.value) || 0 })}
+                          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>
+                          {isBearingCategory ? 'Technician / Rewinding Fee (₹)' : 'Labor / Installation (₹)'}
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={formData.labor_cost}
+                          onChange={e => setFormData({ ...formData, labor_cost: parseFloat(e.target.value) || 0 })}
+                          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>Warranty Period</label>
+                        <select
+                          value={formData.warranty_months}
+                          onChange={e => setFormData({ ...formData, warranty_months: parseInt(e.target.value) || 12 })}
+                          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
+                        >
+                          <option value={6}>6 Months</option>
+                          <option value={12}>12 Months (1 Year)</option>
+                          <option value={24}>24 Months (2 Years)</option>
+                          <option value={36}>36 Months (3 Years)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#065F46', textAlign: 'right', marginTop: '4px' }}>
+                      Calculated Total Spend: ₹{(Number(formData.part_cost || 0) + Number(formData.labor_cost || 0)).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                      {isBearingCategory ? 'Service Work Performed & Technical Remarks' : 'Reason for Replacement / Technical Remarks'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder={isBearingCategory ? "Enter work performed, Megger insulation test results, or grease type..." : "Enter reason for replacement or technician notes..."}
+                      value={formData.reason_notes}
+                      onChange={e => setFormData({ ...formData, reason_notes: e.target.value })}
+                      style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleAddRecord}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '10px',
+                      background: '#059669',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontWeight: 800,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      marginTop: '6px',
+                      boxShadow: '0 4px 14px rgba(5, 150, 105, 0.25)'
+                    }}
                   >
-                    <option value="Motor">⚙️ Motor</option>
-                    <option value="Pump / Impeller">💧 Pump / Impeller</option>
-                    <option value="Sensor / Transmitter">📡 Sensor / Transmitter</option>
-                    <option value="Electrical & VFD">⚡ Electrical & VFD</option>
-                    <option value="Valves & Piping">🚰 Valves & Piping</option>
-                    <option value="Other Equipment">🛠️ Other Equipment</option>
-                  </select>
+                    {isBearingCategory ? 'Save Maintenance & Expense Record' : 'Save Replacement Record'}
+                  </button>
                 </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Component Name & Location *</label>
-                  <input
-                    type="text"
-                    placeholder={`e.g. ${defaultMotorComponent} or Level Sensor`}
-                    value={formData.component_name}
-                    onChange={e => setFormData({ ...formData, component_name: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.quantity}
-                    onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>New Part Details / Model *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ABB 75 HP IE3 Motor (S/N: 99402)"
-                    value={formData.new_part_details}
-                    onChange={e => setFormData({ ...formData, new_part_details: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Old Part Details (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Kirloskar Motor (Burnt Stator)"
-                    value={formData.old_part_details}
-                    onChange={e => setFormData({ ...formData, old_part_details: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Vendor / Supplier Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ABB India Ltd / WABAG Spares"
-                    value={formData.vendor_name}
-                    onChange={e => setFormData({ ...formData, vendor_name: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Invoice / PO Reference No. *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. INV-2026-9042"
-                    value={formData.invoice_no}
-                    onChange={e => setFormData({ ...formData, invoice_no: e.target.value })}
-                    style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Financial Cost Inputs */}
-              <div style={{
-                background: '#ECFDF5',
-                border: '1px solid #A7F3D0',
-                borderRadius: '12px',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <h5 style={{ fontSize: '12px', fontWeight: 800, color: '#059669', margin: 0, textTransform: 'uppercase' }}>
-                  💰 Financial Costing Breakdown (₹)
-                </h5>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>Hardware Part Cost (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={formData.part_cost}
-                      onChange={e => setFormData({ ...formData, part_cost: parseFloat(e.target.value) || 0 })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>Labor / Installation (₹)</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={formData.labor_cost}
-                      onChange={e => setFormData({ ...formData, labor_cost: parseFloat(e.target.value) || 0 })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#065F46' }}>Warranty Period</label>
-                    <select
-                      value={formData.warranty_months}
-                      onChange={e => setFormData({ ...formData, warranty_months: parseInt(e.target.value) || 12 })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #6EE7B7', marginTop: '4px', fontWeight: 700 }}
-                    >
-                      <option value={6}>6 Months</option>
-                      <option value={12}>12 Months (1 Year)</option>
-                      <option value={24}>24 Months (2 Years)</option>
-                      <option value={36}>36 Months (3 Years)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#065F46', textAlign: 'right', marginTop: '4px' }}>
-                  Calculated Total Spend: ₹{(Number(formData.part_cost || 0) + Number(formData.labor_cost || 0)).toLocaleString('en-IN')}
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Reason for Replacement / Technical Remarks</label>
-                <textarea
-                  rows={2}
-                  placeholder="Enter reason for replacement or technician notes..."
-                  value={formData.reason_notes}
-                  onChange={e => setFormData({ ...formData, reason_notes: e.target.value })}
-                  style={{ width: '100%', padding: '9px', borderRadius: '8px', border: '1px solid #CBD5E1', marginTop: '4px' }}
-                />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                onClick={handleAddRecord}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  background: '#059669',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  fontWeight: 800,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  marginTop: '6px',
-                  boxShadow: '0 4px 14px rgba(5, 150, 105, 0.25)'
-                }}
-              >
-                Save Replacement Record
-              </button>
-            </div>
+              );
+            })()}
           </div>
         </div>
       )}

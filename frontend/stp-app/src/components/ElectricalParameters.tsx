@@ -8,12 +8,43 @@ import { getElectricalTelemetry, getElectricalMeters, getTariffConfig, saveTarif
 interface ElectricalParametersProps {
   deviceId?: string;
   deviceName?: string;
+  layout?: any;
 }
 
 export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceId = "350435032683868",
-  deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT"
+  deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT",
+  layout
 }) => {
+  const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
+    if (layout?.tanks) {
+      const idx = parseInt(mId, 10) - 1;
+      let counter = 0;
+      for (const tank of layout.tanks) {
+        if (tank.motors && tank.motors.length > 0) {
+          for (const m of tank.motors) {
+            if (m.meter_id === mId || counter === idx) {
+              const name = m.name || m.motor_name || m.label;
+              if (name) return name;
+            }
+            counter++;
+          }
+        }
+      }
+    }
+    if (telemetryData?.motor_name && !telemetryData.motor_name.toLowerCase().includes('meter')) {
+      return telemetryData.motor_name;
+    }
+    const defaultNames: Record<string, string> = {
+      '1': 'M1_60_HP',
+      '2': 'M2_75_HP',
+      '3': 'M3_60_HP',
+      '4': 'M4_40_HP',
+      '5': 'M5_30_HP'
+    };
+    return defaultNames[mId] || `Motor ${mId}`;
+  };
+
   const [telemetry, setTelemetry] = useState<any>({
     v1n: 0.0, v2n: 0.0, v3n: 0.0, v_ln: 0.0,
     v12: 0.0, v23: 0.0, v31: 0.0, v_ll: 0.0,
@@ -336,7 +367,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
               }}
             >
               {availableMeters.map(m => (
-                <option key={m} value={m}>Meter ID: {m}</option>
+                <option key={m} value={m}>
+                  {getMotorNameForMeter(m, allMetersTelemetry[m])} — Meter ID: {m}
+                </option>
               ))}
             </select>
           </div>
@@ -468,7 +501,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           {/* 2. SELECTED METER ESTIMATED BILL */}
           <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '14px', padding: '16px' }}>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#A855F7', letterSpacing: '0.5px' }}>
-              METER ID: {selectedMeter} ESTIMATED BILL
+              {getMotorNameForMeter(selectedMeter, selectedMeterData).toUpperCase()} (METER ID: {selectedMeter}) ESTIMATED BILL
             </span>
             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{ fontSize: '28px', fontWeight: 900, color: '#C084FC', letterSpacing: '-0.5px' }}>
@@ -532,7 +565,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', fontWeight: 800, color: isSelected ? '#E9D5FF' : '#F8FAFC' }}>
-                      Motor / Meter ID: {m.meterId}
+                      {getMotorNameForMeter(m.meterId, allMetersTelemetry[m.meterId])} (Meter ID: {m.meterId})
                     </span>
                     {isSelected && (
                       <span style={{ fontSize: '10px', background: '#A855F7', color: '#FFF', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>

@@ -1,12 +1,18 @@
 import axios from 'axios';
 
-// Dynamic Host Resolution (Uses current server IP/hostname instead of hardcoded localhost)
+// Central Server IP for centralized database backend
+const CENTRAL_SERVER_IP = '13.206.207.146';
+
+// Dynamic Host Resolution (Uses centralized server IP when running locally, or current host when deployed)
 const getApiBaseUrl = (port: string) => {
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname || 'localhost';
+    const hostname = window.location.hostname;
+    if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `http://${CENTRAL_SERVER_IP}:${port}`;
+    }
     return `http://${hostname}:${port}`;
   }
-  return `http://localhost:${port}`;
+  return `http://${CENTRAL_SERVER_IP}:${port}`;
 };
 
 // ── Frappe API (Auth + Admin Config: Users, Devices, Tanks, Motors) ─────────
