@@ -458,7 +458,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                 <th style={{ padding: '14px 16px' }}>Replaced Part Details</th>
                 <th style={{ padding: '14px 16px' }}>Vendor & Invoice No.</th>
                 <th style={{ padding: '14px 16px' }}>Cost Breakdown (₹)</th>
-                <th style={{ padding: '14px 16px' }}>Warranty</th>
+                <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Warranty</th>
                 <th style={{ padding: '14px 16px', textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
@@ -535,17 +535,23 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
                       </td>
 
                       {/* Warranty Status */}
-                      <td style={{ padding: '16px' }}>
+                      <td style={{ padding: '16px', whiteSpace: 'nowrap' }}>
                         <span style={{
-                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
                           fontWeight: 800,
-                          padding: '4px 10px',
-                          borderRadius: '12px',
+                          padding: '5px 12px',
+                          borderRadius: '20px',
+                          whiteSpace: 'nowrap',
                           background: activeWarranty ? '#F3E8FF' : '#F1F5F9',
-                          color: activeWarranty ? '#9333EA' : '#64748B',
-                          border: `1px solid ${activeWarranty ? '#D8B4FE' : '#CBD5E1'}`
+                          color: activeWarranty ? '#7E22CE' : '#64748B',
+                          border: `1px solid ${activeWarranty ? '#D8B4FE' : '#CBD5E1'}`,
+                          boxShadow: activeWarranty ? '0 2px 6px rgba(126, 34, 206, 0.12)' : 'none'
                         }}>
-                          {activeWarranty ? `🛡️ Active (${rec.warranty_months} Mo)` : 'Expired'}
+                          <ShieldCheck size={14} color={activeWarranty ? '#7E22CE' : '#64748B'} />
+                          <span>{activeWarranty ? `Active (${rec.warranty_months} Mo)` : 'Expired'}</span>
                         </span>
                       </td>
 
