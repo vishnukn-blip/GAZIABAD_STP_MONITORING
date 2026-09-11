@@ -797,37 +797,39 @@ const DashboardPage: React.FC = () => {
         {/* Top Nav Header */}
         <header className="dash-header">
           <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
-            {userDevices.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
-                  📡 Select STP Plant Device:
-                </span>
-                <select
-                  id="device-select-dropdown"
-                  value={selectedDeviceId}
-                  onChange={(e) => handleDeviceChange(e.target.value)}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #0284C7',
-                    background: '#FFFFFF',
-                    color: '#0F172A',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    outline: 'none',
-                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
-                  }}
-                >
-                  {userDevices.map(d => (
-                    <option key={d.device_id} value={d.device_id}>
-                      {d.device_name} — ({d.device_id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
+            {activeTab !== 'map' && (
+              userDevices.length > 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                    📡 Select STP Plant Device:
+                  </span>
+                  <select
+                    id="device-select-dropdown"
+                    value={selectedDeviceId}
+                    onChange={(e) => handleDeviceChange(e.target.value)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid #0284C7',
+                      background: '#FFFFFF',
+                      color: '#0F172A',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+                    }}
+                  >
+                    {userDevices.map(d => (
+                      <option key={d.device_id} value={d.device_id}>
+                        {d.device_name} — ({d.device_id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
+              )
             )}
           </div>
 
@@ -842,34 +844,36 @@ const DashboardPage: React.FC = () => {
           </div>
         </header>
 
-        {/* KPI Bar */}
-        <div className="kpi-bar">
-          <div className="kpi-card kpi-blue">
-            <Activity size={20} />
-            <div><span className="kpi-val">{activeMotors}</span><span className="kpi-label">Motors Running</span></div>
-          </div>
-          <div className={`kpi-card ${trippedMotors > 0 ? 'kpi-red' : 'kpi-green'}`}>
-            <AlertTriangle size={20} />
-            <div><span className="kpi-val">{trippedMotors}</span><span className="kpi-label">Motors Tripped</span></div>
-          </div>
-          <div className="kpi-card kpi-cyan">
-            <Droplets size={20} />
-            <div><span className="kpi-val">{avgLevel.toFixed(1)}%</span><span className="kpi-label">Avg Water Level</span></div>
-          </div>
-          <div className="kpi-card kpi-purple">
-            <Power size={20} />
-            <div><span className="kpi-val">{layout?.tanks.length ?? 0}</span><span className="kpi-label">Tanks Configured</span></div>
-          </div>
-          <div className="kpi-card" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-            <Clock size={20} color="#0284C7" />
-            <div>
-              <span className="kpi-val" style={{ fontSize: '13px', color: '#0F172A', fontWeight: 700 }}>
-                {telemetry?.raw_params?.timestamp || lastUpdated || 'Just now'}
-              </span>
-              <span className="kpi-label">Latest Data Updated</span>
+        {/* KPI Bar (Show only for single-plant views, hidden on Overall Plant Map) */}
+        {activeTab !== 'map' && (
+          <div className="kpi-bar">
+            <div className="kpi-card kpi-blue">
+              <Activity size={20} />
+              <div><span className="kpi-val">{activeMotors}</span><span className="kpi-label">Motors Running</span></div>
+            </div>
+            <div className={`kpi-card ${trippedMotors > 0 ? 'kpi-red' : 'kpi-green'}`}>
+              <AlertTriangle size={20} />
+              <div><span className="kpi-val">{trippedMotors}</span><span className="kpi-label">Motors Tripped</span></div>
+            </div>
+            <div className="kpi-card kpi-cyan">
+              <Droplets size={20} />
+              <div><span className="kpi-val">{avgLevel.toFixed(1)}%</span><span className="kpi-label">Avg Water Level</span></div>
+            </div>
+            <div className="kpi-card kpi-purple">
+              <Power size={20} />
+              <div><span className="kpi-val">{layout?.tanks.length ?? 0}</span><span className="kpi-label">Tanks Configured</span></div>
+            </div>
+            <div className="kpi-card" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+              <Clock size={20} color="#0284C7" />
+              <div>
+                <span className="kpi-val" style={{ fontSize: '13px', color: '#0F172A', fontWeight: 700 }}>
+                  {telemetry?.raw_params?.timestamp || lastUpdated || 'Just now'}
+                </span>
+                <span className="kpi-label">Latest Data Updated</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 🚨 5,000 RUN HOURS CRITICAL OVERHAUL ALARM BANNER */}
         {maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
