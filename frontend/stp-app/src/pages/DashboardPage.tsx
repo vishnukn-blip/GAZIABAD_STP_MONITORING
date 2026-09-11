@@ -797,7 +797,33 @@ const DashboardPage: React.FC = () => {
         {/* Top Nav Header */}
         <header className="dash-header">
           <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
-            {activeTab !== 'map' && (
+            {activeTab === 'map' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  color: '#FFFFFF',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <MapPin size={18} color="#FFFFFF" />
+                  <span style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.5px' }}>
+                    REGIONAL NETWORK
+                  </span>
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
+                    Ghaziabad STP Command Center Map
+                  </h2>
+                  <p style={{ fontSize: '11px', color: '#64748B', margin: 0, fontWeight: 600 }}>
+                    Real-Time Geographical Monitoring across {userDevices.length > 0 ? userDevices.length : 4} Registered Plants
+                  </p>
+                </div>
+              </div>
+            ) : (
               userDevices.length > 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
