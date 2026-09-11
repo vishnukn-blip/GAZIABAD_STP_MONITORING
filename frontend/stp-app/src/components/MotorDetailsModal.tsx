@@ -36,7 +36,9 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
   const [showLogForm, setShowLogForm] = useState(false);
   const [isUnderMaintenance, setIsUnderMaintenance] = useState(false);
 
-  const motorId = motor?.name || motor?.motor_name || 'MOTOR_1';
+  const rawMotorName = motor?.name || motor?.motor_name || 'MOTOR_1';
+  const activeDeviceId = motor?.device_id;
+  const motorId = activeDeviceId ? `${activeDeviceId}_${rawMotorName}` : rawMotorName;
   const isRunning = motor?.is_running ?? true;
   const isTripped = motor?.is_tripped ?? false;
 
@@ -56,15 +58,15 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       // 1. Fetch Specs
       try {
         const centralSpecsMap = await getCentralMotorSpecs();
-        if (centralSpecsMap && centralSpecsMap[motorId]) {
-          const mSpec = centralSpecsMap[motorId];
+        const mSpec = centralSpecsMap ? (centralSpecsMap[motorId] || centralSpecsMap[rawMotorName]) : null;
+        if (mSpec) {
           setSpecs(mSpec);
           setIsUnderMaintenance(!!mSpec.under_maintenance);
           const curHours = mSpec.total_run_hours ?? mSpec.running_hours ?? 3550;
           setNewLog(prev => ({ ...prev, running_hours: curHours.toString() }));
         } else {
           // Hardcoded fallback spec based on motor name
-          const hpVal = motorId.includes('75') ? 75 : motorId.includes('40') ? 40 : motorId.includes('30') ? 30 : 60;
+          const hpVal = rawMotorName.includes('75') ? 75 : rawMotorName.includes('40') ? 40 : rawMotorName.includes('30') ? 30 : 60;
           const fallbackSpec = {
             hp: hpVal,
             kw: Math.round(hpVal * 0.746),
@@ -76,6 +78,7 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
             total_run_hours: 3550
           };
           setSpecs(fallbackSpec);
+          setIsUnderMaintenance(false);
           setNewLog(prev => ({ ...prev, running_hours: '3550' }));
         }
       } catch {}
@@ -83,8 +86,9 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       // 2. Fetch Service Logs
       try {
         const logsMap = await getCentralServiceLogs();
-        if (logsMap && Array.isArray(logsMap[motorId])) {
-          setServiceLogs(logsMap[motorId]);
+        const logs = logsMap ? (logsMap[motorId] || logsMap[rawMotorName]) : null;
+        if (logs && Array.isArray(logs)) {
+          setServiceLogs(logs);
         } else {
           // Default hardcoded service logs with bearing greasing, rewinding & costs
           setServiceLogs([
@@ -130,7 +134,7 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
     };
 
     loadData();
-  }, [isOpen, motorId]);
+  }, [isOpen, motorId, rawMotorName]);
 
   const handleAddLog = async () => {
     if (!newLog.service_type || !newLog.technician) return;
@@ -164,18 +168,19 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
     try {
       const logsMap = (await getCentralServiceLogs()) || {};
       logsMap[motorId] = updated;
+      logsMap[rawMotorName] = updated;
       await saveCentralServiceLogs(logsMap);
 
       // Auto-sync cost to Plant Replacements & Expenditure Log if total cost > 0
-      const activeDeviceId = motor?.device_id || "350435032683868";
+      const activeDeviceIdVal = activeDeviceId || "350435032683868";
       if (tCost > 0) {
         const replacements = (await getCentralPlantReplacements()) || [];
         const newReplRecord = {
           id: `maint_${Date.now()}`,
-          device_id: activeDeviceId,
+          device_id: activeDeviceIdVal,
           replacement_date: newLog.service_date,
           category: 'Bearing & Rewinding' as const,
-          component_name: `${motorId} (${tankName})`,
+          component_name: `${rawMotorName} (${tankName})`,
           quantity: 1,
           old_part_details: `Activity: ${newLog.service_type}`,
           new_part_details: `Completed: ${newLog.service_type} - ${newLog.notes || 'Service overhaul'}`,
@@ -193,7 +198,7 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       // Clear under_maintenance status and update service run hour markers according to service type
       setIsUnderMaintenance(false);
       const centralSpecs = (await getCentralMotorSpecs()) || {};
-      const currentMotorSpec = centralSpecs[motorId] || specs;
+      const currentMotorSpec = centralSpecs[motorId] || centralSpecs[rawMotorName] || specs;
       
       const isOverhaulType = 
         newLog.service_type?.toLowerCase().includes('overhaul') || 
@@ -213,6 +218,7 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
       };
       setSpecs(updatedSpec);
       centralSpecs[motorId] = updatedSpec;
+      centralSpecs[rawMotorName] = updatedSpec;
       await saveCentralMotorSpecs(centralSpecs);
     } catch {}
 
@@ -236,7 +242,10 @@ export const MotorDetailsModal: React.FC<MotorDetailsModalProps> = ({ motor, tan
     setIsUnderMaintenance(nextState);
     try {
       const allSpecs = (await getCentralMotorSpecs()) || {};
-      allSpecs[motorId] = { ...(allSpecs[motorId] || specs), under_maintenance: nextState };
+      const baseSpec = allSpecs[motorId] || allSpecs[rawMotorName] || specs;
+      const updatedSpec = { ...baseSpec, under_maintenance: nextState };
+      allSpecs[motorId] = updatedSpec;
+      allSpecs[rawMotorName] = updatedSpec;
       await saveCentralMotorSpecs(allSpecs);
       if (onLogSaved) onLogSaved();
     } catch {}

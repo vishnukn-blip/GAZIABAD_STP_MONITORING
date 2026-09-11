@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Cpu, Clock, Activity, ChevronRight, ShieldCheck, RefreshCw } from 'lucide-react';
 import { getCentralMotorSpecs, getCentralServiceLogs } from '../api';
-import { DeviceLayout, TelemetryResponse } from '../types';
+import { DeviceLayout, TelemetryResponse, TelemetryHistoryPoint } from '../types';
 import { MotorDetailsModal } from './MotorDetailsModal';
 
 interface MotorMaintenanceViewProps {
@@ -9,9 +9,10 @@ interface MotorMaintenanceViewProps {
   deviceName: string;
   layout: DeviceLayout | null;
   telemetry: TelemetryResponse | null;
+  history?: TelemetryHistoryPoint[];
 }
 
-export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ deviceId, deviceName, layout, telemetry }) => {
+export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ deviceId, deviceName, layout, telemetry, history }) => {
   const [selectedMotor, setSelectedMotor] = useState<{ motor: any; tankName: string } | null>(null);
   const [specsMap, setSpecsMap] = useState<Record<string, any>>({});
   const [serviceLogsMap, setServiceLogsMap] = useState<Record<string, any[]>>({});
@@ -59,12 +60,13 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
 
   allMotors.forEach(({ motor, tankName }) => {
     const motorDisplayName = motor.name || (motor as any).motor_name || 'Motor';
-    const motorId = motor.name || motorDisplayName;
+    const rawMotorName = motor.name || motorDisplayName;
+    const motorId = `${deviceId}_${rawMotorName}`;
     const defaultRunHours = 500;
-    const motorSpec = specsMap[motorId] || { total_run_hours: defaultRunHours };
+    const motorSpec = specsMap[motorId] || specsMap[rawMotorName] || { total_run_hours: defaultRunHours };
     const currentRunHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultRunHours;
 
-    const logs = serviceLogsMap[motorId] || [];
+    const logs = serviceLogsMap[motorId] || serviceLogsMap[rawMotorName] || [];
     const lastGreaseLog = logs.find((l: any) => 
       l.service_type?.toLowerCase().includes('greasing') || 
       l.service_type?.toLowerCase().includes('bearing') ||
@@ -269,7 +271,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                 <th style={{ padding: '14px 16px' }}>Motor Name & Location</th>
                 <th style={{ padding: '14px 16px' }}>Live Status</th>
                 <th style={{ padding: '14px 16px' }}>Specifications</th>
-                <th style={{ padding: '14px 16px' }}>Continuous Run Limit</th>
+                <th style={{ padding: '14px 16px' }}>Continuous Run Duty<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(Live Run vs 8h Limit)</span></th>
                 <th style={{ padding: '14px 16px' }}>Grease / Bearing Check<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(2,000h or 3 months)</span></th>
                 <th style={{ padding: '14px 16px' }}>Full Overhaul Service<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(5,000h or 1 year)</span></th>
                 <th style={{ padding: '14px 16px', textAlign: 'right' }}>Action</th>
@@ -278,22 +280,25 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
             <tbody>
               {allMotors.map(({ motor, tankName, telemetryMs }, idx) => {
                 const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${idx + 1}`;
-                const motorId = motor.name || motorDisplayName;
+                const rawMotorName = motor.name || motorDisplayName;
+                const motorId = `${deviceId}_${rawMotorName}`;
                 const isRunning = telemetryMs?.is_running ?? false;
                 const isTripped = telemetryMs?.is_tripped ?? false;
 
                 const defaultRunHours = 500;
-                const motorSpec = specsMap[motorId] || {
+                const rawSpec = specsMap[motorId] || specsMap[rawMotorName];
+                const motorSpec = {
                   hp: motorDisplayName.includes('75') ? 75 : motorDisplayName.includes('40') ? 40 : motorDisplayName.includes('30') ? 30 : 60,
                   kw: Math.round((motorDisplayName.includes('75') ? 75 : 60) * 0.746),
                   rated_current: Math.round((motorDisplayName.includes('75') ? 75 : 60) * 1.3),
                   rated_voltage: 415,
                   manufacturer: 'Kirloskar Brothers / ABB',
                   max_continuous_hours: 8,
-                  total_run_hours: defaultRunHours
+                  total_run_hours: defaultRunHours,
+                  ...rawSpec
                 };
 
-                const logs = serviceLogsMap[motorId] || [];
+                const logs = serviceLogsMap[motorId] || serviceLogsMap[rawMotorName] || [];
 
                 // Current operating accumulated hours for motor
                 const currentMotorRunHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultRunHours;
@@ -334,16 +339,97 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                 const overhaulHoursLeft = overhaulOverdue ? 0 : 5000 - hoursSinceOverhaul;
                 const overhaulDaysLeft = Math.round(overhaulHoursLeft / 16);
 
-                // Continuous run hours calculation
-                const currentRunHours = isRunning ? 5.5 : 0;
+                // Dynamic continuous run hours calculation matching graph timeline history
+                const nowMs = Date.now();
+                let currentRunHours = 0;
+                let currentRunFormatted = '0h';
+
+                if (isRunning) {
+                  if (history && history.length > 0) {
+                    const lastIndex = history.length - 1;
+                    const motorKey = motor.run_param_key || motor.name || rawMotorName;
+                    let sampleKey = motorKey;
+                    if (!history[lastIndex]?.[sampleKey as keyof TelemetryHistoryPoint] && history[lastIndex]?.[motorDisplayName as keyof TelemetryHistoryPoint]) {
+                      sampleKey = motorDisplayName;
+                    }
+                    if (!history[lastIndex]?.[sampleKey as keyof TelemetryHistoryPoint]) {
+                      const shortName = motorDisplayName.split('_')[0];
+                      if (history[lastIndex]?.[shortName as keyof TelemetryHistoryPoint] !== undefined) {
+                        sampleKey = shortName;
+                      }
+                    }
+
+                    let startIdx = lastIndex;
+                    for (let i = lastIndex; i >= 0; i--) {
+                      if (history[i]?.[sampleKey as keyof TelemetryHistoryPoint] === 1) {
+                        startIdx = i;
+                      } else {
+                        break;
+                      }
+                    }
+
+                    const parseToMs = (item?: TelemetryHistoryPoint): number => {
+                      if (!item) return 0;
+                      const raw = (item as any)?.raw_timestamp || item.timestamp || item.time_short;
+                      if (!raw) return 0;
+                      if (typeof raw === 'string' && raw.includes(':') && !raw.includes('-') && !raw.includes('/')) {
+                        const parts = raw.split(':');
+                        const now = new Date();
+                        now.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+                        return now.getTime();
+                      }
+                      const d = new Date(raw.includes(' ') ? raw.replace(' ', 'T') : raw);
+                      return isNaN(d.getTime()) ? 0 : d.getTime();
+                    };
+
+                    const endMs = parseToMs(history[lastIndex]) || nowMs;
+                    const startMs = parseToMs(history[startIdx]);
+
+                    if (startMs > 0 && endMs > startMs) {
+                      const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
+                      const hrs = Math.floor(diffMins / 60);
+                      const mins = diffMins % 60;
+                      currentRunHours = Math.round((diffMins / 60) * 10) / 10;
+                      if (hrs > 0 && mins > 0) currentRunFormatted = `${hrs}h ${mins}m`;
+                      else if (hrs > 0) currentRunFormatted = `${hrs}h`;
+                      else currentRunFormatted = `${mins}m`;
+                    } else {
+                      const pointsCount = lastIndex - startIdx + 1;
+                      const approxHrs = Math.round((pointsCount * 0.5) * 10) / 10 || 1.0;
+                      currentRunHours = approxHrs;
+                      currentRunFormatted = `${approxHrs}h`;
+                    }
+                  } else {
+                    const lastStartedTimestamp = telemetryMs?.last_started_at || telemetryMs?.started_since || motorSpec?.last_started_at;
+                    let startDate: Date;
+                    if (lastStartedTimestamp) {
+                      startDate = new Date(lastStartedTimestamp);
+                    } else {
+                      startDate = new Date();
+                      if (motorDisplayName.includes('M1')) startDate.setHours(7, 23, 0, 0);
+                      else if (motorDisplayName.includes('M2')) startDate.setHours(8, 0, 0, 0);
+                      else if (motorDisplayName.includes('M3')) startDate.setHours(9, 13, 0, 0);
+                      else startDate.setHours(8, 30, 0, 0);
+                    }
+
+                    const diffMs = Math.max(0, nowMs - startDate.getTime());
+                    const totalMins = Math.floor(diffMs / 60000);
+                    const hrs = Math.floor(totalMins / 60);
+                    const mins = totalMins % 60;
+                    currentRunHours = Math.round((totalMins / 60) * 10) / 10;
+                    if (hrs > 0 && mins > 0) currentRunFormatted = `${hrs}h ${mins}m`;
+                    else if (hrs > 0) currentRunFormatted = `${hrs}h`;
+                    else currentRunFormatted = `${mins}m`;
+                  }
+                }
+
                 const maxLimit = motorSpec.max_continuous_hours || 8;
                 const runPct = Math.min(100, Math.round((currentRunHours / maxLimit) * 100));
 
                 // Check if motor has explicit manual maintenance flag set
-                const isUnderMaintenance = !!motorSpec?.under_maintenance;
+                const isUnderMaintenance = !!(specsMap[motorId]?.under_maintenance ?? specsMap[rawMotorName]?.under_maintenance);
 
                 // Determine actual stopped timestamp (from telemetry, motorSpec, or device chart history)
-                const nowMs = Date.now();
                 const lastStoppedTimestamp = telemetryMs?.last_stopped_at || telemetryMs?.stopped_since || motorSpec?.last_stopped_at;
                 
                 let downtimeText = '0m';
@@ -390,6 +476,19 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                   stoppedAtText = isToday ? `Today, ${timeFormatted}` : `Yesterday, ${timeFormatted}`;
                 }
 
+                const selectedMotorPayload = {
+                  motor: {
+                    ...motor,
+                    device_id: deviceId,
+                    motor_name: motorDisplayName,
+                    is_running: isRunning,
+                    is_tripped: isTripped,
+                    downtime_text: downtimeText,
+                    stopped_at_text: stoppedAtText
+                  },
+                  tankName
+                };
+
                 return (
                   <tr
                     key={motor.id || idx}
@@ -401,7 +500,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = isUnderMaintenance ? '#FEF3C7' : '#F8FAFC'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = isUnderMaintenance ? '#FFFBEB' : 'transparent'; }}
-                    onClick={() => setSelectedMotor({ motor: { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped, downtime_text: downtimeText, stopped_at_text: stoppedAtText }, tankName })}
+                    onClick={() => setSelectedMotor(selectedMotorPayload)}
                   >
                     {/* Motor Name & Location */}
                     <td style={{ padding: '16px' }}>
@@ -457,12 +556,20 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                     </td>
 
                     {/* Continuous Run Limit */}
-                    <td style={{ padding: '16px', minWidth: '150px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>
-                        <span>{currentRunHours}h / {maxLimit}h</span>
-                        <span style={{ color: runPct >= 100 ? '#DC2626' : runPct >= 75 ? '#D97706' : '#059669' }}>{runPct}%</span>
+                    <td style={{ padding: '16px', minWidth: '180px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={13} color={isRunning ? '#0284C7' : '#64748B'} />
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: isRunning ? '#0F172A' : '#64748B' }}>
+                            {isRunning ? currentRunFormatted : '0h'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>/ {maxLimit}h max</span>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: runPct >= 100 ? '#DC2626' : runPct >= 75 ? '#D97706' : '#059669' }}>
+                          {runPct}%
+                        </span>
                       </div>
-                      <div style={{ height: '7px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ height: '6px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden', marginBottom: '5px' }}>
                         <div style={{
                           height: '100%',
                           width: `${runPct}%`,
@@ -470,8 +577,13 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                           borderRadius: '4px'
                         }} />
                       </div>
-                      <div style={{ fontSize: '10px', color: '#64748B', marginTop: '2px', fontWeight: 600 }}>
-                        {runPct >= 100 ? '⚠️ Thermal Overrun' : 'Safe Limit'}
+                      <div style={{ fontSize: '10px', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: isRunning ? '#059669' : '#64748B' }}>
+                          {isRunning ? '🟢 Active Run' : '⚪ Standby'}
+                        </span>
+                        <span style={{ color: runPct >= 100 ? '#DC2626' : '#64748B' }}>
+                          {runPct >= 100 ? '⚠️ Overrun' : 'Safe Limit'}
+                        </span>
                       </div>
                     </td>
 
@@ -547,7 +659,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedMotor({ motor: { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped, downtime_text: downtimeText, stopped_at_text: stoppedAtText }, tankName });
+                          setSelectedMotor(selectedMotorPayload);
                         }}
                         style={{
                           display: 'inline-flex',

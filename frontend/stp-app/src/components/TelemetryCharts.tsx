@@ -270,49 +270,108 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
           {motorConfigs.map((m, idx) => {
             const currentStatus = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint] === 1;
 
-          // Colors: Emerald Green when ON/RUNNING, Slate Grey when OFF
-          const strokeColor = currentStatus ? '#059669' : '#475569';
-          const fillColor = currentStatus ? '#10B981' : '#94A3B8';
+            // Calculate dynamic continuous run duration from timeline data
+            const lastIndex = data.length - 1;
+            let dynamicFormatted = '0h';
 
-          return (
-            <div key={m.key} style={{
-              background: '#FFFFFF',
-              border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
-              borderRadius: '12px',
-              padding: '16px',
-              boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    background: currentStatus ? '#ECFDF5' : '#F1F5F9',
-                    padding: '6px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <MotorIcon size={16} color={strokeColor} />
+            if (currentStatus && lastIndex >= 0) {
+              let startIdx = lastIndex;
+              for (let i = lastIndex; i >= 0; i--) {
+                if (data[i]?.[m.key as keyof TelemetryHistoryPoint] === 1) {
+                  startIdx = i;
+                } else {
+                  break;
+                }
+              }
+
+              const parseToMs = (item?: TelemetryHistoryPoint): number => {
+                if (!item) return 0;
+                const raw = (item as any)?.raw_timestamp || item.timestamp || item.time_short;
+                if (!raw) return 0;
+                if (typeof raw === 'string' && raw.includes(':') && !raw.includes('-') && !raw.includes('/')) {
+                  const parts = raw.split(':');
+                  const now = new Date();
+                  now.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+                  return now.getTime();
+                }
+                const d = new Date(raw.includes(' ') ? raw.replace(' ', 'T') : raw);
+                return isNaN(d.getTime()) ? 0 : d.getTime();
+              };
+
+              const endMs = parseToMs(data[lastIndex]) || Date.now();
+              const startMs = parseToMs(data[startIdx]);
+
+              if (startMs > 0 && endMs > startMs) {
+                const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
+                const hrs = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
+                else if (hrs > 0) dynamicFormatted = `${hrs}h`;
+                else dynamicFormatted = `${mins}m`;
+              } else {
+                const pointsCount = lastIndex - startIdx + 1;
+                const approxHrs = Math.round((pointsCount * 0.5) * 10) / 10 || 1.0;
+                dynamicFormatted = `${approxHrs}h`;
+              }
+            }
+
+            // Colors: Emerald Green when ON/RUNNING, Slate Grey when OFF
+            const strokeColor = currentStatus ? '#059669' : '#475569';
+            const fillColor = currentStatus ? '#10B981' : '#94A3B8';
+
+            return (
+              <div key={m.key} style={{
+                background: '#FFFFFF',
+                border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      background: currentStatus ? '#ECFDF5' : '#F1F5F9',
+                      padding: '6px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <MotorIcon size={16} color={strokeColor} />
+                    </div>
+                    <div>
+                      <h5 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.2px' }}>{m.name}</h5>
+                    </div>
                   </div>
-                  <div>
-                    <h5 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', margin: 0 }}>{m.name}</h5>
+
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontWeight: 800,
+                      background: currentStatus ? '#F0F9FF' : '#F8FAFC',
+                      border: `1px solid ${currentStatus ? '#BAE6FD' : '#E2E8F0'}`,
+                      color: currentStatus ? '#0284C7' : '#64748B',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      ⏱️ {currentStatus ? dynamicFormatted : '0h'}
+                    </span>
+                    <span style={{
+                      fontSize: '11px',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontWeight: 800,
+                      background: currentStatus ? '#ECFDF5' : '#F1F5F9',
+                      border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
+                      color: strokeColor
+                    }}>
+                      {currentStatus ? '● RUNNING' : '○ OFF'}
+                    </span>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <span style={{
-                    fontSize: '11px',
-                    padding: '3px 10px',
-                    borderRadius: '12px',
-                    fontWeight: 700,
-                    background: currentStatus ? '#ECFDF5' : '#F1F5F9',
-                    border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
-                    color: strokeColor
-                  }}>
-                    {currentStatus ? '● RUNNING' : '○ OFF'}
-                  </span>
-                </div>
-              </div>
 
               <div style={{ height: '140px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">

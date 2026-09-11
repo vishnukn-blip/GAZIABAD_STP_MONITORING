@@ -1056,7 +1056,7 @@ const DashboardPage: React.FC = () => {
             ) : activeTab === 'electrical' ? (
               <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
             ) : activeTab === 'maintenance' ? (
-              <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} />
+              <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
             ) : activeTab === 'replacements' ? (
               <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
             ) : (
