@@ -462,7 +462,7 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'telemetry' | 'map' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('telemetry');
+  const [activeTab, setActiveTab] = useState<'map' | 'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('map');
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
   const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number }>>({});
   
@@ -711,358 +711,292 @@ const DashboardPage: React.FC = () => {
     : 0;
 
   return (
-    <div className="dashboard-page">
-      {/* Top Nav */}
-      <header className="dash-header">
-        <div className="dash-brand">
-          <Droplets size={24} color="#38BDF8" />
+    <div className="dashboard-layout">
+      {/* ─── LEFT SIDEBAR ─────────────────────────────────────────────────── */}
+      <aside className="dash-sidebar">
+        <div className="dash-sidebar-header">
+          <div className="dash-sidebar-logo-icon">
+            <Droplets size={24} color="#FFFFFF" />
+          </div>
           <div>
-            <span className="brand-name">NIMBLE VISION</span>
-            <span className="brand-sub">STP Monitoring</span>
+            <span className="dash-sidebar-brand-title">NIMBLE VISION</span>
+            <span className="dash-sidebar-brand-sub">STP CONTROL CENTER</span>
           </div>
         </div>
-        <div className="dash-center">
-          {userDevices.length > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#0284C7', background: '#F0F9FF', padding: '4px 10px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
-                📡 Select Device:
+
+        <nav className="dash-sidebar-nav">
+          <div className="dash-sidebar-group-label">STP Monitoring Views</div>
+
+          <button
+            onClick={() => setActiveTab('map')}
+            className={`dash-sidebar-link ${activeTab === 'map' ? 'active' : ''}`}
+          >
+            <MapPin size={18} />
+            <span>Overall Plant Map</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('telemetry')}
+            className={`dash-sidebar-link ${activeTab === 'telemetry' ? 'active' : ''}`}
+          >
+            <Activity size={18} />
+            <span>Plant Monitoring</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('camera')}
+            className={`dash-sidebar-link ${activeTab === 'camera' ? 'active' : ''}`}
+          >
+            <Camera size={18} />
+            <span>Camera Monitoring</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('electrical')}
+            className={`dash-sidebar-link ${activeTab === 'electrical' ? 'active' : ''}`}
+          >
+            <Zap size={18} />
+            <span>Electrical Parameters</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('maintenance')}
+            className={`dash-sidebar-link ${activeTab === 'maintenance' ? 'active' : ''}`}
+          >
+            <Wrench size={18} />
+            <span>Maintenance Tracker</span>
+            {(maintenanceAlerts.overhaulAlarms.length > 0 || maintenanceAlerts.greaseNotifs.length > 0) && (
+              <span className="nav-badge" style={{ background: '#DC2626' }}>!</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('replacements')}
+            className={`dash-sidebar-link ${activeTab === 'replacements' ? 'active' : ''}`}
+          >
+            <DollarSign size={18} />
+            <span>Replacements & Costing</span>
+          </button>
+        </nav>
+
+        <div className="dash-sidebar-footer">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#94A3B8' }}>
+            <span style={{ fontSize: '14px' }}>👤</span>
+            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {fullName || username || 'wabag@nimblevision.io'}
+            </span>
+          </div>
+          <button id="logout-btn" className="logout-btn" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
+            <LogOut size={15} /> Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* ─── MAIN CONTENT WRAPPER ────────────────────────────────────────── */}
+      <div className="dash-content-wrapper">
+        {/* Top Nav Header */}
+        <header className="dash-header">
+          <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
+            {userDevices.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                  📡 Select STP Plant Device:
+                </span>
+                <select
+                  id="device-select-dropdown"
+                  value={selectedDeviceId}
+                  onChange={(e) => handleDeviceChange(e.target.value)}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #0284C7',
+                    background: '#FFFFFF',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+                  }}
+                >
+                  {userDevices.map(d => (
+                    <option key={d.device_id} value={d.device_id}>
+                      {d.device_name} — ({d.device_id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
+            )}
+          </div>
+
+          <div className="dash-actions">
+            <div className={`online-indicator ${online ? 'online' : 'offline'}`}>
+              {online ? <Wifi size={14} /> : <WifiOff size={14} />}
+              <span>{online ? `Live · ${lastUpdated}` : 'Offline'}</span>
+            </div>
+            <button className="icon-btn" title="Refresh Telemetry" onClick={() => fetchTelemetryForDevice(selectedDeviceId)}>
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* KPI Bar */}
+        <div className="kpi-bar">
+          <div className="kpi-card kpi-blue">
+            <Activity size={20} />
+            <div><span className="kpi-val">{activeMotors}</span><span className="kpi-label">Motors Running</span></div>
+          </div>
+          <div className={`kpi-card ${trippedMotors > 0 ? 'kpi-red' : 'kpi-green'}`}>
+            <AlertTriangle size={20} />
+            <div><span className="kpi-val">{trippedMotors}</span><span className="kpi-label">Motors Tripped</span></div>
+          </div>
+          <div className="kpi-card kpi-cyan">
+            <Droplets size={20} />
+            <div><span className="kpi-val">{avgLevel.toFixed(1)}%</span><span className="kpi-label">Avg Water Level</span></div>
+          </div>
+          <div className="kpi-card kpi-purple">
+            <Power size={20} />
+            <div><span className="kpi-val">{layout?.tanks.length ?? 0}</span><span className="kpi-label">Tanks Configured</span></div>
+          </div>
+          <div className="kpi-card" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+            <Clock size={20} color="#0284C7" />
+            <div>
+              <span className="kpi-val" style={{ fontSize: '13px', color: '#0F172A', fontWeight: 700 }}>
+                {telemetry?.raw_params?.timestamp || lastUpdated || 'Just now'}
               </span>
-              <select
-                id="device-select-dropdown"
-                value={selectedDeviceId}
-                onChange={(e) => handleDeviceChange(e.target.value)}
+              <span className="kpi-label">Latest Data Updated</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 🚨 5,000 RUN HOURS CRITICAL OVERHAUL ALARM BANNER */}
+        {maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
+          <div style={{
+            background: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
+            color: '#FFFFFF',
+            padding: '14px 20px',
+            borderRadius: '14px',
+            margin: '16px 24px 8px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 6px 24px rgba(220, 38, 38, 0.4)',
+            border: '2px solid #EF4444'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ background: '#FFFFFF', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <AlertTriangle size={24} color="#DC2626" />
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🚨 CRITICAL MAINTENANCE ALARM: 5,000 RUN HOURS REACHED!</span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#FEE2E2', marginTop: '3px', fontWeight: 600 }}>
+                  {maintenanceAlerts.overhaulAlarms.map(a => `${a.motorName} in ${a.tankName} (${a.hours.toLocaleString()}h)`).join(' · ')} — Full Overhaul Service Required Immediately!
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setActiveTab('maintenance')}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid #0284C7',
                   background: '#FFFFFF',
-                  color: '#0F172A',
-                  fontSize: '13px',
-                  fontWeight: 700,
+                  color: '#991B1B',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontWeight: 800,
+                  fontSize: '12px',
                   cursor: 'pointer',
-                  outline: 'none',
-                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
                 }}
               >
-                {userDevices.map(d => (
-                  <option key={d.device_id} value={d.device_id}>
-                    {d.device_name} — ({d.device_id})
-                  </option>
-                ))}
-              </select>
+                🛠️ Open Maintenance
+              </button>
+              <button
+                onClick={() => setDismissedAlarms(true)}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  color: '#FFF',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                Dismiss
+              </button>
             </div>
-          ) : (
-            layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
-          )}
-        </div>
-        <div className="dash-actions">
-          <div className={`online-indicator ${online ? 'online' : 'offline'}`}>
-            {online ? <Wifi size={14} /> : <WifiOff size={14} />}
-            <span>{online ? `Live · ${lastUpdated}` : 'Offline'}</span>
           </div>
-          <button className="icon-btn" title="Refresh" onClick={() => fetchTelemetryForDevice(selectedDeviceId)}><RefreshCw size={16} /></button>
-          <span className="user-chip">👤 {fullName || username}</span>
-          <button id="logout-btn" className="logout-btn" onClick={handleLogout}><LogOut size={15} /> Logout</button>
-        </div>
-      </header>
+        )}
 
-      {/* KPI Bar */}
-      <div className="kpi-bar">
-        <div className="kpi-card kpi-blue">
-          <Activity size={20} />
-          <div><span className="kpi-val">{activeMotors}</span><span className="kpi-label">Motors Running</span></div>
-        </div>
-        <div className={`kpi-card ${trippedMotors > 0 ? 'kpi-red' : 'kpi-green'}`}>
-          <AlertTriangle size={20} />
-          <div><span className="kpi-val">{trippedMotors}</span><span className="kpi-label">Motors Tripped</span></div>
-        </div>
-        <div className="kpi-card kpi-cyan">
-          <Droplets size={20} />
-          <div><span className="kpi-val">{avgLevel.toFixed(1)}%</span><span className="kpi-label">Avg Water Level</span></div>
-        </div>
-        <div className="kpi-card kpi-purple">
-          <Power size={20} />
-          <div><span className="kpi-val">{layout?.tanks.length ?? 0}</span><span className="kpi-label">Tanks Configured</span></div>
-        </div>
-        <div className="kpi-card" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-          <Clock size={20} color="#0284C7" />
-          <div>
-            <span className="kpi-val" style={{ fontSize: '13px', color: '#0F172A', fontWeight: 700 }}>
-              {telemetry?.raw_params?.timestamp || lastUpdated || 'Just now'}
-            </span>
-            <span className="kpi-label">Latest Data Updated</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 🚨 5,000 RUN HOURS CRITICAL OVERHAUL ALARM BANNER */}
-      {maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
-        <div style={{
-          background: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
-          color: '#FFFFFF',
-          padding: '14px 20px',
-          borderRadius: '14px',
-          margin: '16px 0 8px 0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 6px 24px rgba(220, 38, 38, 0.4)',
-          border: '2px solid #EF4444'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ background: '#FFFFFF', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AlertTriangle size={24} color="#DC2626" />
-            </div>
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 900, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🚨 CRITICAL MAINTENANCE ALARM: 5,000 RUN HOURS REACHED!</span>
+        {/* ⚠️ 2,000 RUN HOURS GREASE & BEARING CHECK POPUP NOTIFICATION BANNER */}
+        {maintenanceAlerts.greaseNotifs.length > 0 && !dismissedGreaseAlarms && (
+          <div style={{
+            background: 'linear-gradient(90deg, #78350F 0%, #D97706 50%, #78350F 100%)',
+            color: '#FFFFFF',
+            padding: '12px 18px',
+            borderRadius: '12px',
+            margin: '16px 24px 8px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
+            border: '1px solid #F59E0B'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: '#FFFFFF', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Clock size={20} color="#D97706" />
               </div>
-              <div style={{ fontSize: '12px', color: '#FEE2E2', marginTop: '3px', fontWeight: 600 }}>
-                {maintenanceAlerts.overhaulAlarms.map(a => `${a.motorName} in ${a.tankName} (${a.hours.toLocaleString()}h)`).join(' · ')} — Full Overhaul Service Required Immediately!
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800 }}>
+                  ⚠️ PREVENTIVE MAINTENANCE POPUP: 2,000 RUN HOURS REACHED!
+                </div>
+                <div style={{ fontSize: '12px', color: '#FEF3C7', marginTop: '2px', fontWeight: 600 }}>
+                  {maintenanceAlerts.greaseNotifs.map(g => `${g.motorName} in ${g.tankName} (${g.hours.toLocaleString()}h)`).join(' · ')} — Grease & Bearing Check Due Now!
+                </div>
               </div>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setActiveTab('maintenance')}
-              style={{
-                background: '#FFFFFF',
-                color: '#991B1B',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-              }}
-            >
-              🛠️ Open Maintenance
-            </button>
-            <button
-              onClick={() => setDismissedAlarms(true)}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                color: '#FFF',
-                border: '1px solid rgba(255,255,255,0.4)',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ⚠️ 2,000 RUN HOURS GREASE & BEARING CHECK POPUP NOTIFICATION BANNER */}
-      {maintenanceAlerts.greaseNotifs.length > 0 && !dismissedGreaseAlarms && (
-        <div style={{
-          background: 'linear-gradient(90deg, #78350F 0%, #D97706 50%, #78350F 100%)',
-          color: '#FFFFFF',
-          padding: '12px 18px',
-          borderRadius: '12px',
-          margin: '16px 0 8px 0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 4px 16px rgba(217, 119, 6, 0.3)',
-          border: '1px solid #F59E0B'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: '#FFFFFF', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Clock size={20} color="#D97706" />
-            </div>
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: 800 }}>
-                ⚠️ PREVENTIVE MAINTENANCE POPUP: 2,000 RUN HOURS REACHED!
-              </div>
-              <div style={{ fontSize: '12px', color: '#FEF3C7', marginTop: '2px', fontWeight: 600 }}>
-                {maintenanceAlerts.greaseNotifs.map(g => `${g.motorName} in ${g.tankName} (${g.hours.toLocaleString()}h)`).join(' · ')} — Grease & Bearing Check Due Now!
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setActiveTab('maintenance')}
+                style={{
+                  background: '#FFFFFF',
+                  color: '#78350F',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                View Maintenance Schedule
+              </button>
+              <button
+                onClick={() => setDismissedGreaseAlarms(true)}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  color: '#FFF',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                Dismiss
+              </button>
             </div>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setActiveTab('maintenance')}
-              style={{
-                background: '#FFFFFF',
-                color: '#78350F',
-                border: 'none',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              View Maintenance Schedule
-            </button>
-            <button
-              onClick={() => setDismissedGreaseAlarms(true)}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                color: '#FFF',
-                border: '1px solid rgba(255,255,255,0.4)',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard View Navigation Tabs */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        margin: '20px 0 16px 0',
-        borderBottom: '2px solid #E2E8F0',
-        paddingBottom: '8px'
-      }}>
-        <button
-          onClick={() => setActiveTab('telemetry')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'telemetry' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'telemetry' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'telemetry' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Activity size={18} />
-          Plant Monitoring
-        </button>
-
-        <button
-          onClick={() => setActiveTab('map')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'map' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'map' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'map' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <MapPin size={18} />
-          Overall Plant Map
-        </button>
-
-        <button
-          onClick={() => setActiveTab('camera')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'camera' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'camera' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'camera' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Camera size={18} />
-          Camera Monitoring
-        </button>
-
-        <button
-          onClick={() => setActiveTab('electrical')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'electrical' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'electrical' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'electrical' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Zap size={18} />
-          Electrical Parameters
-        </button>
-
-        <button
-          onClick={() => setActiveTab('maintenance')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'maintenance' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'maintenance' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'maintenance' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Wrench size={18} />
-          Maintenance
-        </button>
-
-        <button
-          onClick={() => setActiveTab('replacements')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 22px',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 700,
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'replacements' ? '#0284C7' : '#F1F5F9',
-            color: activeTab === 'replacements' ? '#FFFFFF' : '#64748B',
-            boxShadow: activeTab === 'replacements' ? '0 4px 14px rgba(2, 132, 199, 0.25)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <DollarSign size={18} />
-          Replacements & Costing
-        </button>
-      </div>
+        )}
 
       {/* Main Content Area */}
       <main className="scada-main">
@@ -1149,6 +1083,7 @@ const DashboardPage: React.FC = () => {
           </>
         )}
       </main>
+      </div>
 
       {/* Motor Specifications, Continuous Run Tracking & Service History Modal */}
       <MotorDetailsModal

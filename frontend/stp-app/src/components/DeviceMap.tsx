@@ -17,13 +17,6 @@ interface DeviceMapProps {
   onSelectDevice?: (deviceId: string) => void;
 }
 
-const defaultPlants = [
-  { device_id: '350435032683868', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', latitude: 28.657521, longitude: 77.376303, active_motors: 0, tripped_motors: 0 },
-  { device_id: '350435032680674', device_name: 'VASUNDHARA SECTOR 19', latitude: 28.668500, longitude: 77.439000, active_motors: 2, tripped_motors: 0 },
-  { device_id: '350435032689659', device_name: 'STP PLANT C', latitude: 28.672000, longitude: 77.442000, active_motors: 0, tripped_motors: 0 },
-  { device_id: '350435032681912', device_name: 'VAISHALI SECTOR 6', latitude: 28.648000, longitude: 77.382000, active_motors: 1, tripped_motors: 0 }
-];
-
 // 🟢 Green SVG Pin Marker Icon (Motors Running)
 const greenPinIcon = L.divIcon({
   className: 'leaflet-green-pin-marker',
@@ -108,9 +101,6 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   latitude,
   longitude,
   locationName,
-  userDevices = [],
-  deviceStatusMap = {},
-  onSelectDevice,
 }) => {
   const finalLat = latitude ?? 28.6685;
   const finalLng = longitude ?? 77.4390;
@@ -119,10 +109,6 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map());
-  const initialFitDoneRef = useRef<boolean>(false);
-  const onSelectDeviceRef = useRef(onSelectDevice);
-
-  onSelectDeviceRef.current = onSelectDevice;
 
   // Helper to resolve icon by status
   const getMarkerIcon = (devActive: number, devTripped: number) => {
@@ -131,13 +117,19 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     return bluePinIcon;
   };
 
-  // 1. Initialize Map & Markers ONCE on mount
+  // 1. Initialize Map & Single Selected Plant Marker
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!mapContainerRef.current) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+      markersMapRef.current.clear();
+    }
 
     const map = L.map(mapContainerRef.current, {
       center: [finalLat, finalLng],
-      zoom: 13,
+      zoom: 14,
       zoomControl: true,
       scrollWheelZoom: false,
       attributionControl: true
@@ -150,94 +142,51 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
 
     mapInstanceRef.current = map;
 
-    const plantsList = userDevices.length > 0 ? userDevices : defaultPlants;
-    const allPlantsToRender = plantsList.map(p => {
-      const fallback = defaultPlants.find(dp => dp.device_id === p.device_id);
-      return {
-        device_id: p.device_id,
-        device_name: p.device_name || p.name || fallback?.device_name || 'STP Plant',
-        latitude: p.latitude || fallback?.latitude || finalLat,
-        longitude: p.longitude || fallback?.longitude || finalLng,
-        active_motors: p.active_motors ?? fallback?.active_motors ?? 0,
-        tripped_motors: p.tripped_motors ?? fallback?.tripped_motors ?? 0
-      };
-    });
+    const iconToUse = getMarkerIcon(activeMotorsCount, trippedMotorsCount);
+    const marker = L.marker([finalLat, finalLng], { icon: iconToUse }).addTo(map);
+    markersMapRef.current.set(deviceId, marker);
 
-    const bounds: L.LatLngTuple[] = [];
+    let statusLabel = '✓ ACTIVE PLANT (IDLE)';
+    let statusBg = '#0284C7';
 
-    allPlantsToRender.forEach(plant => {
-      const pLat = plant.latitude;
-      const pLng = plant.longitude;
-      bounds.push([pLat, pLng]);
-
-      const isSelected = plant.device_id === deviceId;
-      const iconToUse = getMarkerIcon(plant.active_motors, plant.tripped_motors);
-      const marker = L.marker([pLat, pLng], { icon: iconToUse }).addTo(map);
-      markersMapRef.current.set(plant.device_id, marker);
-
-      const popupDiv = document.createElement('div');
-      popupDiv.style.fontFamily = 'sans-serif';
-      popupDiv.style.padding = '4px';
-
-      popupDiv.innerHTML = `
-        <div style="font-size: 12px; font-weight: 800; color: #0F172A; margin-bottom: 2px;">
-          ${plant.device_name}
-        </div>
-        <div style="font-size: 10px; font-weight: 600; color: #0284C7; margin-bottom: 4px;">
-          📍 ${pLat.toFixed(4)}° N | ${pLng.toFixed(4)}° E
-        </div>
-        <div style="font-size: 9px; color: #64748B; margin-bottom: 6px; font-family: monospace;">
-          ID: ${plant.device_id}
-        </div>
-        <button id="btn-map-select-${plant.device_id}" style="
-          width: 100%;
-          padding: 5px 10px;
-          border-radius: 6px;
-          border: none;
-          background: #0284C7;
-          color: #FFFFFF;
-          font-weight: 700;
-          font-size: 10px;
-          cursor: pointer;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.12);
-        ">
-          📊 Select Plant Details
-        </button>
-      `;
-
-      marker.bindPopup(popupDiv, { autoPan: false });
-
-      if (isSelected) {
-        marker.openPopup();
-      }
-
-      marker.on('popupopen', () => {
-        const btn = document.getElementById(`btn-map-select-${plant.device_id}`);
-        if (btn) {
-          btn.onclick = (e) => {
-            e.stopPropagation();
-            if (onSelectDeviceRef.current) {
-              onSelectDeviceRef.current(plant.device_id);
-            }
-          };
-        }
-      });
-
-      marker.on('click', () => {
-        if (onSelectDeviceRef.current) {
-          onSelectDeviceRef.current(plant.device_id);
-        }
-      });
-    });
-
-    if (!initialFitDoneRef.current && bounds.length > 0) {
-      if (bounds.length > 1) {
-        map.fitBounds(L.latLngBounds(bounds), { padding: [30, 30], maxZoom: 14, animate: false });
-      } else {
-        map.setView([finalLat, finalLng], 14, { animate: false });
-      }
-      initialFitDoneRef.current = true;
+    if (trippedMotorsCount > 0) {
+      statusLabel = `⚠️ ${trippedMotorsCount} MOTOR TRIPPED`;
+      statusBg = '#EF4444';
+    } else if (activeMotorsCount > 0) {
+      statusLabel = `⚡ ${activeMotorsCount} MOTOR(S) RUNNING`;
+      statusBg = '#059669';
     }
+
+    const popupDiv = document.createElement('div');
+    popupDiv.style.fontFamily = 'sans-serif';
+    popupDiv.style.padding = '4px';
+
+    popupDiv.innerHTML = `
+      <div style="font-size: 12px; font-weight: 800; color: #0F172A; margin-bottom: 2px;">
+        ${deviceName}
+      </div>
+      <div style="font-size: 10px; font-weight: 600; color: #0284C7; margin-bottom: 4px;">
+        📍 ${finalLat.toFixed(4)}° N | ${finalLng.toFixed(4)}° E
+      </div>
+      <div style="font-size: 9px; color: #64748B; margin-bottom: 6px; font-family: monospace;">
+        ID: ${deviceId}
+      </div>
+      <div id="btn-map-select-${deviceId}" style="
+        width: 100%;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: ${statusBg};
+        color: #FFFFFF;
+        font-weight: 800;
+        font-size: 11px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+      ">
+        ${statusLabel}
+      </div>
+    `;
+
+    marker.bindPopup(popupDiv, { autoPan: false }).openPopup();
 
     setTimeout(() => {
       if (mapInstanceRef.current) {
@@ -252,51 +201,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
         markersMapRef.current.clear();
       }
     };
-  }, []);
-
-  // 2. Dynamically Update Pin Colors across ALL Plants by Live Motor Status (Green = Running, Red = Tripped, Blue = Idle)
-  useEffect(() => {
-    markersMapRef.current.forEach((marker, pDevId) => {
-      const isSelected = pDevId === deviceId;
-      const statusFromMap = deviceStatusMap?.[pDevId];
-      const fallbackPlant = defaultPlants.find(dp => dp.device_id === pDevId);
-
-      const actCount = statusFromMap?.activeMotors ?? (isSelected ? activeMotorsCount : (fallbackPlant?.active_motors ?? 0));
-      const tripCount = statusFromMap?.trippedMotors ?? (isSelected ? trippedMotorsCount : (fallbackPlant?.tripped_motors ?? 0));
-
-      let iconToUse = bluePinIcon;
-      let statusLabel = isSelected ? '✓ ACTIVE PLANT (IDLE)' : '📊 Select Plant Details';
-      let statusBg = '#0284C7';
-
-      if (tripCount > 0) {
-        iconToUse = redPinIcon;
-        statusLabel = isSelected ? `⚠️ ${tripCount} MOTOR TRIPPED` : `⚠️ TRIPPED (${tripCount})`;
-        statusBg = '#EF4444';
-      } else if (actCount > 0) {
-        iconToUse = greenPinIcon;
-        statusLabel = isSelected ? `⚡ ${actCount} MOTOR(S) RUNNING` : `⚡ RUNNING (${actCount})`;
-        statusBg = '#059669';
-      } else {
-        iconToUse = bluePinIcon;
-        statusLabel = isSelected ? '✓ ACTIVE PLANT (IDLE)' : '✓ IDLE / OFF';
-        statusBg = '#0284C7';
-      }
-
-      marker.setIcon(iconToUse);
-
-      const btn = document.getElementById(`btn-map-select-${pDevId}`);
-      if (btn) {
-        btn.style.background = statusBg;
-        btn.innerHTML = statusLabel;
-      }
-
-      if (isSelected && mapInstanceRef.current) {
-        if (!marker.isPopupOpen()) {
-          marker.openPopup();
-        }
-      }
-    });
-  }, [deviceId, activeMotorsCount, trippedMotorsCount, deviceStatusMap]);
+  }, [deviceId, finalLat, finalLng, deviceName, activeMotorsCount, trippedMotorsCount]);
 
   return (
     <div style={{
