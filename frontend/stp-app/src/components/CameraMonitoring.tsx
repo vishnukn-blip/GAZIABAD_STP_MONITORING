@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  RefreshCw, ChevronLeft, ChevronRight, ShieldCheck,
+  RefreshCw, ChevronLeft, ChevronRight,
   EyeOff, AlertTriangle, FileImage, Loader2
 } from 'lucide-react';
 
@@ -48,6 +48,32 @@ const getItemTimestamp = (path: string): number => {
 
 
 
+// Helper to format date into "DD_MMM_YYYY" (e.g. "09_Sep_2026")
+const formatFolderDate = (d: Date): string => {
+  const day = String(d.getDate()).padStart(2, '0');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = monthNames[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}_${month}_${year}`;
+};
+
+// Helper to generate past 9 days list
+const getAvailableDates = (): Array<{ folder: string; label: string; dateObj: Date }> => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 0; i < 9; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const folder = formatFolderDate(d);
+    let label = '';
+    if (i === 0) label = 'Today (11 Sep)';
+    else if (i === 1) label = 'Yesterday (10 Sep)';
+    else label = `${String(d.getDate()).padStart(2, '0')} ${d.toLocaleString('en-US', { month: 'short' })}`;
+    dates.push({ folder, label, dateObj: d });
+  }
+  return dates;
+};
+
 export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('5grouter');
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
@@ -56,7 +82,42 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   const [loadingList, setLoadingList] = useState<boolean>(true);
   const [systemTime, setSystemTime] = useState<string>('');
   const [imageList, setImageList] = useState<string[]>([]);
+  const [rawAllImages, setRawAllImages] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Recording View Mode & Date Selection
+  const [viewMode, setViewMode] = useState<'live' | 'archive'>('live');
+  const [selectedDateFolder, setSelectedDateFolder] = useState<string>(formatFolderDate(new Date()));
+  const availableDates = getAvailableDates();
+
+  // Dynamic Thumbnail Sliding Window (Auto-shifts selected photo to position 1)
+  const [thumbnailWindowStart, setThumbnailWindowStart] = useState<number>(0);
+  const THUMBNAIL_WINDOW_SIZE = 15;
+  const thumbnailTrackRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset thumbnail window to 0 when date, mode or camera changes
+  useEffect(() => {
+    setThumbnailWindowStart(0);
+  }, [selectedCameraId, viewMode, selectedDateFolder]);
+
+  // Auto-shift thumbnail track when user selects photos near the end of visible track
+  const selectSnapshotWithAutoShift = (targetIdx: number) => {
+    if (targetIdx < 0 || targetIdx >= imageList.length) return;
+    setActiveSnapshotIdx(targetIdx);
+
+    // If selecting photo near/at the end of visible track, shift selected photo to 1st position (#1)
+    if (targetIdx >= thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE - 1) {
+      setThumbnailWindowStart(targetIdx);
+      if (thumbnailTrackRef.current) {
+        thumbnailTrackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      }
+    } else if (targetIdx < thumbnailWindowStart) {
+      setThumbnailWindowStart(Math.max(0, targetIdx - THUMBNAIL_WINDOW_SIZE + 1));
+      if (thumbnailTrackRef.current) {
+        thumbnailTrackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      }
+    }
+  };
 
   // AWS EC2 Hosts: Image Service host (13.206.207.146)
   const PRIMARY_HOST = 'http://13.206.207.146:5002';
@@ -83,6 +144,25 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     { id: '1', name: 'Saguaru', role: 'Visitor', status: 'ACTIVE', activeCount: 1 },
     { id: '2', name: 'El Presidento', role: 'Operator', status: 'ACTIVE', activeCount: 1 },
   ];
+
+  const filterImageList = (allPaths: string[], subfolder: string, mode: 'live' | 'archive', dateFolder: string) => {
+    const subfolderOnly = allPaths.filter((p) => p.includes(subfolder));
+    
+    if (mode === 'live') {
+      const liveList = subfolderOnly.filter((p) => p.includes('SATATYA_IPCAM_IMAGE') && !p.includes('SCHEDULESNAPSHOT'));
+      if (liveList.length > 0) return liveList;
+      return subfolderOnly;
+    }
+
+    // Archive mode / date filtered (e.g. "09_Sep_2026")
+    const dateList = subfolderOnly.filter((p) => p.includes(dateFolder));
+    if (dateList.length > 0) return dateList;
+
+    const scheduleList = subfolderOnly.filter((p) => p.includes('SCHEDULESNAPSHOT'));
+    if (scheduleList.length > 0) return scheduleList;
+
+    return subfolderOnly;
+  };
 
   // Robust fetch with automatic host fallback so images NEVER fail to load
   const fetchRemoteImageList = async (sourceKey: string) => {
@@ -123,23 +203,15 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
     if (responseData && responseData.length > 0) {
       setActiveApiBase(successfulHost);
+      setRawAllImages(responseData);
       
       const subfolder = sourceKey === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+      const filtered = filterImageList(responseData, subfolder, viewMode, selectedDateFolder);
 
-      // Filter: Keep ONLY images inside SATATYA_IPCAM_IMAGE folder under the exact device subfolder
-      const satatyaOnlyList = responseData.filter((path) => 
-        path.includes('SATATYA_IPCAM_IMAGE') &&
-        path.includes(subfolder) &&
-        !path.includes('SCHEDULESNAPSHOT')
-      );
-
-      // Sort Latest/Newest first (Snapshot 1 = Today/Now)
-      const sortedLatestFirst = satatyaOnlyList.slice().sort((a, b) => {
+      const sortedLatestFirst = filtered.slice().sort((a, b) => {
         const timeA = getItemTimestamp(a);
         const timeB = getItemTimestamp(b);
-        if (timeA !== timeB) {
-          return timeB - timeA;
-        }
+        if (timeA !== timeB) return timeB - timeA;
         return b.localeCompare(a);
       });
 
@@ -148,6 +220,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     } else {
       setFetchError('Unable to connect to AWS Image API Service');
       setImageList([]);
+      setRawAllImages([]);
     }
 
     setLoadingList(false);
@@ -156,6 +229,21 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
   useEffect(() => {
     fetchRemoteImageList(selectedCameraId);
   }, [selectedCameraId]);
+
+  useEffect(() => {
+    if (rawAllImages.length > 0) {
+      const subfolder = selectedCameraId === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+      const filtered = filterImageList(rawAllImages, subfolder, viewMode, selectedDateFolder);
+      const sorted = filtered.slice().sort((a, b) => {
+        const timeA = getItemTimestamp(a);
+        const timeB = getItemTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+        return b.localeCompare(a);
+      });
+      setImageList(sorted);
+      setActiveSnapshotIdx(0);
+    }
+  }, [viewMode, selectedDateFolder, selectedCameraId, rawAllImages]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -176,12 +264,14 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
   const handlePrevSnapshot = () => {
     if (imageList.length === 0) return;
-    setActiveSnapshotIdx((prev) => (prev > 0 ? prev - 1 : imageList.length - 1));
+    const newIdx = activeSnapshotIdx > 0 ? activeSnapshotIdx - 1 : imageList.length - 1;
+    selectSnapshotWithAutoShift(newIdx);
   };
 
   const handleNextSnapshot = () => {
     if (imageList.length === 0) return;
-    setActiveSnapshotIdx((prev) => (prev < imageList.length - 1 ? prev + 1 : 0));
+    const newIdx = activeSnapshotIdx < imageList.length - 1 ? activeSnapshotIdx + 1 : 0;
+    selectSnapshotWithAutoShift(newIdx);
   };
 
   const handleRefresh = async () => {
@@ -315,18 +405,18 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          {/* AWS Folder Path Badge */}
+          {/* AWS Service Status Badge */}
           <span style={{
             fontSize: '11px',
             fontFamily: 'monospace',
             background: '#F0F9FF',
             color: '#0284C7',
             border: '1px solid #BAE6FD',
-            padding: '6px 12px',
+            padding: '6px 14px',
             borderRadius: '8px',
             fontWeight: 700
           }}>
-            📂 {currentCam.path} ({imageList.length} files)
+            📷 {currentCam.title} ({imageList.length} snapshots loaded)
           </span>
 
           {/* Camera Selector Dropdown */}
@@ -373,6 +463,109 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
             <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
             REFRESH
           </button>
+        </div>
+      </div>
+
+      {/* 📅 Dynamic Date Navigation Toolbar (Professional & Clean) */}
+      <div style={{
+        background: '#FFFFFF',
+        border: '1px solid #E2E8F0',
+        borderRadius: '14px',
+        padding: '12px 18px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '14px',
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)'
+      }}>
+        {/* Left: Dynamic Mode & Folder Indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {viewMode === 'live' ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              background: '#FEF2F2',
+              border: '1px solid #FECACA',
+              color: '#DC2626',
+              fontSize: '12px',
+              fontWeight: 800
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#DC2626',
+                boxShadow: '0 0 8px #DC2626'
+              }} />
+              LIVE CAMERA FEED
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              color: '#D97706',
+              fontSize: '12px',
+              fontWeight: 800
+            }}>
+              📅 HISTORICAL ARCHIVE ({selectedDateFolder.replace('_', ' ').replace('_', ' ')})
+            </div>
+          )}
+
+          <span style={{
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            background: '#F1F5F9',
+            color: '#475569',
+            border: '1px solid #CBD5E1',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            fontWeight: 700
+          }}>
+            📂 {imageList.length} Photos
+          </span>
+        </div>
+
+        {/* Right: Clean Unified Date Selection Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+          <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, marginRight: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Select Date:
+          </span>
+          {availableDates.map(({ folder, label }) => {
+            const isSelected = selectedDateFolder === folder;
+            return (
+              <button
+                key={folder}
+                onClick={() => {
+                  setSelectedDateFolder(folder);
+                  setViewMode(folder === formatFolderDate(new Date()) ? 'live' : 'archive');
+                }}
+                style={{
+                  padding: '7px 15px',
+                  borderRadius: '16px',
+                  fontSize: '12px',
+                  fontWeight: isSelected ? 800 : 600,
+                  cursor: 'pointer',
+                  border: isSelected ? '1px solid #0284C7' : '1px solid #E2E8F0',
+                  background: isSelected ? '#0284C7' : '#F8FAFC',
+                  color: isSelected ? '#FFFFFF' : '#334155',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none'
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -645,45 +838,144 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                 letterSpacing: '0.5px',
                 zIndex: 10
               }}>
-                <ShieldCheck size={16} />
-                ROOM SECURED
               </div>
             )}
           </div>
 
-          {/* Bottom Dynamic Thumbnail Carousel (Latest First) */}
+          {/* Card B: Dedicated Thumbnail Gallery Card (Easy to Select & View) */}
           <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 2px 12px rgba(15, 23, 42, 0.04)',
             display: 'flex',
-            gap: '10px',
-            overflowX: 'auto',
-            padding: '8px 2px',
-            scrollbarWidth: 'thin'
+            flexDirection: 'column',
+            gap: '12px'
           }}>
-            {imageList.slice(0, 20).map((relPath, idx) => (
-              <div
-                key={relPath}
-                onClick={() => setActiveSnapshotIdx(idx)}
-                style={{
-                  minWidth: '100px',
-                  height: '65px',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  border: activeSnapshotIdx === idx ? '3px solid #FF6B00' : '2px solid transparent',
-                  opacity: activeSnapshotIdx === idx ? 1 : 0.65,
-                  transition: 'all 0.2s',
-                  position: 'relative',
-                  background: '#1E293B',
-                  flexShrink: 0
-                }}
-              >
-                <img
-                  src={getImageViewUrl(relPath, selectedCameraId)}
-                  alt={`Thumb ${idx + 1}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+            {/* Batch Navigation & Counter Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.3px' }}>
+                  📷 PHOTO GALLERY
+                </span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#0284C7',
+                  background: '#F0F9FF',
+                  border: '1px solid #BAE6FD',
+                  padding: '2px 8px',
+                  borderRadius: '12px'
+                }}>
+                  Showing {imageList.length > 0 ? thumbnailWindowStart + 1 : 0} – {Math.min(thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE, imageList.length)} of {imageList.length}
+                </span>
               </div>
-            ))}
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  disabled={thumbnailWindowStart === 0}
+                  onClick={() => {
+                    const newStart = Math.max(0, thumbnailWindowStart - THUMBNAIL_WINDOW_SIZE);
+                    setThumbnailWindowStart(newStart);
+                    selectSnapshotWithAutoShift(newStart);
+                  }}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    border: '1px solid #CBD5E1',
+                    background: thumbnailWindowStart === 0 ? '#F8FAFC' : '#FFFFFF',
+                    color: thumbnailWindowStart === 0 ? '#94A3B8' : '#0284C7',
+                    cursor: thumbnailWindowStart === 0 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  « Newer Batch
+                </button>
+
+                <button
+                  disabled={thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE >= imageList.length}
+                  onClick={() => {
+                    const newStart = Math.min(imageList.length - 1, thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE);
+                    setThumbnailWindowStart(newStart);
+                    selectSnapshotWithAutoShift(newStart);
+                  }}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    border: '1px solid #CBD5E1',
+                    background: thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE >= imageList.length ? '#F8FAFC' : '#FFFFFF',
+                    color: thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE >= imageList.length ? '#94A3B8' : '#0284C7',
+                    cursor: thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE >= imageList.length ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  Older Batch »
+                </button>
+              </div>
+            </div>
+
+            {/* Thumbnail Scroll Track */}
+            <div
+              ref={thumbnailTrackRef}
+              style={{
+                display: 'flex',
+                gap: '12px',
+                overflowX: 'auto',
+                padding: '4px 2px 10px 2px',
+                scrollbarWidth: 'thin'
+              }}
+            >
+              {imageList.slice(thumbnailWindowStart, thumbnailWindowStart + THUMBNAIL_WINDOW_SIZE).map((relPath, idx) => {
+                const realIndex = thumbnailWindowStart + idx;
+                const isSelected = activeSnapshotIdx === realIndex;
+                return (
+                  <div
+                    key={relPath}
+                    onClick={() => selectSnapshotWithAutoShift(realIndex)}
+                    style={{
+                      minWidth: '125px',
+                      height: '80px',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      border: isSelected ? '3px solid #FF6B00' : '2px solid #E2E8F0',
+                      opacity: isSelected ? 1 : 0.75,
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      background: '#0F172A',
+                      flexShrink: 0,
+                      boxShadow: isSelected ? '0 4px 14px rgba(255, 107, 0, 0.4)' : 'none',
+                      transform: isSelected ? 'scale(1.03)' : 'scale(1)'
+                    }}
+                  >
+                    <img
+                      src={getImageViewUrl(relPath, selectedCameraId)}
+                      alt={`Thumb ${realIndex + 1}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '6px',
+                      background: isSelected ? '#FF6B00' : 'rgba(15, 23, 42, 0.85)',
+                      color: '#FFFFFF',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      fontFamily: 'monospace',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      #{realIndex + 1}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
         </div>

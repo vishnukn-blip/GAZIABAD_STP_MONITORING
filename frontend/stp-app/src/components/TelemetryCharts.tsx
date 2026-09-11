@@ -116,7 +116,7 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
 };
 
 export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motors, tankName }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('vertical');
 
   // Guaranteed minimum 24-Hour historical duty cycle timeline
   const data = generate24HourHistoryData(history);
