@@ -64,6 +64,7 @@ export interface TankTelemetry {
 }
 
 export interface TelemetryHistoryPoint {
+  raw_timestamp?: string;
   timestamp: string;
   time_short: string;
   water_level: number;

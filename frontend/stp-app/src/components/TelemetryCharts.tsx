@@ -82,6 +82,7 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
       }
       return {
         ...p,
+        raw_timestamp: p.raw_timestamp || p.timestamp,
         timestamp: tLabel,
         time_short: tLabel,
         water_level: p.water_level ?? 0,
@@ -286,15 +287,25 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
 
               const parseToMs = (item?: TelemetryHistoryPoint): number => {
                 if (!item) return 0;
-                const raw = (item as any)?.raw_timestamp || item.timestamp || item.time_short;
+                const raw = item.raw_timestamp || item.timestamp || item.time_short;
                 if (!raw) return 0;
-                if (typeof raw === 'string' && raw.includes(':') && !raw.includes('-') && !raw.includes('/')) {
+
+                // 1) If full ISO or date-time string (e.g. "2026-09-11 13:38:00" or "2026-09-11T13:38:00")
+                if (typeof raw === 'string' && (raw.includes('-') || raw.includes('/'))) {
+                  const formatted = raw.includes(' ') ? raw.replace(' ', 'T') : raw;
+                  const d = new Date(formatted);
+                  if (!isNaN(d.getTime())) return d.getTime();
+                }
+
+                // 2) If only HH:mm time string (e.g. "13:38")
+                if (typeof raw === 'string' && raw.includes(':')) {
                   const parts = raw.split(':');
                   const now = new Date();
                   now.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
                   return now.getTime();
                 }
-                const d = new Date(raw.includes(' ') ? raw.replace(' ', 'T') : raw);
+
+                const d = new Date(raw);
                 return isNaN(d.getTime()) ? 0 : d.getTime();
               };
 
