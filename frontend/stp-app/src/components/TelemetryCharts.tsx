@@ -149,7 +149,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   ];
 
   const motorConfigs = (motors && motors.length > 0)
-    ? motors.map((m, idx) => ({ name: m.name || m.motor_name || `Motor ${idx + 1}`, key: m.run_param_key || `current_${idx + 1}` }))
+    ? motors.map((m, idx) => ({ 
+        name: m.name || m.motor_name || `Motor ${idx + 1}`, 
+        key: m.run_param_key || `current_${idx + 1}`,
+        meter_id: m.meter_id
+      }))
     : defaultMotorConfigs;
 
   return (
@@ -287,15 +291,27 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           gap: '20px'
         }}>
           {motorConfigs.map((m, idx) => {
-            // Determine specific meter electrical current for this motor
+            // Determine specific meter electrical current for this motor (strict 1-to-1 matching)
             let motorAmpere = 0;
             const mObj = m as any;
+
             if (mObj.meter_id && meterAmperesMap[String(mObj.meter_id)] !== undefined) {
               motorAmpere = meterAmperesMap[String(mObj.meter_id)];
-            } else if (meterAmperesMap[String(idx + 2)] !== undefined) {
-              motorAmpere = meterAmperesMap[String(idx + 2)];
-            } else if (meterAmperesMap[String(idx + 1)] !== undefined) {
-              motorAmpere = meterAmperesMap[String(idx + 1)];
+            } else {
+              // Enforce strict unique meter assignment without cross-motor falling back:
+              // Index 0 -> Meter 2 (or Meter 1 if only Meter 1 exists)
+              // Index 1 -> Meter 3
+              // Index 2 -> Meter 4
+              // Index 3 -> Meter 5
+              // Index 4 -> Meter 6
+              const primaryMeterId = String(idx + 2);
+              if (meterAmperesMap[primaryMeterId] !== undefined) {
+                motorAmpere = meterAmperesMap[primaryMeterId];
+              } else if (idx === 0 && meterAmperesMap['1'] !== undefined) {
+                motorAmpere = meterAmperesMap['1'];
+              } else {
+                motorAmpere = 0;
+              }
             }
 
             const isAutoRunning = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint] === 1;
