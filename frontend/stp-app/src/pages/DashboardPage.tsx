@@ -948,15 +948,15 @@ const DashboardPage: React.FC = () => {
                         <span style={{
                           fontSize: '11px',
                           fontWeight: 800,
-                          background: '#FFFBEB',
-                          color: '#D97706',
-                          border: '1px solid #FDE68A',
+                          background: '#FFF7ED',
+                          color: '#EA580C',
+                          border: '1px solid #FFEDD5',
                           padding: '6px 12px',
                           borderRadius: '8px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
-                          boxShadow: '0 0 10px rgba(217, 119, 6, 0.2)'
+                          boxShadow: '0 0 10px rgba(234, 88, 12, 0.25)'
                         }}>
                           🖐️ MANUAL MODE ({amps.toFixed(1)} A Active Current)
                         </span>

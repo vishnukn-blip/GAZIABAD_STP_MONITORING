@@ -132,7 +132,7 @@ const createRedIcon = (label: string) => L.divIcon({
   popupAnchor: [0, -48]
 });
 
-// Custom Leaflet Amber Pin Icon (Manual Override Mode)
+// Custom Leaflet Orange Pin Icon (Manual Mode)
 const createAmberIcon = (label: string) => L.divIcon({
   className: 'custom-leaflet-pin-amber',
   html: `
@@ -141,11 +141,11 @@ const createAmberIcon = (label: string) => L.divIcon({
       display: flex;
       flex-direction: column;
       align-items: center;
-      filter: drop-shadow(0px 4px 10px rgba(245, 158, 11, 0.7));
+      filter: drop-shadow(0px 4px 10px rgba(249, 115, 22, 0.75));
       cursor: pointer;
     ">
       <div style="
-        background: #F59E0B;
+        background: #F97316;
         color: #FFFFFF;
         font-size: 10px;
         font-weight: 800;
@@ -153,15 +153,15 @@ const createAmberIcon = (label: string) => L.divIcon({
         border-radius: 10px;
         margin-bottom: 2px;
         white-space: nowrap;
-        border: 1px solid #B45309;
+        border: 1px solid #C2410C;
         box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       ">
         🖐️ ${label}
       </div>
       <svg width="28" height="36" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#F59E0B" stroke="#B45309" stroke-width="1.5"/>
+        <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#F97316" stroke="#C2410C" stroke-width="1.5"/>
         <circle cx="12" cy="11" r="5" fill="#FFFFFF"/>
-        <circle cx="12" cy="11" r="2.8" fill="#F59E0B"/>
+        <circle cx="12" cy="11" r="2.8" fill="#F97316"/>
       </svg>
     </div>
   `,
@@ -323,9 +323,9 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
       const marker = L.marker([plant.latitude, plant.longitude], { icon: pinIcon }).addTo(mapRef.current!);
 
       const badgeText = isTripped ? '🚨 FAULT ALARM' : isAuto ? '🟢 AUTOMATIC MODE (PLC CONTROL)' : isManual ? `🖐️ MANUAL MODE (${plant.currentAmperes.toFixed(1)} A)` : '⚪ STANDBY / IDLE';
-      const badgeBg = isTripped ? '#FEF2F2' : isAuto ? '#ECFDF5' : isManual ? '#FFFBEB' : '#F1F5F9';
-      const badgeColor = isTripped ? '#DC2626' : isAuto ? '#059669' : isManual ? '#D97706' : '#475569';
-      const badgeBorder = isTripped ? '#FCA5A5' : isAuto ? '#A7F3D0' : isManual ? '#FDE68A' : '#CBD5E1';
+      const badgeBg = isTripped ? '#FEF2F2' : isAuto ? '#ECFDF5' : isManual ? '#FFF7ED' : '#F1F5F9';
+      const badgeColor = isTripped ? '#DC2626' : isAuto ? '#059669' : isManual ? '#EA580C' : '#475569';
+      const badgeBorder = isTripped ? '#FCA5A5' : isAuto ? '#A7F3D0' : isManual ? '#FFEDD5' : '#CBD5E1';
 
       const activeDisplay = plant.activeMotors > 0 
         ? `${plant.activeMotors} Active` 
@@ -713,7 +713,10 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
             {/* Status Legend Badges */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px', borderLeft: '1px solid #CBD5E1' }}>
               <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} /> Online
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} /> Auto Mode
+              </span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#EA580C', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F97316' }} /> Manual Mode
               </span>
               <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#64748B' }} /> Standby
