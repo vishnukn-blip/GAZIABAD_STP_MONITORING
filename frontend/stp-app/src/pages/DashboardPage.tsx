@@ -1252,6 +1252,8 @@ const DashboardPage: React.FC = () => {
                   history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
                   motors={layout?.tanks[0]?.motors || telemetry?.tanks[0]?.motors || []}
                   tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
+                  currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
+                  operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
                 />
               </>
             )}

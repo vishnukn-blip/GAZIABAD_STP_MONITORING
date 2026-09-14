@@ -15,6 +15,8 @@ interface TelemetryChartsProps {
   history: TelemetryHistoryPoint[];
   motors?: any[];
   tankName?: string;
+  currentAmperes?: number;
+  operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP';
 }
 
 const MotorIcon = ({ color = '#059669', size = 18 }: { color?: string; size?: number }) => (
@@ -32,9 +34,17 @@ const MotorIcon = ({ color = '#059669', size = 18 }: { color?: string; size?: nu
   </svg>
 );
 
-const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
+const CustomTooltip = ({ active, payload, label, unit = '', currentAmperes = 0 }: any) => {
   if (active && payload && payload.length) {
     const isWaterLevel = unit === '%';
+    const val = payload[0]?.value ?? 0;
+    const statusText = val === 1 
+      ? '⚙️ AUTO ON (PLC Controlled)' 
+      : val === 0.5 
+        ? `🖐️ MANUAL ON (${currentAmperes > 0 ? currentAmperes.toFixed(1) + ' A' : 'Active Load'})` 
+        : '⚪ OFF (Stopped)';
+    const statusColor = val === 1 ? '#059669' : val === 0.5 ? '#EA580C' : '#64748B';
+
     return (
       <div style={{
         background: '#FFFFFF',
@@ -46,10 +56,10 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
         boxShadow: '0 4px 16px rgba(15, 23, 42, 0.15)'
       }}>
         <p style={{ color: '#64748B', marginBottom: '4px' }}>Time: {label}</p>
-        <p style={{ fontWeight: 'bold', color: payload[0].color || '#0284C7' }}>
+        <p style={{ fontWeight: 'bold', color: isWaterLevel ? (payload[0].color || '#0284C7') : statusColor }}>
           {isWaterLevel 
-            ? `Water Level: ${payload[0].value}%` 
-            : `Status: ${payload[0].value === 1 ? 'ON (Running)' : 'OFF (Stopped)'}`
+            ? `Water Level: ${val}%` 
+            : `Status: ${statusText}`
           }
         </p>
       </div>
@@ -116,7 +126,13 @@ const generate24HourHistoryData = (incomingHistory: TelemetryHistoryPoint[]): Te
   return points;
 };
 
-export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motors, tankName }) => {
+export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ 
+  history, 
+  motors, 
+  tankName,
+  currentAmperes = 0,
+  operatingMode = 'STANDBY'
+}) => {
   const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('vertical');
 
   // Guaranteed minimum 24-Hour historical duty cycle timeline
@@ -269,16 +285,18 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
           gap: '20px'
         }}>
           {motorConfigs.map((m, idx) => {
-            const currentStatus = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint] === 1;
+            const isAutoRunning = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint] === 1;
+            const isManualRunning = !isAutoRunning && (currentAmperes > 0.05) && (operatingMode === 'MANUAL' || operatingMode === 'AUTO');
+            const isMotorActive = isAutoRunning || isManualRunning;
 
             // Calculate dynamic continuous run duration from timeline data
             const lastIndex = data.length - 1;
             let dynamicFormatted = '0h';
 
-            if (currentStatus && lastIndex >= 0) {
+            if (isMotorActive && lastIndex >= 0) {
               let startIdx = lastIndex;
               for (let i = lastIndex; i >= 0; i--) {
-                if (data[i]?.[m.key as keyof TelemetryHistoryPoint] === 1) {
+                if (data[i]?.[m.key as keyof TelemetryHistoryPoint] === 1 || isManualRunning) {
                   startIdx = i;
                 } else {
                   break;
@@ -290,14 +308,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
                 const raw = item.raw_timestamp || item.timestamp || item.time_short;
                 if (!raw) return 0;
 
-                // 1) If full ISO or date-time string (e.g. "2026-09-11 13:38:00" or "2026-09-11T13:38:00")
                 if (typeof raw === 'string' && (raw.includes('-') || raw.includes('/'))) {
                   const formatted = raw.includes(' ') ? raw.replace(' ', 'T') : raw;
                   const d = new Date(formatted);
                   if (!isNaN(d.getTime())) return d.getTime();
                 }
 
-                // 2) If only HH:mm time string (e.g. "13:38")
                 if (typeof raw === 'string' && raw.includes(':')) {
                   const parts = raw.split(':');
                   const now = new Date();
@@ -326,22 +342,49 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
               }
             }
 
-            // Colors: Emerald Green when ON/RUNNING, Slate Grey when OFF
-            const strokeColor = currentStatus ? '#059669' : '#475569';
-            const fillColor = currentStatus ? '#10B981' : '#94A3B8';
+            // Color Themes: Emerald Green when AUTO ON, Vibrant Orange when MANUAL ON, Slate Grey when OFF
+            const strokeColor = isAutoRunning ? '#059669' : isManualRunning ? '#EA580C' : '#475569';
+            const fillColor = isAutoRunning ? '#10B981' : isManualRunning ? '#F97316' : '#94A3B8';
+            const cardBorder = isAutoRunning ? '#A7F3D0' : isManualRunning ? '#FFEDD5' : '#CBD5E1';
+
+            const badgeText = isAutoRunning 
+              ? '⚙️ AUTO ON' 
+              : isManualRunning 
+                ? `🖐️ MANUAL ON (${currentAmperes.toFixed(1)} A)` 
+                : '⚪ OFF';
+            const badgeBg = isAutoRunning ? '#ECFDF5' : isManualRunning ? '#FFF7ED' : '#F1F5F9';
+            const badgeBorder = isAutoRunning ? '#A7F3D0' : isManualRunning ? '#FFEDD5' : '#CBD5E1';
+
+            // Transform history data for graph rendering:
+            // 1.0 = AUTO ON (Green Peak)
+            // 0.5 = MANUAL ON (Orange Mid Peak)
+            // 0.0 = OFF
+            const motorChartData = data.map((pt, pIdx) => {
+              const val = pt[m.key as keyof TelemetryHistoryPoint];
+              let plottedVal = 0;
+              if (val === 1) {
+                plottedVal = 1.0;
+              } else if (isManualRunning && pIdx >= Math.max(0, data.length - 8)) {
+                plottedVal = 0.5;
+              }
+              return {
+                ...pt,
+                chartValue: plottedVal
+              };
+            });
 
             return (
               <div key={m.key} style={{
                 background: '#FFFFFF',
-                border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
+                border: `1px solid ${cardBorder}`,
                 borderRadius: '12px',
                 padding: '16px',
-                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)'
+                boxShadow: isManualRunning ? '0 4px 16px rgba(234, 88, 12, 0.08)' : '0 2px 8px rgba(15, 23, 42, 0.03)'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{
-                      background: currentStatus ? '#ECFDF5' : '#F1F5F9',
+                      background: badgeBg,
                       padding: '6px',
                       borderRadius: '8px',
                       display: 'flex',
@@ -361,45 +404,51 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({ history, motor
                       padding: '4px 10px',
                       borderRadius: '12px',
                       fontWeight: 800,
-                      background: currentStatus ? '#F0F9FF' : '#F8FAFC',
-                      border: `1px solid ${currentStatus ? '#BAE6FD' : '#E2E8F0'}`,
-                      color: currentStatus ? '#0284C7' : '#64748B',
+                      background: isMotorActive ? '#F0F9FF' : '#F8FAFC',
+                      border: `1px solid ${isMotorActive ? '#BAE6FD' : '#E2E8F0'}`,
+                      color: isMotorActive ? '#0284C7' : '#64748B',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px'
                     }}>
-                      ⏱️ {currentStatus ? dynamicFormatted : '0h'}
+                      ⏱️ {isMotorActive ? dynamicFormatted : '0h'}
                     </span>
                     <span style={{
                       fontSize: '11px',
                       padding: '4px 10px',
                       borderRadius: '12px',
                       fontWeight: 800,
-                      background: currentStatus ? '#ECFDF5' : '#F1F5F9',
-                      border: `1px solid ${currentStatus ? '#A7F3D0' : '#CBD5E1'}`,
+                      background: badgeBg,
+                      border: `1px solid ${badgeBorder}`,
                       color: strokeColor
                     }}>
-                      {currentStatus ? '● RUNNING' : '○ OFF'}
+                      {badgeText}
                     </span>
                   </div>
                 </div>
 
               <div style={{ height: '140px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                  <AreaChart data={motorChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id={`motorGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={fillColor} stopOpacity={currentStatus ? 0.85 : 0.45} />
-                        <stop offset="100%" stopColor={fillColor} stopOpacity={currentStatus ? 0.70 : 0.30} />
+                        <stop offset="0%" stopColor={fillColor} stopOpacity={isMotorActive ? 0.85 : 0.45} />
+                        <stop offset="100%" stopColor={fillColor} stopOpacity={isMotorActive ? 0.70 : 0.30} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
                     <XAxis dataKey="time_short" stroke="#64748B" fontSize={10} />
-                    <YAxis domain={[0, 1]} ticks={[0, 1]} stroke="#64748B" fontSize={10} tickFormatter={(v) => v === 1 ? 'ON' : 'OFF'} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <YAxis 
+                      domain={[0, 1]} 
+                      ticks={[0, 0.5, 1]} 
+                      stroke="#64748B" 
+                      fontSize={9} 
+                      tickFormatter={(v) => v === 1 ? 'AUTO' : v === 0.5 ? 'MANUAL' : 'OFF'} 
+                    />
+                    <Tooltip content={<CustomTooltip currentAmperes={currentAmperes} />} />
                     <Area
                       type="stepAfter"
-                      dataKey={m.key}
+                      dataKey="chartValue"
                       stroke={strokeColor}
                       strokeWidth={2.5}
                       fillOpacity={1}
