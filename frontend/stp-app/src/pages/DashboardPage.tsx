@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -464,7 +464,7 @@ const DashboardPage: React.FC = () => {
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'map' | 'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('map');
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number }>>({});
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }>>({});
   
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -475,16 +475,39 @@ const DashboardPage: React.FC = () => {
 
   const fetchAllDevicesTelemetry = async (devices: any[]) => {
     if (!devices || devices.length === 0) return;
-    const statusMap: Record<string, { activeMotors: number; trippedMotors: number }> = {};
+    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }> = {};
     await Promise.all(
       devices.map(async (d) => {
         try {
-          const { data } = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } });
-          if (data && data.tanks) {
-            const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
-            const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
-            statusMap[d.device_id] = { activeMotors: act, trippedMotors: trip };
+          const [{ data }, elecData] = await Promise.all([
+            TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null })),
+            getElectricalTelemetry(d.device_id).catch(() => null)
+          ]);
+
+          const act = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
+          const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
+
+          const currentAmp = elecData?.i_avg || elecData?.i1 || (elecData?.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+          const hasAmpere = currentAmp > 0.05;
+
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+          if (trip > 0) {
+            operatingMode = 'TRIP';
+          } else if (act > 0 && hasAmpere) {
+            operatingMode = 'AUTO';
+          } else if (act === 0 && hasAmpere) {
+            operatingMode = 'MANUAL';
+          } else if (act > 0) {
+            operatingMode = 'AUTO';
           }
+
+          statusMap[d.device_id] = {
+            activeMotors: act,
+            trippedMotors: trip,
+            currentAmperes: currentAmp,
+            hasElectricalAmpere: hasAmpere,
+            operatingMode
+          };
         } catch {}
       })
     );
@@ -579,9 +602,19 @@ const DashboardPage: React.FC = () => {
       if (data?.tanks) {
         const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
         const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
+        const elecData = await getElectricalTelemetry(devId).catch(() => null);
+        const currentAmp = elecData?.i_avg || elecData?.i1 || (elecData?.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+        const hasAmpere = currentAmp > 0.05;
+
+        let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+        if (trip > 0) operatingMode = 'TRIP';
+        else if (act > 0 && hasAmpere) operatingMode = 'AUTO';
+        else if (act === 0 && hasAmpere) operatingMode = 'MANUAL';
+        else if (act > 0) operatingMode = 'AUTO';
+
         setDeviceStatusMap(prev => ({
           ...prev,
-          [devId]: { activeMotors: act, trippedMotors: trip }
+          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: currentAmp, hasElectricalAmpere: hasAmpere, operatingMode }
         }));
       }
 
@@ -852,6 +885,84 @@ const DashboardPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+
+                  {/* Plant Operational Mode Badge (AUTO / MANUAL OVERRIDE / STANDBY) */}
+                  {(() => {
+                    const currentStatus = deviceStatusMap[selectedDeviceId];
+                    const mode = currentStatus?.operatingMode || 'STANDBY';
+                    const amps = currentStatus?.currentAmperes || 0;
+
+                    if (mode === 'AUTO') {
+                      return (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          background: '#ECFDF5',
+                          color: '#059669',
+                          border: '1px solid #A7F3D0',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          ⚙️ AUTOMATIC MODE (PLC Controlled)
+                        </span>
+                      );
+                    } else if (mode === 'MANUAL') {
+                      return (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          background: '#FFFBEB',
+                          color: '#D97706',
+                          border: '1px solid #FDE68A',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 0 10px rgba(217, 119, 6, 0.2)'
+                        }}>
+                          🖐️ MANUAL OVERRIDE ({amps.toFixed(1)} A Current Active)
+                        </span>
+                      );
+                    } else if (mode === 'TRIP') {
+                      return (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          background: '#FEF2F2',
+                          color: '#DC2626',
+                          border: '1px solid #FCA5A5',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          🚨 FAULT / TRIPPED
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          background: '#F1F5F9',
+                          color: '#64748B',
+                          border: '1px solid #CBD5E1',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          ⚪ STANDBY / IDLE
+                        </span>
+                      );
+                    }
+                  })()}
                 </div>
               ) : (
                 layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>

@@ -8,7 +8,7 @@ import {
 
 interface OverallPlantMapProps {
   userDevices?: any[];
-  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number }>;
+  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }>;
   onSelectDevice?: (deviceId: string) => void;
 }
 
@@ -132,6 +132,44 @@ const createRedIcon = (label: string) => L.divIcon({
   popupAnchor: [0, -48]
 });
 
+// Custom Leaflet Amber Pin Icon (Manual Override Mode)
+const createAmberIcon = (label: string) => L.divIcon({
+  className: 'custom-leaflet-pin-amber',
+  html: `
+    <div style="
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      filter: drop-shadow(0px 4px 10px rgba(245, 158, 11, 0.7));
+      cursor: pointer;
+    ">
+      <div style="
+        background: #F59E0B;
+        color: #FFFFFF;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 10px;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        border: 1px solid #B45309;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      ">
+        🖐️ ${label}
+      </div>
+      <svg width="28" height="36" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#F59E0B" stroke="#B45309" stroke-width="1.5"/>
+        <circle cx="12" cy="11" r="5" fill="#FFFFFF"/>
+        <circle cx="12" cy="11" r="2.8" fill="#F59E0B"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [80, 52],
+  iconAnchor: [40, 52],
+  popupAnchor: [0, -48]
+});
+
 // Custom Leaflet Gray Icon (Offline / Standby)
 const createGrayIcon = (label: string) => L.divIcon({
   className: 'custom-leaflet-pin-gray',
@@ -184,6 +222,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
   // Combine default plants with user devices
   const plantsToRender = (userDevices && userDevices.length > 0 ? userDevices : defaultPlantsList).map(d => {
     const matchedDefault = defaultPlantsList.find(dp => dp.device_id === d.device_id);
+    const statusObj = deviceStatusMap[d.device_id] || {};
     return {
       device_id: d.device_id,
       device_name: d.device_name || d.name || 'STP Plant Device',
@@ -191,8 +230,11 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
       longitude: d.longitude || matchedDefault?.longitude || 77.376303,
       location_address: d.location_address || matchedDefault?.location_address || 'Ghaziabad, UP',
       mapped: true,
-      activeMotors: deviceStatusMap[d.device_id]?.activeMotors ?? (d.active_motors || 0),
-      trippedMotors: deviceStatusMap[d.device_id]?.trippedMotors ?? (d.tripped_motors || 0)
+      activeMotors: statusObj.activeMotors ?? (d.active_motors || 0),
+      trippedMotors: statusObj.trippedMotors ?? (d.tripped_motors || 0),
+      currentAmperes: statusObj.currentAmperes ?? 0,
+      hasElectricalAmpere: statusObj.hasElectricalAmpere ?? false,
+      operatingMode: statusObj.operatingMode || (statusObj.activeMotors > 0 ? 'AUTO' : 'STANDBY')
     };
   });
 
@@ -204,8 +246,8 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
 
   // Calculate Metrics KPI counts
   const totalDevicesCount = plantsToRender.length;
-  const onlineCount = plantsToRender.filter(p => p.activeMotors > 0).length;
-  const faultCount = plantsToRender.filter(p => p.trippedMotors > 0).length;
+  const onlineCount = plantsToRender.filter(p => p.operatingMode === 'AUTO' || p.operatingMode === 'MANUAL' || p.activeMotors > 0 || p.hasElectricalAmpere).length;
+  const faultCount = plantsToRender.filter(p => p.trippedMotors > 0 || p.operatingMode === 'TRIP').length;
   const offlineCount = Math.max(0, totalDevicesCount - onlineCount - faultCount);
 
   // Initialize Map
@@ -269,13 +311,21 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
     const bounds = L.latLngBounds([]);
 
     filteredPlants.forEach(plant => {
-      const isTripped = plant.trippedMotors > 0;
-      const isOnline = plant.activeMotors > 0;
+      const mode = plant.operatingMode;
+      const isTripped = plant.trippedMotors > 0 || mode === 'TRIP';
+      const isAuto = mode === 'AUTO' || (plant.activeMotors > 0 && !isTripped);
+      const isManual = mode === 'MANUAL' || (plant.activeMotors === 0 && plant.hasElectricalAmpere && !isTripped);
+      const isOnline = isAuto || isManual;
 
       const shortName = plant.device_name.split(',')[0].replace('VASUNDHARA', 'VAS').replace('SECTOR', 'SEC');
-      const pinIcon = isTripped ? createRedIcon(shortName) : isOnline ? createGreenIcon(shortName) : createGrayIcon(shortName);
+      const pinIcon = isTripped ? createRedIcon(shortName) : isManual ? createAmberIcon(shortName) : isAuto ? createGreenIcon(shortName) : createGrayIcon(shortName);
 
       const marker = L.marker([plant.latitude, plant.longitude], { icon: pinIcon }).addTo(mapRef.current!);
+
+      const badgeText = isTripped ? '🚨 FAULT ALARM' : isAuto ? '🟢 AUTOMATIC MODE (PLC CONTROL)' : isManual ? `🖐️ MANUAL OVERRIDE (${plant.currentAmperes.toFixed(1)} A)` : '⚪ STANDBY / IDLE';
+      const badgeBg = isTripped ? '#FEF2F2' : isAuto ? '#ECFDF5' : isManual ? '#FFFBEB' : '#F1F5F9';
+      const badgeColor = isTripped ? '#DC2626' : isAuto ? '#059669' : isManual ? '#D97706' : '#475569';
+      const badgeBorder = isTripped ? '#FCA5A5' : isAuto ? '#A7F3D0' : isManual ? '#FDE68A' : '#CBD5E1';
 
       const popupContent = `
         <div style="font-family: system-ui, sans-serif; min-width: 240px; padding: 4px;">
@@ -285,11 +335,11 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               font-weight: 800;
               padding: 3px 8px;
               border-radius: 10px;
-              background: ${isTripped ? '#FEF2F2' : isOnline ? '#ECFDF5' : '#F1F5F9'};
-              color: ${isTripped ? '#DC2626' : isOnline ? '#059669' : '#475569'};
-              border: 1px solid ${isTripped ? '#FCA5A5' : isOnline ? '#A7F3D0' : '#CBD5E1'};
+              background: ${badgeBg};
+              color: ${badgeColor};
+              border: 1px solid ${badgeBorder};
             ">
-              ${isTripped ? '🚨 FAULT ALARM' : isOnline ? '🟢 ACTIVE PLANT (ONLINE)' : '⚪ STANDBY / IDLE'}
+              ${badgeText}
             </span>
             <span style="font-size: 10px; color: #64748B; font-weight: 700;">ID: ${plant.device_id.slice(-6)}</span>
           </div>
@@ -303,15 +353,15 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; background: #F8FAFC; padding: 8px; border-radius: 8px; border: 1px solid #E2E8F0;">
             <div>
-              <div style="font-size: 10px; color: #64748B; font-weight: 700;">PUMPS RUNNING</div>
-              <div style="font-size: 13px; font-weight: 800; color: ${isOnline ? '#059669' : '#0F172A'};">
-                ${plant.activeMotors} Active ${isTripped ? `(${plant.trippedMotors} Tripped)` : ''}
+              <div style="font-size: 10px; color: #64748B; font-weight: 700;">OPERATIONAL MODE</div>
+              <div style="font-size: 12px; font-weight: 800; color: ${badgeColor};">
+                ${isAuto ? '⚙️ Automatic' : isManual ? `🖐️ Manual (${plant.currentAmperes.toFixed(1)} A)` : isTripped ? '🚨 Tripped' : '⚪ Standby'}
               </div>
             </div>
             <div>
-              <div style="font-size: 10px; color: #64748B; font-weight: 700;">COORDINATES</div>
-              <div style="font-size: 11px; font-weight: 700; color: #0284C7;">
-                ${plant.latitude.toFixed(4)}° N, ${plant.longitude.toFixed(4)}° E
+              <div style="font-size: 10px; color: #64748B; font-weight: 700;">PUMPS RUNNING</div>
+              <div style="font-size: 12px; font-weight: 800; color: ${isOnline ? '#059669' : '#0F172A'};">
+                ${plant.activeMotors} Active ${isTripped ? `(${plant.trippedMotors} Tripped)` : ''}
               </div>
             </div>
           </div>
