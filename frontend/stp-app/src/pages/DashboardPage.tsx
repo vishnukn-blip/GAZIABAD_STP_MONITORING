@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry, getElectricalMeters } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -479,16 +479,32 @@ const DashboardPage: React.FC = () => {
     await Promise.all(
       devices.map(async (d) => {
         try {
-          const [{ data }, elecData] = await Promise.all([
-            TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null })),
-            getElectricalTelemetry(d.device_id).catch(() => null)
-          ]);
+          const telemetryRes = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null }));
+          const rawMeters = await getElectricalMeters(d.device_id);
+          const data = telemetryRes?.data;
+          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : ['1'];
+
+          const elecResults = await Promise.all(
+            (metersList && metersList.length > 0 ? metersList : ['1', '2', '3', '4', '5']).map((mId: string) => 
+              getElectricalTelemetry(d.device_id, mId).catch(() => null)
+            )
+          );
+
+          let maxAmpere = 0;
+          let hasAmpere = false;
+
+          elecResults.forEach((elecData: any) => {
+            if (elecData) {
+              const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+              if (amp > 0.05) {
+                hasAmpere = true;
+                if (amp > maxAmpere) maxAmpere = amp;
+              }
+            }
+          });
 
           const act = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
-
-          const currentAmp = elecData?.i_avg || elecData?.i1 || (elecData?.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
-          const hasAmpere = currentAmp > 0.05;
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) {
@@ -504,7 +520,7 @@ const DashboardPage: React.FC = () => {
           statusMap[d.device_id] = {
             activeMotors: act,
             trippedMotors: trip,
-            currentAmperes: currentAmp,
+            currentAmperes: maxAmpere,
             hasElectricalAmpere: hasAmpere,
             operatingMode
           };
@@ -602,9 +618,27 @@ const DashboardPage: React.FC = () => {
       if (data?.tanks) {
         const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
         const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
-        const elecData = await getElectricalTelemetry(devId).catch(() => null);
-        const currentAmp = elecData?.i_avg || elecData?.i1 || (elecData?.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
-        const hasAmpere = currentAmp > 0.05;
+        
+        const rawMeters = await getElectricalMeters(devId);
+        const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : ['1'];
+        const elecResults = await Promise.all(
+          (metersList && metersList.length > 0 ? metersList : ['1', '2', '3', '4', '5']).map((mId: string) => 
+            getElectricalTelemetry(devId, mId).catch(() => null)
+          )
+        );
+
+        let maxAmpere = 0;
+        let hasAmpere = false;
+
+        elecResults.forEach((elecData: any) => {
+          if (elecData) {
+            const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+            if (amp > 0.05) {
+              hasAmpere = true;
+              if (amp > maxAmpere) maxAmpere = amp;
+            }
+          }
+        });
 
         let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
         if (trip > 0) operatingMode = 'TRIP';
@@ -614,7 +648,7 @@ const DashboardPage: React.FC = () => {
 
         setDeviceStatusMap(prev => ({
           ...prev,
-          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: currentAmp, hasElectricalAmpere: hasAmpere, operatingMode }
+          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode }
         }));
       }
 

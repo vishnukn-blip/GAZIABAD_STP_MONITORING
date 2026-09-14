@@ -201,7 +201,7 @@ export const saveCentralPlantReplacements = async (replacements: any[]) => {
   } catch {}
 };
 
-export const getElectricalTelemetry = async (deviceId: string, meterId?: string) => {
+export const getElectricalTelemetry = async (deviceId: string, meterId?: string): Promise<any> => {
   try {
     const url = meterId ? `/api/telemetry/electrical/${deviceId}?meter_id=${meterId}` : `/api/telemetry/electrical/${deviceId}`;
     const { data } = await TelemetryAPI.get(url);
@@ -218,7 +218,7 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   return null;
 };
 
-export const getElectricalMeters = async (deviceId: string) => {
+export const getElectricalMeters = async (deviceId: string): Promise<any> => {
   try {
     const { data } = await TelemetryAPI.get(`/api/telemetry/electrical/${deviceId}/meters`);
     if (data && data.meters && data.meters.length > 0) {
