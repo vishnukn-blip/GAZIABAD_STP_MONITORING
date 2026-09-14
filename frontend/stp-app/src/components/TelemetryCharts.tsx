@@ -318,14 +318,32 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             const isManualRunning = !isAutoRunning && (motorAmpere > 0.05) && (operatingMode === 'MANUAL' || operatingMode === 'AUTO');
             const isMotorActive = isAutoRunning || isManualRunning;
 
-            // Calculate dynamic continuous run duration from timeline data
-            const lastIndex = data.length - 1;
+            // Transform history data for graph rendering:
+            // 1.0 = AUTO ON (Green Peak)
+            // 0.5 = MANUAL ON (Orange Mid Peak)
+            // 0.0 = OFF
+            const motorChartData = data.map((pt, pIdx) => {
+              const val = pt[m.key as keyof TelemetryHistoryPoint];
+              let plottedVal = 0;
+              if (val === 1) {
+                plottedVal = 1.0;
+              } else if (isManualRunning && pIdx >= Math.max(0, data.length - 8)) {
+                plottedVal = 0.5;
+              }
+              return {
+                ...pt,
+                chartValue: plottedVal
+              };
+            });
+
+            // Calculate dynamic continuous run duration from rendered graph timeline data
+            const lastIndex = motorChartData.length - 1;
             let dynamicFormatted = '0h';
 
             if (isMotorActive && lastIndex >= 0) {
               let startIdx = lastIndex;
               for (let i = lastIndex; i >= 0; i--) {
-                if (data[i]?.[m.key as keyof TelemetryHistoryPoint] === 1 || isManualRunning) {
+                if (motorChartData[i]?.chartValue > 0) {
                   startIdx = i;
                 } else {
                   break;
@@ -354,8 +372,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 return isNaN(d.getTime()) ? 0 : d.getTime();
               };
 
-              const endMs = parseToMs(data[lastIndex]) || Date.now();
-              const startMs = parseToMs(data[startIdx]);
+              const endMs = parseToMs(motorChartData[lastIndex]) || Date.now();
+              const startMs = parseToMs(motorChartData[startIdx]);
 
               if (startMs > 0 && endMs > startMs) {
                 const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
@@ -367,7 +385,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               } else {
                 const pointsCount = lastIndex - startIdx + 1;
                 const approxHrs = Math.round((pointsCount * 0.5) * 10) / 10 || 1.0;
-                dynamicFormatted = `${approxHrs}h`;
+                const hrs = Math.floor(approxHrs);
+                const mins = Math.round((approxHrs - hrs) * 60);
+                if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
+                else if (hrs > 0) dynamicFormatted = `${hrs}h`;
+                else dynamicFormatted = `${mins > 0 ? mins : 30}m`;
               }
             }
 
@@ -383,24 +405,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 : '⚪ OFF';
             const badgeBg = isAutoRunning ? '#ECFDF5' : isManualRunning ? '#FFF7ED' : '#F1F5F9';
             const badgeBorder = isAutoRunning ? '#A7F3D0' : isManualRunning ? '#FFEDD5' : '#CBD5E1';
-
-            // Transform history data for graph rendering:
-            // 1.0 = AUTO ON (Green Peak)
-            // 0.5 = MANUAL ON (Orange Mid Peak)
-            // 0.0 = OFF
-            const motorChartData = data.map((pt, pIdx) => {
-              const val = pt[m.key as keyof TelemetryHistoryPoint];
-              let plottedVal = 0;
-              if (val === 1) {
-                plottedVal = 1.0;
-              } else if (isManualRunning && pIdx >= Math.max(0, data.length - 8)) {
-                plottedVal = 0.5;
-              }
-              return {
-                ...pt,
-                chartValue: plottedVal
-              };
-            });
 
             return (
               <div key={m.key} style={{
