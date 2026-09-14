@@ -464,7 +464,7 @@ const DashboardPage: React.FC = () => {
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'map' | 'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('map');
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }>>({});
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
   
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -475,7 +475,7 @@ const DashboardPage: React.FC = () => {
 
   const fetchAllDevicesTelemetry = async (devices: any[]) => {
     if (!devices || devices.length === 0) return;
-    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }> = {};
+    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }> = {};
     await Promise.all(
       devices.map(async (d) => {
         try {
@@ -492,10 +492,13 @@ const DashboardPage: React.FC = () => {
 
           let maxAmpere = 0;
           let hasAmpere = false;
+          const meterAmperesMap: Record<string, number> = {};
 
-          elecResults.forEach((elecData: any) => {
+          elecResults.forEach((elecData: any, idx: number) => {
             if (elecData) {
+              const mId = metersList[idx] || String(idx + 1);
               const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+              meterAmperesMap[mId] = amp;
               if (amp > 0.05) {
                 hasAmpere = true;
                 if (amp > maxAmpere) maxAmpere = amp;
@@ -522,7 +525,8 @@ const DashboardPage: React.FC = () => {
             trippedMotors: trip,
             currentAmperes: maxAmpere,
             hasElectricalAmpere: hasAmpere,
-            operatingMode
+            operatingMode,
+            meterAmperesMap
           };
         } catch {}
       })
@@ -629,10 +633,13 @@ const DashboardPage: React.FC = () => {
 
         let maxAmpere = 0;
         let hasAmpere = false;
+        const meterAmperesMap: Record<string, number> = {};
 
-        elecResults.forEach((elecData: any) => {
+        elecResults.forEach((elecData: any, idx: number) => {
           if (elecData) {
+            const mId = metersList[idx] || String(idx + 1);
             const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+            meterAmperesMap[mId] = amp;
             if (amp > 0.05) {
               hasAmpere = true;
               if (amp > maxAmpere) maxAmpere = amp;
@@ -648,7 +655,7 @@ const DashboardPage: React.FC = () => {
 
         setDeviceStatusMap(prev => ({
           ...prev,
-          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode }
+          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
         }));
       }
 
@@ -1254,6 +1261,7 @@ const DashboardPage: React.FC = () => {
                   tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
                   currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
                   operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
+                  meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
                 />
               </>
             )}

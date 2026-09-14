@@ -17,6 +17,7 @@ interface TelemetryChartsProps {
   tankName?: string;
   currentAmperes?: number;
   operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP';
+  meterAmperesMap?: Record<string, number>;
 }
 
 const MotorIcon = ({ color = '#059669', size = 18 }: { color?: string; size?: number }) => (
@@ -130,8 +131,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   history, 
   motors, 
   tankName,
-  currentAmperes = 0,
-  operatingMode = 'STANDBY'
+  currentAmperes: _currentAmperes = 0,
+  operatingMode = 'STANDBY',
+  meterAmperesMap = {}
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('vertical');
 
@@ -285,8 +287,19 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           gap: '20px'
         }}>
           {motorConfigs.map((m, idx) => {
+            // Determine specific meter electrical current for this motor
+            let motorAmpere = 0;
+            const mObj = m as any;
+            if (mObj.meter_id && meterAmperesMap[String(mObj.meter_id)] !== undefined) {
+              motorAmpere = meterAmperesMap[String(mObj.meter_id)];
+            } else if (meterAmperesMap[String(idx + 2)] !== undefined) {
+              motorAmpere = meterAmperesMap[String(idx + 2)];
+            } else if (meterAmperesMap[String(idx + 1)] !== undefined) {
+              motorAmpere = meterAmperesMap[String(idx + 1)];
+            }
+
             const isAutoRunning = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint] === 1;
-            const isManualRunning = !isAutoRunning && (currentAmperes > 0.05) && (operatingMode === 'MANUAL' || operatingMode === 'AUTO');
+            const isManualRunning = !isAutoRunning && (motorAmpere > 0.05) && (operatingMode === 'MANUAL' || operatingMode === 'AUTO');
             const isMotorActive = isAutoRunning || isManualRunning;
 
             // Calculate dynamic continuous run duration from timeline data
@@ -350,7 +363,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             const badgeText = isAutoRunning 
               ? '⚙️ AUTO ON' 
               : isManualRunning 
-                ? `🖐️ MANUAL ON (${currentAmperes.toFixed(1)} A)` 
+                ? `🖐️ MANUAL ON (${motorAmpere.toFixed(1)} A)` 
                 : '⚪ OFF';
             const badgeBg = isAutoRunning ? '#ECFDF5' : isManualRunning ? '#FFF7ED' : '#F1F5F9';
             const badgeBorder = isAutoRunning ? '#A7F3D0' : isManualRunning ? '#FFEDD5' : '#CBD5E1';
@@ -445,7 +458,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                       fontSize={9} 
                       tickFormatter={(v) => v === 1 ? 'AUTO' : v === 0.5 ? 'MANUAL' : 'OFF'} 
                     />
-                    <Tooltip content={<CustomTooltip currentAmperes={currentAmperes} />} />
+                    <Tooltip content={<CustomTooltip currentAmperes={motorAmpere} />} />
                     <Area
                       type="stepAfter"
                       dataKey="chartValue"
