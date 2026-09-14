@@ -65,10 +65,12 @@ const getAvailableDates = (): Array<{ folder: string; label: string; dateObj: Da
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const folder = formatFolderDate(d);
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const monthStr = d.toLocaleString('en-US', { month: 'short' });
     let label = '';
-    if (i === 0) label = 'Today (11 Sep)';
-    else if (i === 1) label = 'Yesterday (10 Sep)';
-    else label = `${String(d.getDate()).padStart(2, '0')} ${d.toLocaleString('en-US', { month: 'short' })}`;
+    if (i === 0) label = `Today (${dayStr} ${monthStr})`;
+    else if (i === 1) label = `Yesterday (${dayStr} ${monthStr})`;
+    else label = `${dayStr} ${monthStr}`;
     dates.push({ folder, label, dateObj: d });
   }
   return dates;
