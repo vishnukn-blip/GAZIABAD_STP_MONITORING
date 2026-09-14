@@ -931,7 +931,6 @@ const DashboardPage: React.FC = () => {
                   {(() => {
                     const currentStatus = deviceStatusMap[selectedDeviceId];
                     const mode = currentStatus?.operatingMode || 'STANDBY';
-                    const amps = currentStatus?.currentAmperes || 0;
 
                     if (mode === 'AUTO') {
                       return (
@@ -947,7 +946,7 @@ const DashboardPage: React.FC = () => {
                           alignItems: 'center',
                           gap: '6px'
                         }}>
-                          ⚙️ AUTOMATIC MODE (PLC Controlled)
+                          ⚙️ AUTOMATIC MODE
                         </span>
                       );
                     } else if (mode === 'MANUAL') {
@@ -965,7 +964,7 @@ const DashboardPage: React.FC = () => {
                           gap: '6px',
                           boxShadow: '0 0 10px rgba(234, 88, 12, 0.25)'
                         }}>
-                          🖐️ MANUAL MODE ({amps.toFixed(1)} A Active Current)
+                          🖐️ MANUAL MODE
                         </span>
                       );
                     } else if (mode === 'TRIP') {

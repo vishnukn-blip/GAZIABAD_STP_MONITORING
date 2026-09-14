@@ -361,7 +361,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
             <div>
               <div style="font-size: 10px; color: #64748B; font-weight: 700;">OPERATIONAL MODE</div>
               <div style="font-size: 12px; font-weight: 800; color: ${badgeColor};">
-                ${isAuto ? '⚙️ Automatic' : isManual ? `🖐️ Manual (${plant.currentAmperes.toFixed(1)} A)` : isTripped ? '🚨 Tripped' : '⚪ Standby'}
+                ${isAuto ? '⚙️ Automatic Mode' : isManual ? '🖐️ Manual Mode' : isTripped ? '🚨 Tripped' : '⚪ Standby'}
               </div>
             </div>
             <div>
