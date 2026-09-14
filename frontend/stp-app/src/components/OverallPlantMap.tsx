@@ -322,10 +322,16 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
 
       const marker = L.marker([plant.latitude, plant.longitude], { icon: pinIcon }).addTo(mapRef.current!);
 
-      const badgeText = isTripped ? '🚨 FAULT ALARM' : isAuto ? '🟢 AUTOMATIC MODE (PLC CONTROL)' : isManual ? `🖐️ MANUAL OVERRIDE (${plant.currentAmperes.toFixed(1)} A)` : '⚪ STANDBY / IDLE';
+      const badgeText = isTripped ? '🚨 FAULT ALARM' : isAuto ? '🟢 AUTOMATIC MODE (PLC CONTROL)' : isManual ? `🖐️ MANUAL MODE (${plant.currentAmperes.toFixed(1)} A)` : '⚪ STANDBY / IDLE';
       const badgeBg = isTripped ? '#FEF2F2' : isAuto ? '#ECFDF5' : isManual ? '#FFFBEB' : '#F1F5F9';
       const badgeColor = isTripped ? '#DC2626' : isAuto ? '#059669' : isManual ? '#D97706' : '#475569';
       const badgeBorder = isTripped ? '#FCA5A5' : isAuto ? '#A7F3D0' : isManual ? '#FDE68A' : '#CBD5E1';
+
+      const activeDisplay = plant.activeMotors > 0 
+        ? `${plant.activeMotors} Active` 
+        : (plant.hasElectricalAmpere || plant.currentAmperes > 0.05)
+          ? `Active (${plant.currentAmperes.toFixed(1)} A)` 
+          : '0 Active';
 
       const popupContent = `
         <div style="font-family: system-ui, sans-serif; min-width: 240px; padding: 4px;">
@@ -361,7 +367,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
             <div>
               <div style="font-size: 10px; color: #64748B; font-weight: 700;">PUMPS RUNNING</div>
               <div style="font-size: 12px; font-weight: 800; color: ${isOnline ? '#059669' : '#0F172A'};">
-                ${plant.activeMotors} Active ${isTripped ? `(${plant.trippedMotors} Tripped)` : ''}
+                ${activeDisplay} ${isTripped ? `(${plant.trippedMotors} Tripped)` : ''}
               </div>
             </div>
           </div>

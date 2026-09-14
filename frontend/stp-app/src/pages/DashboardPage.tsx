@@ -924,7 +924,7 @@ const DashboardPage: React.FC = () => {
                           gap: '6px',
                           boxShadow: '0 0 10px rgba(217, 119, 6, 0.2)'
                         }}>
-                          🖐️ MANUAL OVERRIDE ({amps.toFixed(1)} A Current Active)
+                          🖐️ MANUAL MODE ({amps.toFixed(1)} A Active Current)
                         </span>
                       );
                     } else if (mode === 'TRIP') {
