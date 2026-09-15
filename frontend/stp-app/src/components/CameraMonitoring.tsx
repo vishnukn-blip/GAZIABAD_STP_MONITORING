@@ -795,8 +795,8 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
               </div>
             )}
 
-            {/* Bottom Center Status Badge (INTRUDER ALERT / ROOM SECURED) */}
-            {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' ? (
+            {/* Bottom Center Status Badge (Only render when INTRUDER ALERT is active) */}
+            {aiEnabled && currentDetection.hasPerson && currentDetection.status === 'UNAUTHORIZED' && (
               <div style={{
                 position: 'absolute',
                 bottom: '16px',
@@ -819,27 +819,6 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
               }}>
                 <AlertTriangle size={16} color="#FFFFFF" />
                 INTRUDER ALERT
-              </div>
-            ) : (
-              <div style={{
-                position: 'absolute',
-                bottom: '16px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(16, 185, 129, 0.25)',
-                border: '1px solid #10B981',
-                backdropFilter: 'blur(6px)',
-                padding: '6px 16px',
-                borderRadius: '8px',
-                color: '#34D399',
-                fontSize: '12px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                letterSpacing: '0.5px',
-                zIndex: 10
-              }}>
               </div>
             )}
           </div>
