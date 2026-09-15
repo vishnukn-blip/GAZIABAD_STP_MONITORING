@@ -259,6 +259,15 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const selectedMeterMonthlyBill = selectedMeterSubtotal + selectedMeterData.pfImpact + selectedMeterDuty;
   const selectedMeterDailyCost = selectedMeterMonthlyBill / 30;
 
+  const getVoltageStatus = (vLL: number) => {
+    if (!vLL || vLL === 0) return { status: 'OFFLINE', label: 'NO DATA', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1', icon: '⚪' };
+    if (vLL < 390) return { status: 'LOW', label: 'LOW VOLTAGE (<390V)', color: '#D97706', bg: '#FEF3C7', border: '#F59E0B', icon: '⚠️' };
+    if (vLL > 450) return { status: 'HIGH', label: 'HIGH VOLTAGE (>450V)', color: '#DC2626', bg: '#FEE2E2', border: '#EF4444', icon: '🚨' };
+    return { status: 'NORMAL', label: 'NORMAL VOLTAGE (390V-450V)', color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', icon: '✅' };
+  };
+
+  const voltageStatus = getVoltageStatus(telemetry.v_ll ?? 0.0);
+
   const electricalStats = {
     loadCurrent: { value: telemetry.i_avg ?? 0.0, unit: 'A', label: 'REAL-TIME PHASE CURRENT' },
     supplyVoltage: { value: telemetry.v_ll ?? 0.0, unit: 'V', label: 'PHASE-TO-PHASE RMS' },
@@ -413,6 +422,51 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           </span>
         </div>
       </div>
+
+      {/* ⚠️ VOLTAGE OUT-OF-BOUNDS WARNING BANNER */}
+      {(voltageStatus.status === 'LOW' || voltageStatus.status === 'HIGH') && (
+        <div style={{
+          background: voltageStatus.bg,
+          border: `1.5px solid ${voltageStatus.border}`,
+          borderRadius: '16px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          boxShadow: `0 4px 16px ${voltageStatus.status === 'HIGH' ? 'rgba(220,38,38,0.15)' : 'rgba(217,119,6,0.15)'}`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '10px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+            }}>
+              <AlertTriangle size={22} color={voltageStatus.color} />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: voltageStatus.color, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>{voltageStatus.icon} {voltageStatus.status === 'LOW' ? 'LOW SUPPLY VOLTAGE DETECTED!' : 'HIGH SUPPLY VOLTAGE DETECTED!'}</span>
+                <span style={{ fontSize: '12px', background: voltageStatus.color, color: '#FFF', padding: '2px 10px', borderRadius: '6px', fontWeight: 900 }}>
+                  {telemetry.v_ll?.toFixed(1) ?? '0.0'} V (LL)
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px', fontWeight: 600 }}>
+                {voltageStatus.status === 'LOW' 
+                  ? `Supply voltage (${telemetry.v_ll?.toFixed(1)}V) is below the minimum threshold of 390V. Risk of motor under-voltage trip and coil overheating!`
+                  : `Supply voltage (${telemetry.v_ll?.toFixed(1)}V) exceeds the maximum threshold of 450V. Risk of insulation breakdown and over-voltage damage!`}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '11px', fontWeight: 800, color: voltageStatus.color, background: '#FFFFFF', padding: '8px 14px', borderRadius: '10px', border: `1px solid ${voltageStatus.border}`, whiteSpace: 'nowrap', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+            SAFE OPERATING RANGE: 390V – 450V
+          </div>
+        </div>
+      )}
 
       {/* ⚡ MONTHLY ELECTRICITY BILL ESTIMATOR CARD */}
       <div style={{
@@ -640,36 +694,52 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
         {/* 2. SUPPLY VOLTAGE */}
         <div style={{
-          background: '#FFEDD5',
+          background: voltageStatus.status === 'LOW' ? '#FEF3C7' : voltageStatus.status === 'HIGH' ? '#FEE2E2' : '#FFEDD5',
           borderRadius: '16px',
-          border: '1px solid #FED7AA',
+          border: `1.5px solid ${voltageStatus.status === 'LOW' ? '#F59E0B' : voltageStatus.status === 'HIGH' ? '#EF4444' : '#FED7AA'}`,
           padding: '20px',
-          boxShadow: '0 4px 14px rgba(234, 88, 12, 0.08)',
+          boxShadow: `0 4px 14px ${voltageStatus.status === 'LOW' ? 'rgba(217, 119, 6, 0.12)' : voltageStatus.status === 'HIGH' ? 'rgba(220, 38, 38, 0.12)' : 'rgba(234, 88, 12, 0.08)'}`,
           position: 'relative',
           overflow: 'hidden'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#C2410C', margin: 0, letterSpacing: '0.5px' }}>
-                SUPPLY VOLTAGE
-              </h4>
-              <p style={{ fontSize: '11px', fontWeight: 700, color: '#EA580C', margin: '2px 0 0 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 800, color: voltageStatus.status === 'LOW' ? '#B45309' : voltageStatus.status === 'HIGH' ? '#B91C1C' : '#C2410C', margin: 0, letterSpacing: '0.5px' }}>
+                  SUPPLY VOLTAGE
+                </h4>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: voltageStatus.color,
+                  background: voltageStatus.bg,
+                  border: `1px solid ${voltageStatus.border}`,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {voltageStatus.icon} {voltageStatus.label}
+                </span>
+              </div>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: voltageStatus.status === 'LOW' ? '#D97706' : voltageStatus.status === 'HIGH' ? '#DC2626' : '#EA580C', margin: '4px 0 0 0' }}>
                 {electricalStats.supplyVoltage.label}
               </p>
             </div>
-            <div style={{ background: '#FFFFFF', padding: '8px', borderRadius: '10px', color: '#EA580C' }}>
+            <div style={{ background: '#FFFFFF', padding: '8px', borderRadius: '10px', color: voltageStatus.color }}>
               <Zap size={18} />
             </div>
           </div>
           <div style={{ marginTop: '16px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <span style={{ fontSize: '38px', fontWeight: 900, color: '#7C2D12', letterSpacing: '-1px' }}>
+            <span style={{ fontSize: '38px', fontWeight: 900, color: voltageStatus.status === 'LOW' ? '#78350F' : voltageStatus.status === 'HIGH' ? '#7F1D1D' : '#7C2D12', letterSpacing: '-1px' }}>
               {electricalStats.supplyVoltage.value}
             </span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#C2410C' }}>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: voltageStatus.status === 'LOW' ? '#B45309' : voltageStatus.status === 'HIGH' ? '#B91C1C' : '#C2410C' }}>
               {electricalStats.supplyVoltage.unit}
             </span>
           </div>
-          {renderSparkline('#EA580C', '0,25 30,32 60,18 90,10 120,12 150,14 180,8 210,24 240,16 270,14 300,18')}
+          {renderSparkline(voltageStatus.color, '0,25 30,32 60,18 90,10 120,12 150,14 180,8 210,24 240,16 270,14 300,18')}
         </div>
 
         {/* 3. REAL POWER */}
