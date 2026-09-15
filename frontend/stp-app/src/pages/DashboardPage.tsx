@@ -648,15 +648,17 @@ const DashboardPage: React.FC = () => {
           }
         });
 
+        const activeManualMetersCount = Object.values(meterAmperesMap).filter((amp: any) => Number(amp) > 0.05).length;
+        const totalActiveMotors = Math.max(act, activeManualMetersCount, hasAmpere ? 1 : 0);
+
         let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
         if (trip > 0) operatingMode = 'TRIP';
-        else if (act > 0 && hasAmpere) operatingMode = 'AUTO';
-        else if (act === 0 && hasAmpere) operatingMode = 'MANUAL';
         else if (act > 0) operatingMode = 'AUTO';
+        else if (hasAmpere) operatingMode = 'MANUAL';
 
         setDeviceStatusMap(prev => ({
           ...prev,
-          [devId]: { activeMotors: act, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+          [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
         }));
       }
 
@@ -779,7 +781,18 @@ const DashboardPage: React.FC = () => {
 
   const handleLogout = () => { logout(); navigate('/'); };
 
-  const activeMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_running).length ?? 0;
+  const selectedStatus = deviceStatusMap[selectedDeviceId];
+  const autoActiveMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_running).length ?? 0;
+  const manualActiveMeters = selectedStatus?.meterAmperesMap 
+    ? Object.values(selectedStatus.meterAmperesMap).filter(amp => Number(amp) > 0.05).length 
+    : 0;
+
+  const activeMotors = Math.max(
+    selectedStatus?.activeMotors ?? 0,
+    autoActiveMotors,
+    manualActiveMeters,
+    selectedStatus?.operatingMode === 'MANUAL' ? 1 : 0
+  );
   const trippedMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_tripped).length ?? 0;
   const avgLevel = layout?.tanks.length
     ? (telemetry?.tanks.reduce((s, t) => s + t.water_level_percent, 0) ?? 0) / layout.tanks.length
