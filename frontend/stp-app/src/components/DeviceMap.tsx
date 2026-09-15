@@ -9,11 +9,12 @@ interface DeviceMapProps {
   waterLevel: number;
   activeMotorsCount: number;
   trippedMotorsCount?: number;
+  operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' | string;
   latitude?: number;
   longitude?: number;
   locationName?: string;
   userDevices?: any[];
-  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number }>;
+  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number; operatingMode?: string }>;
   onSelectDevice?: (deviceId: string) => void;
 }
 
@@ -34,6 +35,31 @@ const greenPinIcon = L.divIcon({
         <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#10B981" stroke="#047857" stroke-width="1.4"/>
         <circle cx="12" cy="11" r="4.5" fill="#FFFFFF"/>
         <circle cx="12" cy="11" r="2.2" fill="#10B981"/>
+      </svg>
+    </div>
+  `,
+  iconSize: [26, 34],
+  iconAnchor: [13, 34],
+  popupAnchor: [0, -30]
+});
+
+// 🟧 Amber SVG Pin Marker Icon (Manual Mode)
+const amberPinIcon = L.divIcon({
+  className: 'leaflet-amber-pin-marker',
+  html: `
+    <div style="
+      position: relative;
+      width: 26px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0px 3px 8px rgba(249, 115, 22, 0.6));
+    ">
+      <svg width="26" height="34" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C5.37 0 0 5.37 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.37 18.63 0 12 0Z" fill="#F97316" stroke="#C2410C" stroke-width="1.4"/>
+        <circle cx="12" cy="11" r="4.5" fill="#FFFFFF"/>
+        <circle cx="12" cy="11" r="2.2" fill="#F97316"/>
       </svg>
     </div>
   `,
@@ -98,6 +124,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   waterLevel,
   activeMotorsCount,
   trippedMotorsCount = 0,
+  operatingMode = 'STANDBY',
   latitude,
   longitude,
   locationName,
@@ -111,9 +138,10 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Helper to resolve icon by status
-  const getMarkerIcon = (devActive: number, devTripped: number) => {
-    if (devTripped > 0) return redPinIcon;
-    if (devActive > 0) return greenPinIcon;
+  const getMarkerIcon = (mode?: string, devActive?: number, devTripped?: number) => {
+    if (mode === 'TRIP' || (devTripped && devTripped > 0)) return redPinIcon;
+    if (mode === 'MANUAL') return amberPinIcon;
+    if (mode === 'AUTO' || (devActive && devActive > 0)) return greenPinIcon;
     return bluePinIcon;
   };
 
@@ -142,18 +170,21 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
 
     mapInstanceRef.current = map;
 
-    const iconToUse = getMarkerIcon(activeMotorsCount, trippedMotorsCount);
+    const iconToUse = getMarkerIcon(operatingMode, activeMotorsCount, trippedMotorsCount);
     const marker = L.marker([finalLat, finalLng], { icon: iconToUse }).addTo(map);
     markersMapRef.current.set(deviceId, marker);
 
-    let statusLabel = '⚪ PLANT STANDBY';
+    let statusLabel = '⚪ STANDBY / IDLE';
     let statusBg = '#0284C7';
 
-    if (trippedMotorsCount > 0) {
-      statusLabel = `⚠️ FAULT / TRIPPED`;
+    if (operatingMode === 'TRIP' || trippedMotorsCount > 0) {
+      statusLabel = '🚨 FAULT / TRIPPED';
       statusBg = '#EF4444';
-    } else if (activeMotorsCount > 0) {
-      statusLabel = `⚡ PLANT RUNNING`;
+    } else if (operatingMode === 'MANUAL') {
+      statusLabel = '🖐️ MANUAL MODE';
+      statusBg = '#EA580C';
+    } else if (operatingMode === 'AUTO' || activeMotorsCount > 0) {
+      statusLabel = '⚙️ AUTOMATIC MODE';
       statusBg = '#059669';
     }
 
@@ -340,10 +371,10 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
           padding: '10px 12px'
         }}>
           <div style={{ fontSize: '10px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-            <Zap size={12} color="#059669" /> Operational Status
+            <Zap size={12} color={operatingMode === 'MANUAL' ? '#EA580C' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '#059669' : operatingMode === 'TRIP' ? '#DC2626' : '#64748B'} /> Operational Status
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: activeMotorsCount > 0 ? '#059669' : '#64748B', fontFamily: 'monospace' }}>
-            {activeMotorsCount > 0 ? '⚡ Plant Running' : '⚪ Standby'}
+          <div style={{ fontSize: '12px', fontWeight: 700, color: operatingMode === 'MANUAL' ? '#EA580C' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '#059669' : operatingMode === 'TRIP' ? '#DC2626' : '#64748B', fontFamily: 'monospace' }}>
+            {operatingMode === 'MANUAL' ? '🖐️ Manual Mode' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '⚙️ Automatic Mode' : operatingMode === 'TRIP' ? '🚨 Tripped' : '⚪ Standby'}
           </div>
         </div>
 

@@ -1246,6 +1246,7 @@ const DashboardPage: React.FC = () => {
                     waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
                     activeMotorsCount={activeMotors}
                     trippedMotorsCount={trippedMotors}
+                    operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
                     latitude={layout.latitude}
                     longitude={layout.longitude}
                     userDevices={userDevices}
