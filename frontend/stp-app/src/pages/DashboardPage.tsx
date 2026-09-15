@@ -506,22 +506,23 @@ const DashboardPage: React.FC = () => {
             }
           });
 
-          const act = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
+          const activeManualMetersCount = Object.values(meterAmperesMap).filter((amp: any) => Number(amp) > 0.05).length;
+          const autoAct = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
+
+          const totalActiveMotors = Math.max(autoAct, activeManualMetersCount);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) {
             operatingMode = 'TRIP';
-          } else if (act > 0 && hasAmpere) {
+          } else if (autoAct > 0) {
             operatingMode = 'AUTO';
-          } else if (act === 0 && hasAmpere) {
+          } else if (hasAmpere) {
             operatingMode = 'MANUAL';
-          } else if (act > 0) {
-            operatingMode = 'AUTO';
           }
 
           statusMap[d.device_id] = {
-            activeMotors: act,
+            activeMotors: totalActiveMotors,
             trippedMotors: trip,
             currentAmperes: maxAmpere,
             hasElectricalAmpere: hasAmpere,

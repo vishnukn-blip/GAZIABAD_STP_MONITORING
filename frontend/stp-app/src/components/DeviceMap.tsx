@@ -146,14 +146,14 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     const marker = L.marker([finalLat, finalLng], { icon: iconToUse }).addTo(map);
     markersMapRef.current.set(deviceId, marker);
 
-    let statusLabel = '✓ ACTIVE PLANT (IDLE)';
+    let statusLabel = '⚪ PLANT STANDBY';
     let statusBg = '#0284C7';
 
     if (trippedMotorsCount > 0) {
-      statusLabel = `⚠️ ${trippedMotorsCount} MOTOR TRIPPED`;
+      statusLabel = `⚠️ FAULT / TRIPPED`;
       statusBg = '#EF4444';
     } else if (activeMotorsCount > 0) {
-      statusLabel = `⚡ ${activeMotorsCount} MOTOR(S) RUNNING`;
+      statusLabel = `⚡ PLANT RUNNING`;
       statusBg = '#059669';
     }
 
@@ -340,10 +340,10 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
           padding: '10px 12px'
         }}>
           <div style={{ fontSize: '10px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-            <Zap size={12} color="#059669" /> Active Pumps
+            <Zap size={12} color="#059669" /> Operational Status
           </div>
           <div style={{ fontSize: '12px', fontWeight: 700, color: activeMotorsCount > 0 ? '#059669' : '#64748B', fontFamily: 'monospace' }}>
-            {activeMotorsCount} / 5 Running
+            {activeMotorsCount > 0 ? '⚡ Plant Running' : '⚪ Standby'}
           </div>
         </div>
 
