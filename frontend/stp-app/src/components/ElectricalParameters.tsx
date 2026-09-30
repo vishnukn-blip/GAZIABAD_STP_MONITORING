@@ -19,7 +19,18 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   isWaterQualityUser: _isWaterQualityUser
 }) => {
   const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
-    // Modbus Slave ID 1 is PLC main controller. Motors start from Slave ID 2 (M1), Slave ID 3 (M2), Slave ID 4 (M3), etc.
+    const plantMap: Record<string, Record<string, string>> = {
+      "350435032683868": { "2": "M1_60_HP", "3": "M2_75_HP", "4": "M3_60_HP", "5": "M4", "6": "M5" },
+      "350435032680674": { "2": "M1_40_HP", "3": "M2_30_HP", "4": "M3", "5": "M4" },
+      "350435032689659": { "2": "M1_50_HP", "3": "M2_50_HP", "4": "M3_30_HP", "5": "M4" },
+      "350435032681912": { "2": "M1_30_HP", "3": "M2_30_HP", "4": "M3", "5": "M4" },
+      "98203928": { "1": "Main MFM Meter" }
+    };
+
+    if (deviceId && plantMap[deviceId] && plantMap[deviceId][mId]) {
+      return plantMap[deviceId][mId];
+    }
+
     const meterNum = parseInt(mId, 10);
     const targetMotorIndex = !isNaN(meterNum) && meterNum >= 2 ? (meterNum - 2) : 0;
 
@@ -40,15 +51,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     if (telemetryData?.motor_name && !telemetryData.motor_name.toLowerCase().includes('meter')) {
       return telemetryData.motor_name;
     }
-    const defaultNames: Record<string, string> = {
-      '1': 'M1_60_HP',
-      '2': 'M1_60_HP',
-      '3': 'M2_75_HP',
-      '4': 'M3_60_HP',
-      '5': 'M4_40_HP',
-      '6': 'M5_30_HP'
-    };
-    return defaultNames[mId] || `M${targetMotorIndex + 1}`;
+    return `Motor ${targetMotorIndex + 1}`;
   };
 
   const isUtl = deviceId?.includes('98203928') || deviceId === '98203928';
@@ -69,8 +72,8 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   const [dataAtTime, setDataAtTime] = useState<string>('--:--:--');
   const [lastUpdated, setLastUpdated] = useState<string>('Loading latest database telemetry...');
   const [isFetching, setIsFetching] = useState<boolean>(true);
-  const [selectedMeter, setSelectedMeter] = useState<string>('1');
-  const [availableMeters, setAvailableMeters] = useState<string[]>(['1']);
+  const [selectedMeter, setSelectedMeter] = useState<string>('2');
+  const [availableMeters, setAvailableMeters] = useState<string[]>(['2', '3']);
 
   useEffect(() => {
     const timer = setInterval(() => {

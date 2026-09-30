@@ -244,7 +244,15 @@ export const getElectricalMeters = async (deviceId: string): Promise<any> => {
       return data.meters;
     }
   } catch {}
-  return ["1", "2", "3"];
+  
+  const plantMetersMap: Record<string, string[]> = {
+    "350435032683868": ["2", "3", "4"],
+    "350435032680674": ["2", "3"],
+    "350435032689659": ["2", "3"],
+    "350435032681912": ["2", "3"],
+    "98203928": ["1"]
+  };
+  return plantMetersMap[deviceId] || ["2", "3"];
 };
 
 export const getTariffConfig = async (deviceId: string) => {
