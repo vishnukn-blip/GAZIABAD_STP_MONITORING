@@ -7,7 +7,8 @@ const getApiBaseUrl = (port: string) => {
     if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://localhost:${port}`;
     }
-    return `http://${hostname}:${port}`;
+    // In production, Nginx proxies /api to backend:8001, so use current origin
+    return window.location.origin;
   }
   return `http://localhost:${port}`;
 };
