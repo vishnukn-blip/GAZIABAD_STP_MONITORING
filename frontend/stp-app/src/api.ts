@@ -36,7 +36,7 @@ FrappeAPI.interceptors.request.use(config => {
 // ── FastAPI (Telemetry only: Nimblevision real-time data) ────────────────────
 export const TelemetryAPI = axios.create({
   baseURL: getApiBaseUrl('8001'),  // FastAPI dynamically targeting host on port 8001
-  timeout: 5000,
+  timeout: 15000,
 });
 
 TelemetryAPI.interceptors.request.use(config => {

@@ -217,10 +217,10 @@ async def get_telemetry(
     """
     session_id = frappe_sid or sid or ""
 
-    # Step 1: Get layout from Frappe for user session (0.8s fast timeout)
+    # Step 1: Get layout from Frappe for user session (0.3s fast timeout)
     layout = {}
     try:
-        async with httpx.AsyncClient(timeout=0.8) as client:
+        async with httpx.AsyncClient(timeout=0.3) as client:
             cookies = {"sid": session_id} if session_id else {}
             resp = await client.get(
                 f"{FRAPPE_BASE}/api/method/stp_app.api.layout.get_user_layout",
@@ -231,7 +231,7 @@ async def get_telemetry(
     except Exception as e:
         print(f"Frappe fetch error: {e}")
 
-    target_device_id = device_id or layout.get("device_id") or "863110085106451"
+    target_device_id = device_id or layout.get("device_id") or "350435032683868"
     api_key = layout.get("api_key") or "chinnu"
     api_token = layout.get("api_token") or "257bbec888a81696529ee979804cca59"
     tanks_cfg = layout.get("tanks", [])
@@ -241,7 +241,7 @@ async def get_telemetry(
     new_points: list[TelemetryHistoryPoint] = []
 
     try:
-        async with httpx.AsyncClient(timeout=3.5, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=1.5, follow_redirects=True) as client:
             resp = await client.get(NIMBLEVISION_URL, params={
                 "key": api_key,
                 "token": api_token,
@@ -282,6 +282,27 @@ async def get_telemetry(
     except Exception as e:
         print(f"Nimblevision API error: {e}")
         raw = {}
+
+    # If raw fetch failed or empty, pull latest posting from SQLite DB as fallback
+    if not raw and os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            short_id = target_device_id[-10:] if len(target_device_id) >= 6 else target_device_id
+            c.execute("SELECT water_level_pct, i_avg, total_kw, timestamp FROM telemetry_postings WHERE device_id = ? OR device_id LIKE ? ORDER BY timestamp DESC LIMIT 1", (target_device_id, f"%{short_id}"))
+            row = c.fetchone()
+            conn.close()
+            if row:
+                raw = {
+                    "water_level": str(row[0]),
+                    "current_1": "1" if row[1] > 0 else "0",
+                    "current_2": "1" if row[1] > 10 else "0",
+                    "current_3": "0",
+                    "current_4": "0",
+                    "timestamp": row[3]
+                }
+        except Exception:
+            pass
 
     # Update in-memory HISTORY_BUFFER for this device_id
     if target_device_id not in HISTORY_BUFFER:
