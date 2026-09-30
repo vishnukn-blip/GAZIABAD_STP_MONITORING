@@ -241,7 +241,7 @@ async def get_telemetry(
     new_points: list[TelemetryHistoryPoint] = []
 
     try:
-        async with httpx.AsyncClient(timeout=1.5, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             resp = await client.get(NIMBLEVISION_URL, params={
                 "key": api_key,
                 "token": api_token,
@@ -1094,21 +1094,38 @@ def get_persistent_db_conn():
             pass
         _GLOBAL_PG_CONN = None
 
-    pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
-    if not os.path.exists(pem_path):
-        return None
-
+    # 1. Try direct connection to remote AWS DB host (13.200.3.124:5432)
     try:
         _GLOBAL_PG_CONN = psycopg2.connect(
-            host="127.0.0.1",
-            port="5433",
+            host="13.200.3.124",
+            port="5432",
             database="nimble_db",
             user="wsuser",
             password="Watersaviour@123",
-            connect_timeout=2
+            connect_timeout=3
         )
         return _GLOBAL_PG_CONN
     except Exception:
+        pass
+
+    # 2. Try localhost connections (ports 5432 and 5433)
+    for p in ["5432", "5433"]:
+        try:
+            _GLOBAL_PG_CONN = psycopg2.connect(
+                host="127.0.0.1",
+                port=p,
+                database="nimble_db",
+                user="wsuser",
+                password="Watersaviour@123",
+                connect_timeout=2
+            )
+            return _GLOBAL_PG_CONN
+        except Exception:
+            pass
+
+    # 3. Try SSH tunnel if local pem file exists
+    pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
+    if os.path.exists(pem_path):
         try:
             subprocess.Popen([
                 "ssh", "-i", pem_path,
@@ -1129,7 +1146,7 @@ def get_persistent_db_conn():
             return _GLOBAL_PG_CONN
         except Exception as err:
             print("Failed to connect via SSH tunnel:", err)
-            return None
+    return None
 
 def query_nimble_db(query, params=()):
     conn = get_persistent_db_conn()
@@ -1250,40 +1267,14 @@ async def poll_nimble_db_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    """Establish SSH tunnel + DB connection at startup, then start background poll loop."""
+    """Establish DB connection at startup, then start background poll loop."""
     loop = asyncio.get_event_loop()
     def _startup_connect():
-        global _GLOBAL_PG_CONN
-        pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
-        if not os.path.exists(pem_path):
-            return
-        # Try direct first (tunnel already running from previous session)
-        try:
-            _GLOBAL_PG_CONN = psycopg2.connect(
-                host="127.0.0.1", port="5433", database="nimble_db",
-                user="wsuser", password="Watersaviour@123", connect_timeout=2
-            )
-            print("DB: Connected via existing tunnel")
-            return
-        except Exception:
-            pass
-        # Start fresh SSH tunnel
-        print("DB: Starting SSH tunnel...")
-        subprocess.Popen([
-            "ssh", "-i", pem_path, "-o", "StrictHostKeyChecking=no",
-            "-o", "ExitOnForwardFailure=no", "-o", "ServerAliveInterval=30",
-            "-L", "5433:127.0.0.1:5432", "ubuntu@13.200.3.124", "-N"
-        ])
-        import time
-        time.sleep(2.0)
-        try:
-            _GLOBAL_PG_CONN = psycopg2.connect(
-                host="127.0.0.1", port="5433", database="nimble_db",
-                user="wsuser", password="Watersaviour@123", connect_timeout=5
-            )
-            print("DB: SSH tunnel established and DB connected")
-        except Exception as e:
-            print("DB: Tunnel connect failed:", e)
+        conn = get_persistent_db_conn()
+        if conn:
+            print("DB: Connection established successfully")
+        else:
+            print("DB: Remote/Local connection not available")
 
     await loop.run_in_executor(_DB_THREAD_POOL, _startup_connect)
     # Prime the cache immediately
