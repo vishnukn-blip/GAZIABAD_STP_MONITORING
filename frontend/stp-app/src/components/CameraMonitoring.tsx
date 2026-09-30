@@ -101,7 +101,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ isWaterQuali
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Recording View Mode & Date Selection
-  const [viewMode, setViewMode] = useState<'live' | 'archive'>('live');
+  const [viewMode] = useState<'live' | 'archive'>('live');
   const [selectedDateFolder, setSelectedDateFolder] = useState<string>('');
 
   // Dynamic Thumbnail Sliding Window (Auto-shifts selected photo to position 1)
@@ -210,7 +210,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ isWaterQuali
 
     // 2. Try alternate host if active host failed
     if (!responseData || responseData.length === 0) {
-      const altHost = activeApiBase === WORKING_HOST ? PRIMARY_HOST : WORKING_HOST;
+      const altHost = activeApiBase === UTL_HOST ? WABAG_HOST : UTL_HOST;
       try {
         const res = await fetch(`${altHost}/api/5grouter/list?source=${sourceKey}`, {
           signal: AbortSignal.timeout(10000)

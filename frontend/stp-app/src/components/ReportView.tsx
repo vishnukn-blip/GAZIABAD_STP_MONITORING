@@ -838,7 +838,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
               {/* Row 2: Excel Parameter Sub-headers */}
               <tr style={{ background: '#F8FAFC', color: '#475569', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', borderBottom: '2px solid #CBD5E1', position: 'sticky', top: '33px', zIndex: 2 }}>
                 {/* Sub-headers for MFM Meters */}
-                {currentMfmList.map((mfm, idx) => (
+                {currentMfmList.map((_mfm, idx) => (
                   <React.Fragment key={idx}>
                     <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Voltage (LL)</th>
                     <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Current (A)</th>

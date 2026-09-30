@@ -9,12 +9,14 @@ interface ElectricalParametersProps {
   deviceId?: string;
   deviceName?: string;
   layout?: any;
+  isWaterQualityUser?: boolean;
 }
 
 export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceId = "350435032683868",
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT",
-  layout
+  layout,
+  isWaterQualityUser: _isWaterQualityUser
 }) => {
   const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
     // Modbus Slave ID 1 is PLC main controller. Motors start from Slave ID 2 (M1), Slave ID 3 (M2), Slave ID 4 (M3), etc.

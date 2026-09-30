@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertOctagon, Power, RefreshCw, Zap } from 'lucide-react';
+import { AlertOctagon, Power } from 'lucide-react';
 
 interface MotorItem {
   id: string;
@@ -201,8 +201,6 @@ export const UTLMotorStatusDashboard: React.FC = () => {
   // Metrics
   const motorList = Object.values(motors);
   const totalPumps = motorList.length;
-  const activePumps = motorList.filter(m => m.status === 'ON' || m.badge === 'WORKING').length > 0 ? 1 : 0;
-  const standbyPumps = motorList.filter(m => m.badge === 'STANDBY').length;
   const faults = motorList.filter(m => m.badge === 'FAULT').length;
 
   const renderLoadSparkline = (dataPoints: number[]) => {
@@ -223,7 +221,6 @@ export const UTLMotorStatusDashboard: React.FC = () => {
 
   const renderMotorCard = (motor: MotorItem) => {
     const isWorking = motor.badge === 'WORKING';
-    const isStandby = motor.badge === 'STANDBY';
     const isFault = motor.badge === 'FAULT';
 
     const badgeBg = isFault ? '#FEF2F2' : isWorking ? '#ECFDF5' : '#FEF9C3';
@@ -239,7 +236,7 @@ export const UTLMotorStatusDashboard: React.FC = () => {
         boxShadow: '0 4px 14px rgba(217, 119, 6, 0.05)',
         display: 'flex',
         flexDirection: 'column',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         height: '100%',
         boxSizing: 'border-box'
       }}>
