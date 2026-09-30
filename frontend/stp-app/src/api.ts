@@ -4,15 +4,11 @@ import axios from 'axios';
 const getApiBaseUrl = (port: string) => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://localhost:${port}`;
     }
-    // If accessing via non-default HTTP/HTTPS port (e.g. 5173), target backend port directly
-    if (window.location.port && window.location.port !== '80' && window.location.port !== '443') {
-      return `http://${hostname}:${port}`;
-    }
-    // In production behind Nginx (port 80/443), proxy via current origin
-    return window.location.origin;
+    // Route via Vite/Nginx proxy on current host & port
+    return '';
   }
   return `http://localhost:${port}`;
 };
