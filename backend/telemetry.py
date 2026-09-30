@@ -23,11 +23,11 @@ def parse_run_status(value: Optional[str]) -> bool:
 
 
 def parse_trip_status(value: Optional[str]) -> bool:
-    """Motor is TRIPPED if value is NOT '1' (i.e., '0' or other)"""
+    """Motor is TRIPPED if value is >= 1 (voltage_4..8 = 1)"""
     try:
-        return int(value) != 1
+        return int(value) >= 1
     except (TypeError, ValueError):
-        return True  # unknown = treat as tripped
+        return False
 
 
 def parse_water_level(value: Optional[str], max_val: int = 4) -> float:

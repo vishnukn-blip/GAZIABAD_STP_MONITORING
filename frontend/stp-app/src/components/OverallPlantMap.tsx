@@ -263,9 +263,9 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
 
   // Calculate Metrics KPI counts
   const totalDevicesCount = plantsToRender.length;
-  const onlineCount = plantsToRender.filter(p => p.operatingMode === 'AUTO' || p.operatingMode === 'MANUAL' || p.activeMotors > 0 || p.hasElectricalAmpere).length;
+  const onlineCount = plantsToRender.filter(p => p.operatingMode === 'AUTO' || p.operatingMode === 'MANUAL' || p.activeMotors > 0).length;
   const faultCount = plantsToRender.filter(p => p.trippedMotors > 0 || p.operatingMode === 'TRIP').length;
-  const offlineCount = Math.max(0, totalDevicesCount - onlineCount - faultCount);
+  const offlineCount = plantsToRender.filter(p => p.operatingMode === 'STANDBY' || (p.activeMotors === 0 && p.trippedMotors === 0 && p.operatingMode !== 'AUTO' && p.operatingMode !== 'MANUAL')).length;
 
   // Initialize Map
   useEffect(() => {
@@ -331,7 +331,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
       const mode = plant.operatingMode;
       const isTripped = plant.trippedMotors > 0 || mode === 'TRIP';
       const isAuto = mode === 'AUTO' || (plant.activeMotors > 0 && !isTripped);
-      const isManual = mode === 'MANUAL' || (plant.activeMotors === 0 && plant.hasElectricalAmpere && !isTripped);
+      const isManual = mode === 'MANUAL';
       const isOnline = isAuto || isManual;
 
       const shortName = plant.device_name.split(',')[0].replace('VASUNDHARA', 'VAS').replace('SECTOR', 'SEC');

@@ -513,7 +513,7 @@ const DashboardPage: React.FC = () => {
             }
           });
 
-          const autoAct = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
+          const autoAct = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length : 0;
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
 
           const totalActiveMotors = autoAct;
@@ -523,8 +523,8 @@ const DashboardPage: React.FC = () => {
             operatingMode = 'TRIP';
           } else if (autoAct > 0) {
             operatingMode = 'AUTO';
-          } else if (hasAmpere && maxAmpere > 0.5) {
-            operatingMode = 'MANUAL';
+          } else {
+            operatingMode = 'STANDBY';
           }
 
           statusMap[d.device_id] = {
@@ -632,29 +632,9 @@ const DashboardPage: React.FC = () => {
       if (devId !== selectedDeviceIdRef.current) return;
 
       if (!data) {
-        // Construct fallback telemetry so dashboard remains 100% online
-        data = {
-          device_id: devId,
-          timestamp: new Date().toISOString(),
-          water_level_raw: "50",
-          tanks: [
-            {
-              tank_id: 1,
-              tank_name: "Raw Sewage Sump",
-              variant: "main",
-              capacity_liters: 8000000,
-              water_level_percent: 50.0,
-              current_volume_liters: 4000000,
-              motors: [
-                { motor_name: "M1_60_HP", run_param_key: "current_1", trip_param_key: "voltage_4", is_running: true, is_tripped: false },
-                { motor_name: "M2_75_HP", run_param_key: "current_2", trip_param_key: "voltage_5", is_running: true, is_tripped: false },
-                { motor_name: "M3_60_HP", run_param_key: "current_3", trip_param_key: "voltage_6", is_running: false, is_tripped: false },
-                { motor_name: "M4", run_param_key: "current_4", trip_param_key: "voltage_7", is_running: false, is_tripped: false },
-                { motor_name: "M5", run_param_key: "low_pressure", trip_param_key: "voltage_8", is_running: false, is_tripped: false }
-              ]
-            }
-          ]
-        };
+        setTelemetry(null);
+        setOnline(false);
+        return;
       }
 
       setTelemetry(data);
@@ -663,7 +643,7 @@ const DashboardPage: React.FC = () => {
 
       if (data?.tanks) {
         try {
-          const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length;
+          const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
           const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
           
           const rawMeters = await getElectricalMeters(devId).catch(() => ['1']);
@@ -690,13 +670,12 @@ const DashboardPage: React.FC = () => {
             }
           });
 
-          const activeManualMetersCount = Object.values(meterAmperesMap).filter((amp: any) => Number(amp) > 0.05).length;
-          const totalActiveMotors = Math.max(act, activeManualMetersCount, hasAmpere ? 1 : 0);
+          const totalActiveMotors = act;
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) operatingMode = 'TRIP';
           else if (act > 0) operatingMode = 'AUTO';
-          else if (hasAmpere) operatingMode = 'MANUAL';
+          else operatingMode = 'STANDBY';
 
           setDeviceStatusMap(prev => ({
             ...prev,

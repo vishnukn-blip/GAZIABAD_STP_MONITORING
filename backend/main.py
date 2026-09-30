@@ -289,27 +289,6 @@ async def get_telemetry(
         print(f"Nimblevision API error: {e}")
         raw = {}
 
-    # If raw fetch failed or empty, pull latest posting from SQLite DB as fallback
-    if not raw and os.path.exists(DB_PATH):
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            short_id = target_device_id[-10:] if len(target_device_id) >= 6 else target_device_id
-            c.execute("SELECT water_level_pct, i_avg, total_kw, timestamp FROM telemetry_postings WHERE device_id = ? OR device_id LIKE ? ORDER BY timestamp DESC LIMIT 1", (target_device_id, f"%{short_id}"))
-            row = c.fetchone()
-            conn.close()
-            if row:
-                raw = {
-                    "water_level": str(row[0]),
-                    "current_1": "1" if row[1] > 0 else "0",
-                    "current_2": "0",
-                    "current_3": "0",
-                    "current_4": "0",
-                    "timestamp": row[3]
-                }
-        except Exception:
-            pass
-
     # Update in-memory HISTORY_BUFFER for this device_id
     if target_device_id not in HISTORY_BUFFER:
         HISTORY_BUFFER[target_device_id] = []
@@ -328,8 +307,21 @@ async def get_telemetry(
         buf = buf[-200:]
     HISTORY_BUFFER[target_device_id] = buf
 
-    water_level_raw = str(raw.get("water_level", "0"))
-    water_level_pct = parse_water_level(water_level_raw)
+    raw_ts = str(raw.get("timestamp", ""))
+    is_stale = False
+    if raw_ts:
+        try:
+            dt = datetime.strptime(raw_ts.split(".")[0], "%Y-%m-%d %H:%M:%S")
+            # If data is older than 24 hours, device is inactive/uninstalled
+            if (get_local_now() - dt).total_seconds() > 86400:
+                is_stale = True
+        except Exception:
+            pass
+    elif not raw:
+        is_stale = True
+
+    water_level_raw = "0" if is_stale else str(raw.get("water_level", "0"))
+    water_level_pct = 0.0 if is_stale else parse_water_level(water_level_raw)
 
     # Step 3: Build structured response
     tanks_out = []
@@ -337,12 +329,14 @@ async def get_telemetry(
         for tank in sorted(tanks_cfg, key=lambda t: t.get("display_order", 1)):
             motors_out = []
             for motor in sorted(tank.get("motors", []), key=lambda m: m.get("display_order", 1)):
+                tripped = False if is_stale else parse_trip(raw.get(motor["trip_param_key"]))
+                running = False if is_stale else (parse_run(raw.get(motor["run_param_key"])) and not tripped)
                 motors_out.append(MotorTelemetry(
                     motor_name=motor.get("motor_name", motor.get("name", "Motor")),
                     run_param_key=motor["run_param_key"],
                     trip_param_key=motor["trip_param_key"],
-                    is_running=parse_run(raw.get(motor["run_param_key"])),
-                    is_tripped=parse_trip(raw.get(motor["trip_param_key"])),
+                    is_running=running,
+                    is_tripped=tripped,
                 ))
 
             cap = tank.get("capacity_liters", 8000000)
@@ -363,6 +357,22 @@ async def get_telemetry(
             "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
         }
         m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
+        
+        m1_t = False if is_stale else parse_trip(raw.get("voltage_4"))
+        m1_r = False if is_stale else (parse_run(raw.get("current_1")) and not m1_t)
+        
+        m2_t = False if is_stale else parse_trip(raw.get("voltage_5"))
+        m2_r = False if is_stale else (parse_run(raw.get("current_2")) and not m2_t)
+        
+        m3_t = False if is_stale else parse_trip(raw.get("voltage_6"))
+        m3_r = False if is_stale else (parse_run(raw.get("current_3")) and not m3_t)
+        
+        m4_t = False if is_stale else parse_trip(raw.get("voltage_7"))
+        m4_r = False if is_stale else (parse_run(raw.get("current_4")) and not m4_t)
+        
+        m5_t = False if is_stale else parse_trip(raw.get("voltage_8"))
+        m5_r = False if is_stale else (parse_run(raw.get("low_pressure")) and not m5_t)
+
         tanks_out.append(TankTelemetry(
             tank_id=1,
             tank_name="Raw Sewage Sump",
@@ -371,11 +381,11 @@ async def get_telemetry(
             water_level_percent=water_level_pct,
             current_volume_liters=round((water_level_pct / 100) * 8000000, 0),
             motors=[
-                MotorTelemetry(motor_name=m_list[0], run_param_key="current_1", trip_param_key="voltage_4", is_running=parse_run(raw.get("current_1")), is_tripped=parse_trip(raw.get("voltage_4"))),
-                MotorTelemetry(motor_name=m_list[1], run_param_key="current_2", trip_param_key="voltage_5", is_running=parse_run(raw.get("current_2")), is_tripped=parse_trip(raw.get("voltage_5"))),
-                MotorTelemetry(motor_name=m_list[2], run_param_key="current_3", trip_param_key="voltage_6", is_running=parse_run(raw.get("current_3")), is_tripped=parse_trip(raw.get("voltage_6"))),
-                MotorTelemetry(motor_name=m_list[3], run_param_key="current_4", trip_param_key="voltage_7", is_running=parse_run(raw.get("current_4")), is_tripped=parse_trip(raw.get("voltage_7"))),
-                MotorTelemetry(motor_name=m_list[4] if len(m_list) > 4 else "M5", run_param_key="low_pressure", trip_param_key="voltage_8", is_running=parse_run(raw.get("low_pressure")), is_tripped=parse_trip(raw.get("voltage_8"))),
+                MotorTelemetry(motor_name=m_list[0], run_param_key="current_1", trip_param_key="voltage_4", is_running=m1_r, is_tripped=m1_t),
+                MotorTelemetry(motor_name=m_list[1], run_param_key="current_2", trip_param_key="voltage_5", is_running=m2_r, is_tripped=m2_t),
+                MotorTelemetry(motor_name=m_list[2], run_param_key="current_3", trip_param_key="voltage_6", is_running=m3_r, is_tripped=m3_t),
+                MotorTelemetry(motor_name=m_list[3], run_param_key="current_4", trip_param_key="voltage_7", is_running=m4_r, is_tripped=m4_t),
+                MotorTelemetry(motor_name=m_list[4] if len(m_list) > 4 else "M5", run_param_key="low_pressure", trip_param_key="voltage_8", is_running=m5_r, is_tripped=m5_t),
             ]
         ))
 
