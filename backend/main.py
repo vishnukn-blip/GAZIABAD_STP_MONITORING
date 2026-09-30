@@ -1324,28 +1324,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
             }
             return {"status": "success", "device_id": device_id, "meter_id": meter_id or "1", "timestamp": ts_str, "has_data": True, "data": utl_data}
 
-    # For central Wabag devices, fetch real-time production electrical telemetry from live server with 30s cache
-    cache_key = f"elec_{device_id}_{meter_id or '1'}"
-    now_ts = time.time()
-    if cache_key in PROXY_CACHE:
-        c_val, c_time = PROXY_CACHE[cache_key]
-        if now_ts - c_time < 30.0:
-            return c_val
-
-    try:
-        async with httpx.AsyncClient(timeout=1.0) as client:
-            url = f"http://13.206.207.146:8001/api/telemetry/electrical/{device_id}"
-            if meter_id:
-                url += f"?meter_id={meter_id}"
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                res_j = resp.json()
-                if res_j.get("has_data") and res_j.get("data"):
-                    PROXY_CACHE[cache_key] = (res_j, now_ts)
-                    return res_j
-    except Exception:
-        pass
-
+    # 1. Check local SQLite DB first (instant <1ms lookup)
     default_data = {
         "device_id": device_id,
         "meter_id": meter_id or "1",
@@ -1369,7 +1348,6 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
                     (device_id, f"%{short_id}", str(meter_id))
                 )
                 row = cursor.fetchone()
-                target_meter = str(meter_id)
                 if not row:
                     cursor.execute(
                         "SELECT payload_json, updated_at, meter_id FROM electrical_telemetry WHERE (device_id = ? OR device_id LIKE ?) ORDER BY updated_at DESC LIMIT 1",
@@ -1382,7 +1360,6 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
                     (device_id, f"%{short_id}")
                 )
                 row = cursor.fetchone()
-                target_meter = row[2] if row else "1"
 
             if row and row[0]:
                 data_json = json.loads(row[0])
@@ -1397,6 +1374,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
                 data_json["avg_24h_kw"] = round(kw_val, 2)
                 data_json["kwh_24h_delta"] = kwh_24h_delta
                 data_json["kwh_24h"] = kwh_24h_delta
+                conn.close()
                 res_ok = {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
                 PROXY_CACHE[cache_key] = (res_ok, now_ts)
                 return res_ok
@@ -1404,6 +1382,21 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
             conn.close()
     except Exception as e:
         print(f"Error fetching electrical telemetry: {e}")
+
+    # 2. Try live production server proxy fallback only if not in local DB
+    try:
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            url = f"http://13.206.207.146:8001/api/telemetry/electrical/{device_id}"
+            if meter_id:
+                url += f"?meter_id={meter_id}"
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                res_j = resp.json()
+                if res_j.get("has_data") and res_j.get("data"):
+                    PROXY_CACHE[cache_key] = (res_j, now_ts)
+                    return res_j
+    except Exception:
+        pass
 
     res_none = {"status": "no_data", "device_id": device_id, "meter_id": meter_id or "1", "timestamp": None, "has_data": False, "data": default_data}
     PROXY_CACHE[cache_key] = (res_none, now_ts)
@@ -1423,7 +1416,6 @@ async def get_device_electrical_meters(device_id: str):
     if "98203928" in device_id:
         return {"status": "success", "device_id": device_id, "meters": ["1"]}
 
-    # For central Wabag devices, fetch exact installed meters list from live production server with 30s cache
     cache_key = f"meters_{device_id}"
     now_ts = time.time()
     if cache_key in PROXY_CACHE:
@@ -1431,19 +1423,27 @@ async def get_device_electrical_meters(device_id: str):
         if now_ts - c_time < 30.0:
             return c_val
 
-    try:
-        async with httpx.AsyncClient(timeout=1.0) as client:
-            resp = await client.get(f"http://13.206.207.146:8001/api/telemetry/electrical/{device_id}/meters")
-            if resp.status_code == 200:
-                res_j = resp.json()
-                if res_j.get("meters"):
-                    PROXY_CACHE[cache_key] = (res_j, now_ts)
-                    return res_j
-    except Exception:
-        pass
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            short_id = device_id[-10:] if len(device_id) >= 6 else device_id
+            cursor.execute("SELECT DISTINCT meter_id FROM electrical_telemetry WHERE device_id = ? OR device_id LIKE ?", (device_id, f"%{short_id}"))
+            m_rows = cursor.fetchall()
+            conn.close()
+            if m_rows:
+                m_list = [str(r[0]) for r in m_rows if r[0]]
+                if m_list:
+                    res_m = {"status": "success", "device_id": device_id, "meters": m_list}
+                    PROXY_CACHE[cache_key] = (res_m, now_ts)
+                    return res_m
+        except Exception:
+            pass
 
     default_meters = PLANT_DEFAULT_METERS.get(device_id, ["2", "3"])
-    return {"status": "success", "device_id": device_id, "meters": default_meters}
+    res_def = {"status": "success", "device_id": device_id, "meters": default_meters}
+    PROXY_CACHE[cache_key] = (res_def, now_ts)
+    return res_def
 
 
 class TariffConfigPayload(BaseModel):
