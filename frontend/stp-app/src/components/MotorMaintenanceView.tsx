@@ -26,14 +26,14 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
         ]);
         if (specsData) setSpecsMap(specsData);
         if (logsData) setServiceLogsMap(logsData);
-      } catch {}
+      } catch { }
     };
     fetchData();
   }, [deviceId]);
 
   // Gather all motors across all tanks in this plant layout
   const allMotors: Array<{ motor: any; tankName: string; telemetryMs: any }> = [];
-  
+
   if (layout?.tanks) {
     layout.tanks.forEach((tank, tIdx) => {
       const tankTelemetry = telemetry?.tanks.find(tt => tt.tank_id === tank.id || tt.tank_name === tank.name) ?? telemetry?.tanks[tIdx];
@@ -67,14 +67,14 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
     const currentRunHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultRunHours;
 
     const logs = serviceLogsMap[motorId] || serviceLogsMap[rawMotorName] || [];
-    const lastGreaseLog = logs.find((l: any) => 
-      l.service_type?.toLowerCase().includes('greasing') || 
+    const lastGreaseLog = logs.find((l: any) =>
+      l.service_type?.toLowerCase().includes('greasing') ||
       l.service_type?.toLowerCase().includes('bearing') ||
       l.service_type?.toLowerCase().includes('rewind') ||
       l.service_type?.toLowerCase().includes('overhaul')
     );
-    const lastOverhaulLog = logs.find((l: any) => 
-      l.service_type?.toLowerCase().includes('rewind') || 
+    const lastOverhaulLog = logs.find((l: any) =>
+      l.service_type?.toLowerCase().includes('rewind') ||
       l.service_type?.toLowerCase().includes('overhaul')
     );
 
@@ -271,9 +271,9 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                 <th style={{ padding: '14px 16px' }}>Motor Name & Location</th>
                 <th style={{ padding: '14px 16px' }}>Live Status</th>
                 <th style={{ padding: '14px 16px' }}>Specifications</th>
-                <th style={{ padding: '14px 16px' }}>Continuous Run Duty<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(Live Run vs 8h Limit)</span></th>
-                <th style={{ padding: '14px 16px' }}>Grease / Bearing Check<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(2,000h or 3 months)</span></th>
-                <th style={{ padding: '14px 16px' }}>Full Overhaul Service<br/><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(5,000h or 1 year)</span></th>
+                <th style={{ padding: '14px 16px' }}>Continuous Run Duty<br /><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(Live Run vs 8h Limit)</span></th>
+                <th style={{ padding: '14px 16px' }}>Grease / Bearing Check<br /><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(2,000h or 3 months)</span></th>
+                <th style={{ padding: '14px 16px' }}>Full Overhaul Service<br /><span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>(5,000h or 1 year)</span></th>
                 <th style={{ padding: '14px 16px', textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
@@ -304,25 +304,25 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
                 const currentMotorRunHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultRunHours;
 
                 // Check for most recent Greasing log and most recent Overhaul log
-                const lastGreaseLog = logs.find((l: any) => 
-                  l.service_type?.toLowerCase().includes('greasing') || 
+                const lastGreaseLog = logs.find((l: any) =>
+                  l.service_type?.toLowerCase().includes('greasing') ||
                   l.service_type?.toLowerCase().includes('bearing') ||
                   l.service_type?.toLowerCase().includes('rewind') ||
                   l.service_type?.toLowerCase().includes('overhaul')
                 );
 
-                const lastOverhaulLog = logs.find((l: any) => 
-                  l.service_type?.toLowerCase().includes('rewind') || 
+                const lastOverhaulLog = logs.find((l: any) =>
+                  l.service_type?.toLowerCase().includes('rewind') ||
                   l.service_type?.toLowerCase().includes('overhaul')
                 );
 
                 // Operating hours recorded at last service (0 if never serviced)
-                const lastGreaseHours = lastGreaseLog 
-                  ? (parseInt(lastGreaseLog.running_hours) || 0) 
+                const lastGreaseHours = lastGreaseLog
+                  ? (parseInt(lastGreaseLog.running_hours) || 0)
                   : (motorSpec.last_grease_hours || 0);
 
-                const lastOverhaulHours = lastOverhaulLog 
-                  ? (parseInt(lastOverhaulLog.running_hours) || 0) 
+                const lastOverhaulHours = lastOverhaulLog
+                  ? (parseInt(lastOverhaulLog.running_hours) || 0)
                   : (motorSpec.last_overhaul_hours || 0);
 
                 // Hours elapsed since last service
@@ -431,10 +431,10 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
 
                 // Determine actual stopped timestamp (from telemetry, motorSpec, or device chart history)
                 const lastStoppedTimestamp = telemetryMs?.last_stopped_at || telemetryMs?.stopped_since || motorSpec?.last_stopped_at;
-                
+
                 let downtimeText = '0m';
                 let stoppedAtText = 'Currently Running';
-                
+
                 if (!isRunning) {
                   let stopDate: Date;
                   if (lastStoppedTimestamp) {
@@ -702,7 +702,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
             ]);
             if (specsData) setSpecsMap(specsData);
             if (logsData) setServiceLogsMap(logsData);
-          } catch {}
+          } catch { }
         }}
         onLogSaved={async () => {
           try {
@@ -712,7 +712,7 @@ export const MotorMaintenanceView: React.FC<MotorMaintenanceViewProps> = ({ devi
             ]);
             if (specsData) setSpecsMap(specsData);
             if (logsData) setServiceLogsMap(logsData);
-          } catch {}
+          } catch { }
         }}
       />
     </div>

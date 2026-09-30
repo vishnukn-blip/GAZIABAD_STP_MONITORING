@@ -25,19 +25,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (usr: string, pwd: string): Promise<string> => {
     let result: any = null;
-    let userRole = 'user';
+    let userRole = 'stp_admin';
 
+    const lowerUsr = usr.toLowerCase().trim();
     try {
-      // Frappe returns: { home_page, message, full_name }
       result = await frappeLogin(usr, pwd);
-      userRole = (usr.toLowerCase() === 'administrator' || result.home_page === '/app') ? 'admin' : 'user';
     } catch (err) {
       console.warn('Frappe login unreachable, falling back to local session mode:', err);
-      // Fallback offline / standalone login: Administrator -> admin, others -> user
-      userRole = (usr.toLowerCase() === 'administrator' || usr.toLowerCase() === 'admin') ? 'admin' : 'user';
     }
 
-    const user = result?.full_name || usr;
+    if (lowerUsr.includes('utl')) {
+      userRole = 'water_quality';
+    } else if (lowerUsr === 'administrator' || lowerUsr === 'admin' || result?.home_page === '/app') {
+      userRole = 'admin';
+    } else {
+      userRole = 'stp_admin';
+    }
+
+    const user = result?.full_name || (userRole === 'water_quality' ? 'UTL User' : usr);
 
     localStorage.setItem('stp_frappe_user', usr);
     localStorage.setItem('stp_frappe_fullname', user);

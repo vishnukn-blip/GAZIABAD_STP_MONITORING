@@ -1,18 +1,15 @@
 import axios from 'axios';
 
-// Central Server IP for centralized database backend
-const CENTRAL_SERVER_IP = '13.206.207.146';
-
-// Dynamic Host Resolution (Uses centralized server IP when running locally, or current host when deployed)
+// Dynamic Host Resolution (Uses main server IP when running locally, or current host when deployed)
 const getApiBaseUrl = (port: string) => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
-      return `http://${CENTRAL_SERVER_IP}:${port}`;
+      return `http://localhost:${port}`;
     }
     return `http://${hostname}:${port}`;
   }
-  return `http://${CENTRAL_SERVER_IP}:${port}`;
+  return `http://localhost:${port}`;
 };
 
 // ── Frappe API (Auth + Admin Config: Users, Devices, Tanks, Motors) ─────────
@@ -246,4 +243,26 @@ export const saveTariffConfig = async (payload: any) => {
   return null;
 };
 
+export const getReportData = async (deviceId: string, period: string, startDate?: string, endDate?: string) => {
+  try {
+    const params: any = { device_id: deviceId, period };
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const { data } = await TelemetryAPI.get('/api/reports/telemetry', { params });
+    if (data && data.status === 'success') {
+      return data;
+    }
+  } catch {}
+  return null;
+};
+
+export const getWaterQualityTelemetry = async (): Promise<any> => {
+  try {
+    const { data } = await TelemetryAPI.get('/api/water_quality/telemetry');
+    if (data) return data;
+  } catch {}
+  return null;
+};
+
 export default FrappeAPI;
+

@@ -10,7 +10,21 @@ interface OverallPlantMapProps {
   userDevices?: any[];
   deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }>;
   onSelectDevice?: (deviceId: string) => void;
+  isWaterQualityUser?: boolean;
 }
+
+const utlPlantList = [
+  {
+    device_id: '98203928',
+    device_name: 'UTL WATER MONITORING PLANT #98203928',
+    latitude: 12.9698,
+    longitude: 77.7500,
+    location_address: 'Whitefield, Bengaluru, Karnataka',
+    mapped: true,
+    capacity_liters: 5000000,
+    depth_meters: 8.0
+  }
+];
 
 const defaultPlantsList = [
   {
@@ -209,7 +223,8 @@ const createGrayIcon = (label: string) => L.divIcon({
 export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
   userDevices = defaultPlantsList,
   deviceStatusMap = {},
-  onSelectDevice
+  onSelectDevice,
+  isWaterQualityUser = false
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -219,16 +234,18 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
   const [tileLayerType, setTileLayerType] = useState<'street' | 'satellite'>('street');
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  // Combine default plants with user devices
-  const plantsToRender = (userDevices && userDevices.length > 0 ? userDevices : defaultPlantsList).map(d => {
-    const matchedDefault = defaultPlantsList.find(dp => dp.device_id === d.device_id);
+  // Combine default plants with user devices (or UTL plant for UTL user)
+  const baseList = isWaterQualityUser ? utlPlantList : (userDevices && userDevices.length > 0 ? userDevices : defaultPlantsList);
+
+  const plantsToRender = baseList.map(d => {
+    const matchedDefault = (isWaterQualityUser ? utlPlantList : defaultPlantsList).find(dp => dp.device_id === d.device_id);
     const statusObj = deviceStatusMap[d.device_id] || {};
     return {
       device_id: d.device_id,
-      device_name: d.device_name || d.name || 'STP Plant Device',
+      device_name: d.device_name || d.name || (isWaterQualityUser ? 'UTL Water Quality Plant' : 'STP Plant Device'),
       latitude: d.latitude || matchedDefault?.latitude || 28.657521,
       longitude: d.longitude || matchedDefault?.longitude || 77.376303,
-      location_address: d.location_address || matchedDefault?.location_address || 'Ghaziabad, UP',
+      location_address: d.location_address || matchedDefault?.location_address || 'UP, India',
       mapped: true,
       activeMotors: statusObj.activeMotors ?? (d.active_motors || 0),
       trippedMotors: statusObj.trippedMotors ?? (d.tripped_motors || 0),
@@ -256,8 +273,8 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
 
     if (!mapRef.current) {
       const initialMap = L.map(containerRef.current, {
-        center: [28.6600, 77.3900],
-        zoom: 12,
+        center: isWaterQualityUser ? [12.9698, 77.7500] : [28.6600, 77.3900],
+        zoom: isWaterQualityUser ? 13 : 12,
         zoomControl: false,
         scrollWheelZoom: false
       });
@@ -609,10 +626,10 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
             </div>
             <div>
               <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                Device Locations Map
+                {isWaterQualityUser ? 'UTL Plant Location Map' : 'Device Locations Map'}
               </h3>
               <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0 0', fontWeight: 600 }}>
-                Real-time geographical tracking across all Ghaziabad STP plants
+                {isWaterQualityUser ? 'Real-time geographical tracking for UTL Water Quality Plant #98203928' : 'Real-time geographical tracking across all Ghaziabad STP plants'}
               </p>
             </div>
           </div>

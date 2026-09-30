@@ -21,6 +21,7 @@ interface LogEntry {
 interface CameraMonitoringProps {
   deviceId: string;
   deviceName?: string;
+  isWaterQualityUser?: boolean;
 }
 
 const monthMap: Record<string, number> = {
@@ -48,35 +49,47 @@ const getItemTimestamp = (path: string): number => {
 
 
 
-// Helper to format date into "DD_MMM_YYYY" (e.g. "09_Sep_2026")
-const formatFolderDate = (d: Date): string => {
-  const day = String(d.getDate()).padStart(2, '0');
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = monthNames[d.getMonth()];
-  const year = d.getFullYear();
-  return `${day}_${month}_${year}`;
+const parseDateFolderToTime = (dStr: string): number => {
+  const parts = dStr.split('_');
+  if (parts.length < 3) return 0;
+  const day = parseInt(parts[0], 10);
+  const monthStr = parts[1];
+  const year = parseInt(parts[2], 10);
+  const months: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+  };
+  return new Date(year, months[monthStr] ?? 0, day).getTime();
 };
 
-// Helper to generate past 9 days list
-const getAvailableDates = (): Array<{ folder: string; label: string; dateObj: Date }> => {
-  const dates = [];
-  const today = new Date();
-  for (let i = 0; i < 9; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const folder = formatFolderDate(d);
-    const dayStr = String(d.getDate()).padStart(2, '0');
-    const monthStr = d.toLocaleString('en-US', { month: 'short' });
-    let label = '';
-    if (i === 0) label = `Today (${dayStr} ${monthStr})`;
-    else if (i === 1) label = `Yesterday (${dayStr} ${monthStr})`;
-    else label = `${dayStr} ${monthStr}`;
-    dates.push({ folder, label, dateObj: d });
+const extractAvailableDatesFromPaths = (allPaths: string[], subfolder: string): Array<{ folder: string; label: string; count: number }> => {
+  const subfolderOnly = allPaths.filter((p) => p.includes(subfolder));
+  const map = new Map<string, number>();
+
+  for (const p of subfolderOnly) {
+    const match = p.match(/(\d{2}_[A-Za-z]{3}_\d{4})/);
+    if (match) {
+      const folder = match[1];
+      map.set(folder, (map.get(folder) || 0) + 1);
+    }
   }
-  return dates;
+
+  const sortedFolders = Array.from(map.keys()).sort((a, b) => {
+    return parseDateFolderToTime(b) - parseDateFolderToTime(a);
+  });
+
+  return sortedFolders.map((folder) => {
+    const parts = folder.split('_');
+    const label = `${parts[0]} ${parts[1]} ${parts[2]}`;
+    return {
+      folder,
+      label,
+      count: map.get(folder) || 0
+    };
+  });
 };
 
-export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
+export const CameraMonitoring: React.FC<CameraMonitoringProps> = ({ isWaterQualityUser }) => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('5grouter');
   const [aiEnabled, setAiEnabled] = useState<boolean>(true);
   const [activeSnapshotIdx, setActiveSnapshotIdx] = useState<number>(0);
@@ -89,8 +102,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
   // Recording View Mode & Date Selection
   const [viewMode, setViewMode] = useState<'live' | 'archive'>('live');
-  const [selectedDateFolder, setSelectedDateFolder] = useState<string>(formatFolderDate(new Date()));
-  const availableDates = getAvailableDates();
+  const [selectedDateFolder, setSelectedDateFolder] = useState<string>('');
 
   // Dynamic Thumbnail Sliding Window (Auto-shifts selected photo to position 1)
   const [thumbnailWindowStart, setThumbnailWindowStart] = useState<number>(0);
@@ -121,11 +133,16 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     }
   };
 
-  // AWS EC2 Hosts: Image Service host (13.206.207.146)
-  const PRIMARY_HOST = 'http://13.206.207.146:5002';
-  const WORKING_HOST = 'http://13.206.207.146:5002';
+  // EC2 Camera Hosts: UTL (13.200.3.124) vs WABAG (13.206.207.146)
+  const UTL_HOST = 'http://13.200.3.124:5002';
+  const WABAG_HOST = 'http://13.206.207.146:5002';
 
-  const [activeApiBase, setActiveApiBase] = useState<string>(WORKING_HOST);
+  const targetHost = isWaterQualityUser ? UTL_HOST : WABAG_HOST;
+  const [activeApiBase, setActiveApiBase] = useState<string>(targetHost);
+
+  useEffect(() => {
+    setActiveApiBase(isWaterQualityUser ? UTL_HOST : WABAG_HOST);
+  }, [isWaterQualityUser]);
 
   const cameraNames: Record<string, { title: string; folder: string; path: string; deviceSubfolder: string }> = {
     '5grouter': {
@@ -147,21 +164,25 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     { id: '2', name: 'El Presidento', role: 'Operator', status: 'ACTIVE', activeCount: 1 },
   ];
 
-  const filterImageList = (allPaths: string[], subfolder: string, mode: 'live' | 'archive', dateFolder: string) => {
-    const subfolderOnly = allPaths.filter((p) => p.includes(subfolder));
-    
-    if (mode === 'live') {
-      const liveList = subfolderOnly.filter((p) => p.includes('SATATYA_IPCAM_IMAGE') && !p.includes('SCHEDULESNAPSHOT'));
-      if (liveList.length > 0) return liveList;
-      return subfolderOnly;
+  const subfolder = selectedCameraId === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+  const availableDates = extractAvailableDatesFromPaths(rawAllImages, subfolder);
+
+  useEffect(() => {
+    if (availableDates.length > 0) {
+      const exists = availableDates.some(d => d.folder === selectedDateFolder);
+      if (!exists && availableDates[0]) {
+        setSelectedDateFolder(availableDates[0].folder);
+      }
     }
+  }, [availableDates, selectedDateFolder]);
 
-    // Archive mode / date filtered (e.g. "09_Sep_2026")
-    const dateList = subfolderOnly.filter((p) => p.includes(dateFolder));
-    if (dateList.length > 0) return dateList;
-
-    const scheduleList = subfolderOnly.filter((p) => p.includes('SCHEDULESNAPSHOT'));
-    if (scheduleList.length > 0) return scheduleList;
+  const filterImageList = (allPaths: string[], subfolderStr: string, dateFolder: string) => {
+    const subfolderOnly = allPaths.filter((p) => p.includes(subfolderStr));
+    
+    if (dateFolder) {
+      const dateList = subfolderOnly.filter((p) => p.includes(dateFolder));
+      if (dateList.length > 0) return dateList;
+    }
 
     return subfolderOnly;
   };
@@ -174,10 +195,10 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
     let responseData: string[] | null = null;
     let successfulHost = activeApiBase;
 
-    // 1. Try active working host first (INSTANT)
+    // 1. Try active working host first
     try {
       const res = await fetch(`${activeApiBase}/api/5grouter/list?source=${sourceKey}`, {
-        signal: AbortSignal.timeout(1200)
+        signal: AbortSignal.timeout(10000)
       });
       if (res.ok) {
         responseData = await res.json();
@@ -192,7 +213,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
       const altHost = activeApiBase === WORKING_HOST ? PRIMARY_HOST : WORKING_HOST;
       try {
         const res = await fetch(`${altHost}/api/5grouter/list?source=${sourceKey}`, {
-          signal: AbortSignal.timeout(1200)
+          signal: AbortSignal.timeout(10000)
         });
         if (res.ok) {
           responseData = await res.json();
@@ -207,8 +228,14 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
       setActiveApiBase(successfulHost);
       setRawAllImages(responseData);
       
-      const subfolder = sourceKey === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
-      const filtered = filterImageList(responseData, subfolder, viewMode, selectedDateFolder);
+      const currentSubfolder = sourceKey === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+      const dates = extractAvailableDatesFromPaths(responseData, currentSubfolder);
+      const activeFolder = dates.some(d => d.folder === selectedDateFolder) ? selectedDateFolder : (dates[0]?.folder || '');
+      if (activeFolder && activeFolder !== selectedDateFolder) {
+        setSelectedDateFolder(activeFolder);
+      }
+
+      const filtered = filterImageList(responseData, currentSubfolder, activeFolder);
 
       const sortedLatestFirst = filtered.slice().sort((a, b) => {
         const timeA = getItemTimestamp(a);
@@ -234,8 +261,8 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
 
   useEffect(() => {
     if (rawAllImages.length > 0) {
-      const subfolder = selectedCameraId === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
-      const filtered = filterImageList(rawAllImages, subfolder, viewMode, selectedDateFolder);
+      const currentSubfolder = selectedCameraId === 'cam2' ? '00_1b_09_14_e4_d3' : '00_1b_09_14_e4_e3';
+      const filtered = filterImageList(rawAllImages, currentSubfolder, selectedDateFolder);
       const sorted = filtered.slice().sort((a, b) => {
         const timeA = getItemTimestamp(a);
         const timeB = getItemTimestamp(b);
@@ -245,7 +272,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
       setImageList(sorted);
       setActiveSnapshotIdx(0);
     }
-  }, [viewMode, selectedDateFolder, selectedCameraId, rawAllImages]);
+  }, [selectedDateFolder, selectedCameraId, rawAllImages]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -541,14 +568,13 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
           <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 800, marginRight: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Select Date:
           </span>
-          {availableDates.map(({ folder, label }) => {
+          {availableDates.map(({ folder, label, count }) => {
             const isSelected = selectedDateFolder === folder;
             return (
               <button
                 key={folder}
                 onClick={() => {
                   setSelectedDateFolder(folder);
-                  setViewMode(folder === formatFolderDate(new Date()) ? 'live' : 'archive');
                 }}
                 style={{
                   padding: '7px 15px',
@@ -564,7 +590,7 @@ export const CameraMonitoring: React.FC<CameraMonitoringProps> = () => {
                   boxShadow: isSelected ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none'
                 }}
               >
-                {label}
+                {label} ({count})
               </button>
             );
           })}

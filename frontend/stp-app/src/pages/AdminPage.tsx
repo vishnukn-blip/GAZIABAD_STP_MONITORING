@@ -30,14 +30,20 @@ const ConfirmModal: React.FC<{ msg: string; onYes: () => void; onNo: () => void 
 );
 
 const DEFAULT_LOCAL_USERS = [
-  { name: 'wabag@nimblevision.io', email: 'wabag@nimblevision.io', full_name: 'Wabag User', first_name: 'Wabag', enabled: 1 }
+  { name: 'wabag@nimblevision.io', email: 'wabag@nimblevision.io', full_name: 'Wabag User', first_name: 'Wabag', enabled: 1 },
+  { name: 'vishnuwabag@nimblevision.io', email: 'vishnuwabag@nimblevision.io', full_name: 'vishnu', first_name: 'vishnu', enabled: 1 },
+  { name: 'tarunwabag@nimblevision.io', email: 'tarunwabag@nimblevision.io', full_name: 'tarun', first_name: 'tarun', enabled: 1 },
+  { name: 'mayankwabag@nimblevision.io', email: 'mayankwabag@nimblevision.io', full_name: 'mayank', first_name: 'mayank', enabled: 1 },
+  { name: 'manikandanwabag@nimblevision.io', email: 'manikandanwabag@nimblevision.io', full_name: 'manikandan', first_name: 'manikandan', enabled: 1 },
+  { name: 'utl@nimblevision.io', email: 'utl@nimblevision.io', full_name: 'UTL User', first_name: 'UTL User', enabled: 1 }
 ];
 
 export const DEFAULT_LOCAL_DEVICES = [
-  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.667200, longitude: 77.371100, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io', is_active: 1 },
-  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.648000, longitude: 77.382000, assigned_user: 'wabag@nimblevision.io', is_active: 1 }
+  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'UTL WATER MONITORING PLANT #98203928', device_name: 'UTL WATER MONITORING PLANT #98203928', device_id: '98203928', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 12.9698, longitude: 77.7500, assigned_user: 'utl@nimblevision.io', is_active: 1 }
 ];
 
 export const DEFAULT_LOCAL_TANKS = [
@@ -87,15 +93,27 @@ const AdminPage: React.FC = () => {
     try {
       const data = await frappeGetList('User', ['name', 'email', 'full_name', 'first_name', 'enabled'], { enabled: 1 });
       if (data && data.length > 0) {
-        setUsers(data);
+        const merged = [...data];
+        DEFAULT_LOCAL_USERS.forEach(u => {
+          if (!merged.some(m => m.email === u.email || m.name === u.name)) {
+            merged.push(u);
+          }
+        });
+        setUsers(merged);
         return;
       }
     } catch {}
 
     const centralUsers = await getCentralUsers();
     if (centralUsers && centralUsers.length > 0) {
-      localStorage.setItem('stp_local_users', JSON.stringify(centralUsers));
-      setUsers(centralUsers);
+      const merged = [...centralUsers];
+      DEFAULT_LOCAL_USERS.forEach(u => {
+        if (!merged.some(m => m.email === u.email || m.name === u.name)) {
+          merged.push(u);
+        }
+      });
+      localStorage.setItem('stp_local_users', JSON.stringify(merged));
+      setUsers(merged);
       return;
     }
 
@@ -104,11 +122,19 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(localUsersStr);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setUsers(parsed);
+          const merged = [...parsed];
+          DEFAULT_LOCAL_USERS.forEach(u => {
+            if (!merged.some(m => m.email === u.email || m.name === u.name)) {
+              merged.push(u);
+            }
+          });
+          localStorage.setItem('stp_local_users', JSON.stringify(merged));
+          setUsers(merged);
           return;
         }
       } catch {}
     }
+    localStorage.setItem('stp_local_users', JSON.stringify(DEFAULT_LOCAL_USERS));
     setUsers(DEFAULT_LOCAL_USERS);
   };
 
@@ -163,15 +189,27 @@ const AdminPage: React.FC = () => {
       const data = await frappeGetList('STP Device',
         ['name', 'device_name', 'device_id', 'api_key', 'assigned_user', 'is_active']);
       if (data && data.length > 0) {
-        setDevices(data);
+        const merged = [...data];
+        DEFAULT_LOCAL_DEVICES.forEach(d => {
+          if (!merged.some(m => m.device_id === d.device_id)) {
+            merged.push(d);
+          }
+        });
+        setDevices(merged);
         return;
       }
     } catch {}
 
     const central = await getCentralDevices();
     if (central && central.length > 0) {
-      localStorage.setItem('stp_local_devices', JSON.stringify(central));
-      setDevices(central);
+      const merged = [...central];
+      DEFAULT_LOCAL_DEVICES.forEach(d => {
+        if (!merged.some(m => m.device_id === d.device_id)) {
+          merged.push(d);
+        }
+      });
+      localStorage.setItem('stp_local_devices', JSON.stringify(merged));
+      setDevices(merged);
       return;
     }
 
@@ -179,23 +217,26 @@ const AdminPage: React.FC = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (parsed.some((d: any) => d.device_id === '350435032683869' || d.device_id === '12345')) {
-          localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
-          saveCentralDevices(DEFAULT_LOCAL_DEVICES);
-          setDevices(DEFAULT_LOCAL_DEVICES);
-        } else {
-          setDevices(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = [...parsed];
+          DEFAULT_LOCAL_DEVICES.forEach(d => {
+            const idx = merged.findIndex(m => m.device_id === d.device_id);
+            if (idx >= 0) {
+              merged[idx] = { ...merged[idx], assigned_user: d.assigned_user };
+            } else {
+              merged.push(d);
+            }
+          });
+          localStorage.setItem('stp_local_devices', JSON.stringify(merged));
+          saveCentralDevices(merged);
+          setDevices(merged);
+          return;
         }
-      } catch {
-        localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
-        saveCentralDevices(DEFAULT_LOCAL_DEVICES);
-        setDevices(DEFAULT_LOCAL_DEVICES);
-      }
-    } else {
-      localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
-      saveCentralDevices(DEFAULT_LOCAL_DEVICES);
-      setDevices(DEFAULT_LOCAL_DEVICES);
+      } catch {}
     }
+    localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
+    saveCentralDevices(DEFAULT_LOCAL_DEVICES);
+    setDevices(DEFAULT_LOCAL_DEVICES);
   };
 
   const saveDevice = async () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin } from 'lucide-react';
+import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin, FileText, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry, getElectricalMeters } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
@@ -12,6 +12,9 @@ import { MotorDetailsModal } from '../components/MotorDetailsModal';
 import { MotorMaintenanceView } from '../components/MotorMaintenanceView';
 import { PlantReplacementsView } from '../components/PlantReplacementsView';
 import { OverallPlantMap } from '../components/OverallPlantMap';
+import { ReportView } from '../components/ReportView';
+import { WaterQualityDashboard } from '../components/WaterQualityDashboard';
+import { UTLMotorStatusDashboard } from '../components/UTLMotorStatusDashboard';
 
 const POLL_INTERVAL = 5000;
 
@@ -317,9 +320,9 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
 const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   const defaultDevs = [
     { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.667200, longitude: 77.371100, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
     { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.648000, longitude: 77.382000, assigned_user: 'wabag@nimblevision.io' }
+    { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
   const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
@@ -448,8 +451,10 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
 };
 
 const DashboardPage: React.FC = () => {
-  const { username, fullName, logout } = useAuth();
+  const { username, fullName, role, logout } = useAuth();
   const navigate = useNavigate();
+  const isWaterQualityUser = role === 'water_quality' || (username || '').toLowerCase().includes('utl');
+
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('350435032683868');
   const selectedDeviceIdRef = useRef<string>('350435032683868');
   const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
@@ -462,7 +467,9 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'map' | 'telemetry' | 'camera' | 'electrical' | 'maintenance' | 'replacements'>('map');
+  const [activeTab, setActiveTab] = useState<string>(() => 
+    (username || '').toLowerCase().includes('utl') || role === 'water_quality' ? 'water_quality' : 'map'
+  );
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
   const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
   
@@ -538,7 +545,7 @@ const DashboardPage: React.FC = () => {
   const loadUserDevices = async () => {
     const defaultDevs = [
       { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'VASUNDHARA SECTOR 17', device_name: 'VASUNDHARA SECTOR 17', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
@@ -694,10 +701,15 @@ const DashboardPage: React.FC = () => {
       setSelectedDeviceId(initialDevId);
       selectedDeviceIdRef.current = initialDevId;
 
-      await fetchLayoutForDevice(initialDevId);
-      await fetchTelemetryForDevice(initialDevId);
-      fetchAllDevicesTelemetry(devs);
+      // ⚡ Render layout instantly (0ms delay)
+      const dynamicLayout = buildDeviceLayoutFromLocal(initialDevId);
+      setLayout(dynamicLayout);
       setLoading(false);
+
+      // Async background fetches
+      fetchLayoutForDevice(initialDevId);
+      fetchTelemetryForDevice(initialDevId);
+      fetchAllDevicesTelemetry(devs);
     };
     init();
 
@@ -710,6 +722,12 @@ const DashboardPage: React.FC = () => {
 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
+
+  useEffect(() => {
+    if (isWaterQualityUser) {
+      setActiveTab('water_quality');
+    }
+  }, [isWaterQualityUser]);
 
   useEffect(() => {
     const evaluateMaintenanceAlarms = async () => {
@@ -813,77 +831,162 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <nav className="dash-sidebar-nav">
-          <div className="dash-sidebar-group-label">STP Monitoring Views</div>
+          {isWaterQualityUser ? (
+            <>
+              <div className="dash-sidebar-group-label" style={{ fontSize: '11px', letterSpacing: '1px', color: '#64748B', fontWeight: 800 }}>DASHBOARD</div>
 
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`dash-sidebar-link ${activeTab === 'map' ? 'active' : ''}`}
-          >
-            <MapPin size={18} />
-            <span>Overall Plant Map</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('digital_twin')}
+                className={`dash-sidebar-link ${activeTab === 'digital_twin' ? 'active' : ''}`}
+              >
+                <Sparkles size={18} />
+                <span>Digital Twin</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('telemetry')}
-            className={`dash-sidebar-link ${activeTab === 'telemetry' ? 'active' : ''}`}
-          >
-            <Activity size={18} />
-            <span>Plant Monitoring</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('water_quality')}
+                className={`dash-sidebar-link ${activeTab === 'water_quality' ? 'active' : ''}`}
+              >
+                <Activity size={18} />
+                <span>Water Quality</span>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F97316', marginLeft: 'auto' }} />
+              </button>
 
-          <button
-            onClick={() => setActiveTab('camera')}
-            className={`dash-sidebar-link ${activeTab === 'camera' ? 'active' : ''}`}
-          >
-            <Camera size={18} />
-            <span>Camera Monitoring</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('electrical')}
+                className={`dash-sidebar-link ${activeTab === 'electrical' ? 'active' : ''}`}
+              >
+                <Zap size={18} />
+                <span>Electrical Stats</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('electrical')}
-            className={`dash-sidebar-link ${activeTab === 'electrical' ? 'active' : ''}`}
-          >
-            <Zap size={18} />
-            <span>Electrical Parameters</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('telemetry')}
+                className={`dash-sidebar-link ${activeTab === 'telemetry' ? 'active' : ''}`}
+              >
+                <Power size={18} />
+                <span>Motor Status</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('maintenance')}
-            className={`dash-sidebar-link ${activeTab === 'maintenance' ? 'active' : ''}`}
-          >
-            <Wrench size={18} />
-            <span>Maintenance Tracker</span>
-            {(maintenanceAlerts.overhaulAlarms.length > 0 || maintenanceAlerts.greaseNotifs.length > 0) && (
-              <span className="nav-badge" style={{ background: '#DC2626' }}>!</span>
-            )}
-          </button>
+              <button
+                onClick={() => setActiveTab('camera')}
+                className={`dash-sidebar-link ${activeTab === 'camera' ? 'active' : ''}`}
+              >
+                <Camera size={18} />
+                <span>Camera Monitoring</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('replacements')}
-            className={`dash-sidebar-link ${activeTab === 'replacements' ? 'active' : ''}`}
-          >
-            <DollarSign size={18} />
-            <span>Replacements & Costing</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('photos')}
+                className={`dash-sidebar-link ${activeTab === 'photos' ? 'active' : ''}`}
+              >
+                <ImageIcon size={18} />
+                <span>All Photos</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="dash-sidebar-group-label">STP Monitoring Views</div>
+
+              <button
+                onClick={() => setActiveTab('map')}
+                className={`dash-sidebar-link ${activeTab === 'map' ? 'active' : ''}`}
+              >
+                <MapPin size={18} />
+                <span>Overall Plant Map</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('telemetry')}
+                className={`dash-sidebar-link ${activeTab === 'telemetry' ? 'active' : ''}`}
+              >
+                <Activity size={18} />
+                <span>Plant Monitoring</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('camera')}
+                className={`dash-sidebar-link ${activeTab === 'camera' ? 'active' : ''}`}
+              >
+                <Camera size={18} />
+                <span>Camera Monitoring</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('electrical')}
+                className={`dash-sidebar-link ${activeTab === 'electrical' ? 'active' : ''}`}
+              >
+                <Zap size={18} />
+                <span>Electrical Parameters</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('maintenance')}
+                className={`dash-sidebar-link ${activeTab === 'maintenance' ? 'active' : ''}`}
+              >
+                <Wrench size={18} />
+                <span>Maintenance Tracker</span>
+                {(maintenanceAlerts.overhaulAlarms.length > 0 || maintenanceAlerts.greaseNotifs.length > 0) && (
+                  <span className="nav-badge" style={{ background: '#DC2626' }}>!</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('replacements')}
+                className={`dash-sidebar-link ${activeTab === 'replacements' ? 'active' : ''}`}
+              >
+                <DollarSign size={18} />
+                <span>Replacements & Costing</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`dash-sidebar-link ${activeTab === 'reports' ? 'active' : ''}`}
+              >
+                <FileText size={18} />
+                <span>Reports & Data Logs</span>
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="dash-sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#94A3B8' }}>
-            <span style={{ fontSize: '14px' }}>👤</span>
-            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fullName || username || 'wabag@nimblevision.io'}
-            </span>
-          </div>
-          <button id="logout-btn" className="logout-btn" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
-            <LogOut size={15} /> Logout
-          </button>
+          {isWaterQualityUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#F8FAFC', fontSize: '13px' }}>
+                  U
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '12px', color: '#F8FAFC', lineHeight: '1.2' }}>UTL</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700 }}>USER</div>
+                </div>
+              </div>
+              <button id="logout-btn" onClick={handleLogout} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }} title="Logout">
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#94A3B8' }}>
+                <span style={{ fontSize: '14px' }}>👤</span>
+                <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {fullName || username || 'wabag@nimblevision.io'}
+                </span>
+              </div>
+              <button id="logout-btn" className="logout-btn" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
+                <LogOut size={15} /> Logout
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
       {/* ─── MAIN CONTENT WRAPPER ────────────────────────────────────────── */}
       <div className="dash-content-wrapper">
-        {/* Top Nav Header */}
-        <header className="dash-header">
+        {/* Top Nav Header (Only for WABAG STP views, Hidden for Water Quality user and Reports) */}
+        {!isWaterQualityUser && activeTab !== 'reports' && (
+          <header className="dash-header">
           <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
             {activeTab === 'map' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -1034,9 +1137,10 @@ const DashboardPage: React.FC = () => {
             </button>
           </div>
         </header>
+        )}
 
-        {/* KPI Bar (Show only for single-plant views, hidden on Overall Plant Map) */}
-        {activeTab !== 'map' && (
+        {/* KPI Bar (Show only for WABAG single-plant views, hidden for UTL water quality user, map & reports) */}
+        {!isWaterQualityUser && activeTab !== 'map' && activeTab !== 'reports' && (
           <div className="kpi-bar">
             <div className="kpi-card kpi-blue">
               <Activity size={20} />
@@ -1067,7 +1171,7 @@ const DashboardPage: React.FC = () => {
         )}
 
         {/* 🚨 5,000 RUN HOURS CRITICAL OVERHAUL ALARM BANNER */}
-        {maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
+        {!isWaterQualityUser && maintenanceAlerts.overhaulAlarms.length > 0 && !dismissedAlarms && (
           <div style={{
             background: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
             color: '#FFFFFF',
@@ -1131,7 +1235,7 @@ const DashboardPage: React.FC = () => {
         )}
 
         {/* ⚠️ 2,000 RUN HOURS GREASE & BEARING CHECK POPUP NOTIFICATION BANNER */}
-        {maintenanceAlerts.greaseNotifs.length > 0 && !dismissedGreaseAlarms && (
+        {!isWaterQualityUser && maintenanceAlerts.greaseNotifs.length > 0 && !dismissedGreaseAlarms && (
           <div style={{
             background: 'linear-gradient(90deg, #78350F 0%, #D97706 50%, #78350F 100%)',
             color: '#FFFFFF',
@@ -1197,7 +1301,23 @@ const DashboardPage: React.FC = () => {
       <main className="scada-main">
         {loading && <div className="loading-screen"><div className="spinner-lg" /><p>Loading SCADA dashboard...</p></div>}
 
-        {!loading && !layout && (
+        {!loading && isWaterQualityUser && (
+          <>
+            {activeTab === 'electrical' ? (
+              <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} isWaterQualityUser={true} />
+            ) : activeTab === 'digital_twin' ? (
+              <OverallPlantMap userDevices={userDevices} deviceStatusMap={deviceStatusMap} onSelectDevice={handleDeviceChange} isWaterQualityUser={true} />
+            ) : activeTab === 'camera' || activeTab === 'photos' ? (
+              <CameraMonitoring deviceId="98203928" deviceName="UTL Plant #98203928" isWaterQualityUser={true} />
+            ) : activeTab === 'telemetry' || activeTab === 'motor_status' ? (
+              <UTLMotorStatusDashboard />
+            ) : (
+              <WaterQualityDashboard />
+            )}
+          </>
+        )}
+
+        {!loading && !isWaterQualityUser && !layout && (
           <div className="empty-state">
             <Droplets size={64} color="#38BDF8" />
             <h2>No Device Assigned</h2>
@@ -1205,7 +1325,7 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
 
-        {!loading && layout && (
+        {!loading && !isWaterQualityUser && layout && (
           <>
             {activeTab === 'map' ? (
               <OverallPlantMap
@@ -1217,13 +1337,15 @@ const DashboardPage: React.FC = () => {
                 }}
               />
             ) : activeTab === 'camera' ? (
-              <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} />
+              <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} isWaterQualityUser={false} />
             ) : activeTab === 'electrical' ? (
               <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
             ) : activeTab === 'maintenance' ? (
               <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
             ) : activeTab === 'replacements' ? (
               <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
+            ) : activeTab === 'reports' ? (
+              <ReportView userDevices={userDevices} selectedDeviceId={selectedDeviceId} onSelectDevice={handleDeviceChange} />
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
