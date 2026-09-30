@@ -980,7 +980,7 @@ async def save_config_plant_replacements(replacements: list[dict]):
     return {"status": "success", "count": len(replacements)}
 
 
-@app.post("/api/telemetry/electrical")
+@app.api_route("/api/telemetry/electrical", methods=["GET", "POST"])
 async def receive_electrical_telemetry(
     request: Request,
     key: Optional[str] = Query(None),
@@ -1076,12 +1076,19 @@ async def receive_electrical_telemetry(
         )
         conn.commit()
         conn.close()
+
+        # Invalidate cache so GET queries reflect immediately
+        c_key = f"elec_{target_device}_{target_meter}"
+        if c_key in PROXY_CACHE:
+            del PROXY_CACHE[c_key]
+
         return {
             "status": "success", 
             "message": "Electrical telemetry updated successfully", 
             "device_id": target_device,
             "meter_id": target_meter,
-            "timestamp": now_str
+            "timestamp": now_str,
+            "data": data_dict
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
