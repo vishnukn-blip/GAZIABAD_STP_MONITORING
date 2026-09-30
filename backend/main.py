@@ -1074,6 +1074,9 @@ def get_persistent_db_conn():
         _GLOBAL_PG_CONN = None
 
     pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
+    if not os.path.exists(pem_path):
+        return None
+
     try:
         _GLOBAL_PG_CONN = psycopg2.connect(
             host="127.0.0.1",
@@ -1231,6 +1234,8 @@ async def startup_event():
     def _startup_connect():
         global _GLOBAL_PG_CONN
         pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
+        if not os.path.exists(pem_path):
+            return
         # Try direct first (tunnel already running from previous session)
         try:
             _GLOBAL_PG_CONN = psycopg2.connect(
