@@ -513,18 +513,17 @@ const DashboardPage: React.FC = () => {
             }
           });
 
-          const activeManualMetersCount = Object.values(meterAmperesMap).filter((amp: any) => Number(amp) > 0.05).length;
           const autoAct = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running).length : 0;
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
 
-          const totalActiveMotors = Math.max(autoAct, activeManualMetersCount);
+          const totalActiveMotors = autoAct;
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) {
             operatingMode = 'TRIP';
           } else if (autoAct > 0) {
             operatingMode = 'AUTO';
-          } else if (hasAmpere) {
+          } else if (hasAmpere && maxAmpere > 0.5) {
             operatingMode = 'MANUAL';
           }
 
