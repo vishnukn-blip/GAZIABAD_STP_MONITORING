@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin, FileText, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -480,6 +481,110 @@ const DashboardPage: React.FC = () => {
   const [dismissedAlarms, setDismissedAlarms] = useState<boolean>(false);
   const [dismissedGreaseAlarms, setDismissedGreaseAlarms] = useState<boolean>(false);
 
+  const fetchDirectNimblevision = async (devId: string) => {
+    try {
+      const res = await axios.get('http://nimblevision.io/public/api/getDeviceDiagnosticInfoNisensu', {
+        params: {
+          key: 'chinnu',
+          token: '257bbec888a81696529ee979804cca59',
+          device_id: devId
+        },
+        timeout: 8000
+      });
+      const resData = res.data;
+      const raw = Array.isArray(resData) && resData.length > 0 ? resData[0] : (typeof resData === 'object' && resData ? resData : null);
+      if (!raw) return null;
+
+      const rawTs = String(raw.timestamp || '');
+      let isStale = false;
+      if (rawTs) {
+        try {
+          const dt = new Date(rawTs.replace(' ', 'T'));
+          if (!isNaN(dt.getTime()) && (Date.now() - dt.getTime()) > 86400000) {
+            isStale = true;
+          }
+        } catch {}
+      } else {
+        isStale = true;
+      }
+
+      const waterLevelRaw = isStale ? '0' : String(raw.water_level || '0');
+      const parseWL = (v: any) => {
+        if (v === undefined || v === null) return 0;
+        const num = parseFloat(String(v));
+        if (isNaN(num)) return 0;
+        if (num <= 4) return (num / 4) * 100;
+        return Math.min(100, Math.max(0, num));
+      };
+      const waterLevelPct = isStale ? 0 : parseWL(waterLevelRaw);
+
+      const parseRun = (val: any) => {
+        if (val === undefined || val === null) return false;
+        const strVal = String(val).trim().toLowerCase();
+        if (strVal === '1' || strVal === 'true' || strVal === 'on' || strVal === 'running') return true;
+        const num = parseFloat(strVal);
+        return !isNaN(num) && num >= 1;
+      };
+
+      const parseTrip = (val: any) => {
+        if (val === undefined || val === null) return false;
+        const strVal = String(val).trim().toLowerCase();
+        const num = parseFloat(strVal);
+        return !isNaN(num) && num >= 1;
+      };
+
+      const m1_t = isStale ? false : parseTrip(raw.voltage_4);
+      const m1_r = isStale ? false : (parseRun(raw.current_1) && !m1_t);
+
+      const m2_t = isStale ? false : parseTrip(raw.voltage_5);
+      const m2_r = isStale ? false : (parseRun(raw.current_2) && !m2_t);
+
+      const m3_t = isStale ? false : parseTrip(raw.voltage_6);
+      const m3_r = isStale ? false : (parseRun(raw.current_3) && !m3_t);
+
+      const m4_t = isStale ? false : parseTrip(raw.voltage_7);
+      const m4_r = isStale ? false : (parseRun(raw.current_4) && !m4_t);
+
+      const m5_t = isStale ? false : parseTrip(raw.voltage_8);
+      const m5_r = isStale ? false : (parseRun(raw.low_pressure) && !m5_t);
+
+      const m_map: Record<string, string[]> = {
+        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
+        "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
+        "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
+        "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+      };
+      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"];
+
+      return {
+        device_id: devId,
+        timestamp: rawTs || new Date().toISOString(),
+        water_level_raw: waterLevelRaw,
+        tanks: [
+          {
+            tank_id: 1,
+            tank_name: "Raw Sewage Sump",
+            variant: "main",
+            capacity_liters: 8000000,
+            water_level_percent: waterLevelPct,
+            current_volume_liters: Math.round((waterLevelPct / 100) * 8000000),
+            motors: [
+              { motor_name: m_list[0], run_param_key: "current_1", trip_param_key: "voltage_4", is_running: m1_r, is_tripped: m1_t },
+              { motor_name: m_list[1], run_param_key: "current_2", trip_param_key: "voltage_5", is_running: m2_r, is_tripped: m2_t },
+              { motor_name: m_list[2], run_param_key: "current_3", trip_param_key: "voltage_6", is_running: m3_r, is_tripped: m3_t },
+              { motor_name: m_list[3], run_param_key: "current_4", trip_param_key: "voltage_7", is_running: m4_r, is_tripped: m4_t },
+              { motor_name: m_list[4] || "M5", run_param_key: "low_pressure", trip_param_key: "voltage_8", is_running: m5_r, is_tripped: m5_t }
+            ]
+          }
+        ],
+        raw_params: raw
+      };
+    } catch (e) {
+      console.error("Direct Nimblevision fetch error:", e);
+      return null;
+    }
+  };
+
   const fetchAllDevicesTelemetry = async (devices: any[]) => {
     if (!devices || devices.length === 0) return;
     const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }> = {};
@@ -487,8 +592,11 @@ const DashboardPage: React.FC = () => {
       devices.map(async (d) => {
         try {
           const telemetryRes = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null }));
+          let data = telemetryRes?.data;
+          if (!data) {
+            data = await fetchDirectNimblevision(d.device_id);
+          }
           const rawMeters = await getElectricalMeters(d.device_id);
-          const data = telemetryRes?.data;
           const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : ['1'];
 
           const elecResults = await Promise.all(
@@ -626,7 +734,11 @@ const DashboardPage: React.FC = () => {
         const res = await TelemetryAPI.get('/api/telemetry', { params: { device_id: devId } });
         data = res?.data;
       } catch (e) {
-        console.warn('API fetch warning, using local fallback:', e);
+        console.warn('API fetch warning, using direct Nimblevision API:', e);
+      }
+
+      if (!data) {
+        data = await fetchDirectNimblevision(devId);
       }
 
       if (devId !== selectedDeviceIdRef.current) return;
