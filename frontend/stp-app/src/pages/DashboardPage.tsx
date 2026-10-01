@@ -604,6 +604,18 @@ const DashboardPage: React.FC = () => {
     await Promise.all(
       devices.map(async (d) => {
         try {
+          if (d.device_id === '350435032689659') {
+            statusMap[d.device_id] = {
+              activeMotors: 0,
+              trippedMotors: 0,
+              currentAmperes: 0,
+              hasElectricalAmpere: false,
+              operatingMode: 'STANDBY',
+              meterAmperesMap: {}
+            };
+            return;
+          }
+
           const telemetryRes = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null }));
           let data = telemetryRes?.data;
           if (!data) {
@@ -802,14 +814,18 @@ const DashboardPage: React.FC = () => {
           const totalActiveMotors = Math.max(act, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
-          if (trip > 0) operatingMode = 'TRIP';
+          if (devId === '350435032689659') {
+            operatingMode = 'STANDBY';
+          } else if (trip > 0) operatingMode = 'TRIP';
           else if (act > 0) operatingMode = 'AUTO';
           else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
           else operatingMode = 'STANDBY';
 
           setDeviceStatusMap(prev => ({
             ...prev,
-            [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+            [devId]: devId === '350435032689659' 
+              ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
+              : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
           }));
         } catch (innerErr) {
           console.warn('Electrical status parsing error:', innerErr);

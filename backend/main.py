@@ -1536,6 +1536,9 @@ PLANT_DEFAULT_METERS = {
 
 @app.get("/api/telemetry/electrical/{device_id}/meters")
 async def get_device_electrical_meters(device_id: str):
+    if "350435032689659" in str(device_id):
+        return {"status": "success", "device_id": device_id, "meters": []}
+
     if "98203928" in device_id:
         return {"status": "success", "device_id": device_id, "meters": ["1"]}
 
