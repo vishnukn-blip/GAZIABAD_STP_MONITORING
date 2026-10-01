@@ -334,14 +334,21 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             // 1.0 = AUTO ON (Green Peak)
             // 0.5 = MANUAL ON (Orange Mid Peak)
             // 0.0 = OFF
-            const motorChartData = data.map((pt) => {
+            const totalPts = data.length;
+            const motorChartData = data.map((pt, ptIdx) => {
               const val = pt[m.key as keyof TelemetryHistoryPoint];
               const ptAuto = parseRunVal(val);
               let plottedVal = 0;
               if (ptAuto) {
                 plottedVal = 1.0;
+              } else if (isAutoRunning) {
+                if (ptIdx >= Math.max(0, totalPts - 6)) {
+                  plottedVal = 1.0;
+                }
               } else if (isManualRunning) {
-                plottedVal = 0.5;
+                if (ptIdx >= Math.max(0, totalPts - 6)) {
+                  plottedVal = 0.5;
+                }
               }
               return {
                 ...pt,
