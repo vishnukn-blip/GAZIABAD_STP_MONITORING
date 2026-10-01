@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Droplets, Power, AlertTriangle, LogOut, RefreshCw, Wifi, WifiOff, Clock, Camera, Zap, Wrench, DollarSign, MapPin, FileText, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry, getElectricalMeters } from '../api';
+import { frappeGetLayout, TelemetryAPI, getCentralDevices, getCentralTanks, getCentralMotors, getCentralMotorSpecs, getCentralServiceLogs, getElectricalTelemetry, getElectricalMeters, getReportData } from '../api';
 import { DeviceLayout, TelemetryResponse, TankTelemetry } from '../types';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { DeviceMap } from '../components/DeviceMap';
@@ -834,6 +834,13 @@ const DashboardPage: React.FC = () => {
 
       if (data?.history && Array.isArray(data.history) && data.history.length > 0) {
         setAccumulatedHistory(data.history);
+      } else {
+        try {
+          const report = await getReportData(devId, 'daily');
+          if (report && report.postings && Array.isArray(report.postings) && report.postings.length > 0) {
+            setAccumulatedHistory(report.postings);
+          }
+        } catch {}
       }
     } catch {
       setOnline(true);

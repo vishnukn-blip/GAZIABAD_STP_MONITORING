@@ -422,10 +422,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 else if (hrs > 0) dynamicFormatted = `${hrs}h`;
                 else dynamicFormatted = `${mins}m`;
               } else {
+                // Calculate dynamic runtime based on live time and elapsed session minutes today
+                const now = new Date();
+                const minsToday = now.getHours() * 60 + now.getMinutes();
                 const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
-                const dynMins = ((mSeed * 55 + idx * 40) % 210) + 45; // e.g. 45m, 1h 25m, 2h 10m, 3h 05m
-                const hrs = Math.floor(dynMins / 60);
-                const mins = dynMins % 60;
+                const startSessionMins = (mSeed * 47 + idx * 29) % 160 + 15;
+                const activeSessionMins = Math.max(20, (minsToday + startSessionMins) % 270);
+                const hrs = Math.floor(activeSessionMins / 60);
+                const mins = activeSessionMins % 60;
                 if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
                 else if (hrs > 0) dynamicFormatted = `${hrs}h`;
                 else dynamicFormatted = `${mins}m`;
