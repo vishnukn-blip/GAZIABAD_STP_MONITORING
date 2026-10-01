@@ -105,9 +105,12 @@ const generate24HourHistoryData = (
       }
 
       let wl = p.water_level ?? 0;
-      if ((allZeroWL || wl === 0) && liveWaterLevel > 0) {
+      if (allZeroWL && liveWaterLevel > 0) {
         const factor = (idx + 1) / sorted.length;
         wl = Math.round((liveWaterLevel * (0.85 + 0.15 * factor)) * 10) / 10;
+      }
+      if (idx === sorted.length - 1 && liveWaterLevel > 0) {
+        wl = liveWaterLevel;
       }
 
       return {
@@ -133,8 +136,9 @@ const generate24HourHistoryData = (
     const past = new Date(now.getTime() - i * 60 * 60 * 1000);
     const hStr = past.getHours().toString().padStart(2, '0');
     const timeLabel = `${hStr}:00`;
-    const variation = Math.sin((24 - i) / 3.0) * 3.5;
-    const wl = Math.round(Math.min(100, Math.max(5, targetLevel + variation)) * 10) / 10;
+    // Variation damps to EXACT 0 at i = 0 (current point) to match live tank level 100%
+    const variation = i === 0 ? 0 : Math.sin(i / 3.0) * (Math.min(i, 4) * 0.6);
+    const wl = i === 0 ? targetLevel : Math.round(Math.min(100, Math.max(5, targetLevel + variation)) * 10) / 10;
     points.push({
       timestamp: timeLabel,
       time_short: timeLabel,
