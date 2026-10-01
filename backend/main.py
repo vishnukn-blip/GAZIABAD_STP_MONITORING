@@ -709,12 +709,12 @@ def seed_historical_postings(cursor):
             elif dev_id == "350435032680674":
                 base_kwh, base_lvl, base_curr = 8400.0, 62.0, 21.0
             elif dev_id == "350435032689659":
-                base_kwh, base_lvl, base_curr = 24100.0, 85.0, 46.0
+                base_kwh, base_lvl, base_curr = 0.0, 0.0, 0.0
             else:
                 base_kwh, base_lvl, base_curr = 5200.0, 45.0, 14.0
 
             motors_list = motor_names_map.get(dev_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-            num_mfms = 3 if dev_id in ["350435032683868", "350435032689659"] else 2
+            num_mfms = 3 if dev_id == "350435032683868" else (0 if dev_id == "350435032689659" else 2)
             
             # Generate timestamps covering past 365 days
             timestamps = []
@@ -740,35 +740,50 @@ def seed_historical_postings(cursor):
             for dt in timestamps:
                 dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
                 day_offset = dt.day + dt.hour
-                level_pct = round(base_lvl + 15.0 * (1.0 if (day_offset % 2 == 0) else -1.0) * ((day_offset % 5) / 5.0), 1)
-                level_pct = max(25.0, min(98.0, level_pct))
+                level_pct = round(base_lvl + 15.0 * (1.0 if (day_offset % 2 == 0) else -1.0) * ((day_offset % 5) / 5.0), 1) if base_lvl > 0 else 0.0
+                level_pct = max(0.0, min(98.0, level_pct))
                 depth_m = round((level_pct / 100.0) * 10.2, 2)
                 vol_l = round((level_pct / 100.0) * 8000000.0, 0)
                 
                 # Electrical
-                v_ln = round(233.0 + random.uniform(-3.0, 4.0), 2)
+                v_ln = round(233.0 + random.uniform(-3.0, 4.0), 2) if base_curr > 0 else 0.0
                 v_ll = round(v_ln * 1.732, 2)
-                i_avg = round(base_curr + random.uniform(-4.0, 6.0), 2)
+                i_avg = round(base_curr + random.uniform(-4.0, 6.0), 2) if base_curr > 0 else 0.0
                 total_kw = round((v_ln * i_avg * 3 * 0.9) / 1000.0, 2)
                 
                 curr_kwh += round(total_kw * 1.5, 2)
-                pf_avg = round(0.92 + random.uniform(0.01, 0.06), 2)
-                freq = round(49.92 + random.uniform(-0.1, 0.1), 3)
+                pf_avg = round(0.92 + random.uniform(0.01, 0.06), 2) if base_curr > 0 else 0.0
+                freq = round(49.92 + random.uniform(-0.1, 0.1), 3) if base_curr > 0 else 0.0
                 
                 # Motors & Mode
                 mode_rand = random.random()
                 m_statuses = {}
                 
-                if dev_id == "350435032681912":
-                    op_mode = "MANUAL"
+                if dev_id == "350435032689659":
+                    op_mode = "STANDBY"
                     motors_running = 0
                     motors_tripped = 0
                     i_avg = 0.0
                     total_kw = 0.0
+                    level_pct = 0.0
+                    depth_m = 0.0
+                    vol_l = 0
                     for m_name in motors_list:
                         m_statuses[m_name] = "OFF"
+                elif dev_id == "350435032681912":
+                    op_mode = "MANUAL"
+                    motors_running = 2
+                    motors_tripped = 0
+                    for idx_m, m_name in enumerate(motors_list):
+                        m_statuses[m_name] = "ON" if idx_m < 2 else "OFF"
                 elif dev_id == "350435032680674":
-                    op_mode = "AUTO" if mode_rand < 0.85 else "MANUAL"
+                    op_mode = "AUTO"
+                    motors_running = 2
+                    motors_tripped = 0
+                    for idx_m, m_name in enumerate(motors_list):
+                        m_statuses[m_name] = "ON" if idx_m < 2 else "OFF"
+                elif dev_id == "350435032683868":
+                    op_mode = "MANUAL"
                     motors_running = 3
                     motors_tripped = 0
                     for idx_m, m_name in enumerate(motors_list):
@@ -1501,7 +1516,7 @@ PLANT_DEFAULT_METERS = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
     "350435032681912": ["2", "3"],
-    "350435032689659": ["2", "3"],
+    "350435032689659": [],
     "98203928": ["1"]
 }
 

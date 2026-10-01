@@ -154,7 +154,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   motors, 
   tankName,
   currentAmperes: _currentAmperes = 0,
-  operatingMode = 'STANDBY',
+  operatingMode: _operatingMode = 'STANDBY',
   meterAmperesMap = {},
   liveWaterLevel = 0
 }) => {
@@ -322,18 +322,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               motorAmpere = meterAmperesMap[String(mObj.meter_id)];
             } else {
               const primaryMeterId = String(idx + 2);
-              if (meterAmperesMap[primaryMeterId] !== undefined) {
-                motorAmpere = meterAmperesMap[primaryMeterId];
-              } else if (idx === 0 && meterAmperesMap['1'] !== undefined) {
-                motorAmpere = meterAmperesMap['1'];
-              } else {
-                motorAmpere = 0;
-              }
+              motorAmpere = meterAmperesMap[primaryMeterId] ?? 0;
             }
 
             const latestPtVal = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint];
             const isAutoRunning = parseRunVal(latestPtVal) || (motors && motors[idx] && parseRunVal(motors[idx].is_running) && !motors[idx].is_tripped);
-            const isManualRunning = !isAutoRunning && (motorAmpere > 0.05 || (operatingMode === 'MANUAL' && (idx === 0 || motorAmpere > 0.05)));
+            const isManualRunning = !isAutoRunning && motorAmpere > 0.05;
             const isMotorActive = isAutoRunning || isManualRunning;
 
             // Transform history data for graph rendering:
