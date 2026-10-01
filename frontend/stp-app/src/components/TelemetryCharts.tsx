@@ -378,8 +378,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               else dynamicFormatted = `${mins}m`;
             }
 
-            // Calculate active timeline points count based on duration (1 point = ~1 hour on time axis)
-            const activePtsCount = isMotorActive ? Math.max(1, Math.min(totalPts, Math.ceil(activeDurationMins / 60))) : 0;
+            // Calculate active timeline points count based on duration (ensuring at least 2 points for crisp block rendering)
+            const activePtsCount = isMotorActive ? Math.max(2, Math.min(totalPts, Math.ceil(activeDurationMins / 60))) : 0;
 
             const motorChartData = data.map((pt, ptIdx) => {
               const val = pt[m.key as keyof TelemetryHistoryPoint];

@@ -232,7 +232,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
         markersMapRef.current.clear();
       }
     };
-  }, [deviceId, finalLat, finalLng, deviceName, activeMotorsCount, trippedMotorsCount]);
+  }, [deviceId, finalLat, finalLng, deviceName, activeMotorsCount, trippedMotorsCount, operatingMode]);
 
   return (
     <div style={{
