@@ -1326,6 +1326,20 @@ async def startup_event():
 
 @app.get("/api/telemetry/electrical/{device_id}")
 async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = None):
+    if "350435032689659" in str(device_id):
+        no_dev_data = {
+            "device_id": "350435032689659", "meter_id": meter_id or "1",
+            "v1n": 0.0, "v2n": 0.0, "v3n": 0.0, "v_ln": 0.0,
+            "v12": 0.0, "v23": 0.0, "v31": 0.0, "v_ll": 0.0,
+            "i1": 0.0, "i2": 0.0, "i3": 0.0, "i_avg": 0.0,
+            "kw1": 0.0, "kw2": 0.0, "kw3": 0.0, "total_kw": 0.0,
+            "kvar1": 0.0, "kvar2": 0.0, "kvar3": 0.0, "total_kvar": 0.0,
+            "kva1": 0.0, "kva2": 0.0, "kva3": 0.0, "total_kva": 0.0,
+            "pf1": 0.0, "pf2": 0.0, "pf3": 0.0, "pf_avg": 0.0,
+            "freq": 0.0, "kwh": 0.0, "has_data": False, "timestamp": "--"
+        }
+        return {"status": "success", "device_id": device_id, "meter_id": meter_id or "1", "has_data": False, "data": no_dev_data}
+
     cache_key = f"elec_{device_id}_{meter_id or '1'}"
     now_ts = time.time()
     if cache_key in PROXY_CACHE:

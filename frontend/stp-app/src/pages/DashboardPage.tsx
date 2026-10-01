@@ -610,10 +610,10 @@ const DashboardPage: React.FC = () => {
             data = await fetchDirectNimblevision(d.device_id);
           }
           const rawMeters = await getElectricalMeters(d.device_id);
-          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : ['1'];
+          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
 
           const elecResults = await Promise.all(
-            (metersList && metersList.length > 0 ? metersList : ['1', '2', '3', '4', '5']).map((mId: string) => 
+            metersList.map((mId: string) => 
               getElectricalTelemetry(d.device_id, mId).catch(() => null)
             )
           );
@@ -774,10 +774,10 @@ const DashboardPage: React.FC = () => {
           const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
           const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
           
-          const rawMeters = await getElectricalMeters(devId).catch(() => ['1']);
-          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : ['1'];
+          const rawMeters = await getElectricalMeters(devId).catch(() => []);
+          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
           const elecResults = await Promise.all(
-            (metersList && metersList.length > 0 ? metersList : ['1', '2', '3', '4', '5']).map((mId: string) => 
+            metersList.map((mId: string) => 
               getElectricalTelemetry(devId, mId).catch(() => null)
             )
           );
@@ -1538,7 +1538,7 @@ const DashboardPage: React.FC = () => {
                 {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
                 <TelemetryCharts
                   history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
-                  motors={layout?.tanks[0]?.motors || telemetry?.tanks[0]?.motors || []}
+                  motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
                   tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
                   currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
                   operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
