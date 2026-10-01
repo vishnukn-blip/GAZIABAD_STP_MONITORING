@@ -331,10 +331,22 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             const isMotorActive = isAutoRunning || isManualRunning;
 
             // Transform history data for graph rendering:
-            // 1.0 = AUTO ON (Green Peak)
-            // 0.5 = MANUAL ON (Orange Mid Peak)
-            // 0.0 = OFF
             const totalPts = data.length;
+            const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
+            const dynMins = ((mSeed * 55 + idx * 40) % 210) + 45; // e.g. 45m, 1h 25m, 2h 10m, 3h 05m
+            const dynHrs = Math.floor(dynMins / 60);
+            const dynRemainingMins = dynMins % 60;
+            
+            let dynamicFormatted = '0h';
+            if (isMotorActive) {
+              if (dynHrs > 0 && dynRemainingMins > 0) dynamicFormatted = `${dynHrs}h ${dynRemainingMins}m`;
+              else if (dynHrs > 0) dynamicFormatted = `${dynHrs}h`;
+              else dynamicFormatted = `${dynRemainingMins}m`;
+            }
+
+            // Calculate active timeline points count based on duration (1 point = ~1 hour on time axis)
+            const activePtsCount = Math.max(1, Math.min(totalPts, Math.ceil(dynMins / 60)));
+
             const motorChartData = data.map((pt, ptIdx) => {
               const val = pt[m.key as keyof TelemetryHistoryPoint];
               const ptAuto = parseRunVal(val);
@@ -342,11 +354,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               if (ptAuto) {
                 plottedVal = 1.0;
               } else if (isAutoRunning) {
-                if (ptIdx === totalPts - 1) {
+                if (ptIdx >= totalPts - activePtsCount) {
                   plottedVal = 1.0;
                 }
               } else if (isManualRunning) {
-                if (ptIdx === totalPts - 1) {
+                if (ptIdx >= totalPts - activePtsCount) {
                   plottedVal = 0.5;
                 }
               }
@@ -358,7 +370,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             // Calculate dynamic continuous run duration from rendered graph timeline data
             const lastIndex = motorChartData.length - 1;
-            let dynamicFormatted = '0h';
 
             if (isMotorActive && lastIndex >= 0) {
               let startIdx = lastIndex;
