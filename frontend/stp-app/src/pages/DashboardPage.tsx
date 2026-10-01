@@ -27,9 +27,10 @@ interface TankCardProps {
   index: number;
   total: number;
   onSelectMotor?: (motor: any, tankName: string) => void;
+  selectedStatus?: any;
 }
 
-const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSelectMotor }) => {
+const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSelectMotor, selectedStatus }) => {
   const level = telemetry?.water_level_percent ?? 0;
   const capacity = tankLayout.capacity_liters || 8000000;
   const totalDepthMeters = (tankLayout as any).depth_meters || 
@@ -271,9 +272,21 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
         {tankLayout.motors.map((motor, mi) => {
           const ms = telemetry?.motors.find(m => m.run_param_key === motor.run_param_key) || telemetry?.motors[mi];
           const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${mi + 1}`;
-          const isRunning = ms?.is_running ?? false;
+          const isAutoRunning = ms?.is_running ?? false;
           const isTripped = ms?.is_tripped ?? false;
+
+          const mId = String(mi + 2);
+          const motorAmp = selectedStatus?.meterAmperesMap?.[mId] ?? selectedStatus?.meterAmperesMap?.[String(mi + 1)] ?? (mi === 0 ? selectedStatus?.currentAmperes : 0) ?? 0;
+          const isManualRunning = !isAutoRunning && !isTripped && (motorAmp > 0.05 || (selectedStatus?.operatingMode === 'MANUAL' && (mi === 0 || motorAmp > 0.05)));
+          const isRunning = isAutoRunning || isManualRunning;
           const motorObj = { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped };
+
+          const badgeBg = isTripped ? '#FEF2F2' : isAutoRunning ? '#ECFDF5' : isManualRunning ? '#FFF7ED' : '#F8FAFC';
+          const badgeBorder = isTripped ? '#FCA5A5' : isAutoRunning ? '#A7F3D0' : isManualRunning ? '#FFEDD5' : '#CBD5E1';
+          const badgeColor = isTripped ? '#DC2626' : isAutoRunning ? '#059669' : isManualRunning ? '#EA580C' : '#475569';
+          const pillBg = isTripped ? '#FEE2E2' : isAutoRunning ? '#D1FAE5' : isManualRunning ? '#FFEDD5' : '#E2E8F0';
+          const pillColor = isTripped ? '#991B1B' : isAutoRunning ? '#065F46' : isManualRunning ? '#C2410C' : '#334155';
+          const badgeLabel = isTripped ? 'TRIP' : isAutoRunning ? 'AUTO ON' : isManualRunning ? 'MANUAL ON' : 'OFF';
 
           return (
             <div
@@ -284,13 +297,13 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: isTripped ? '#FEF2F2' : isRunning ? '#ECFDF5' : '#F8FAFC',
-                border: `1px solid ${isTripped ? '#FCA5A5' : isRunning ? '#A7F3D0' : '#CBD5E1'}`,
+                background: badgeBg,
+                border: `1px solid ${badgeBorder}`,
                 borderRadius: '8px',
                 padding: '6px 10px',
                 fontSize: '11px',
                 fontWeight: 700,
-                color: isTripped ? '#DC2626' : isRunning ? '#059669' : '#475569',
+                color: badgeColor,
                 boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
                 cursor: 'pointer',
                 transition: 'transform 0.15s ease, boxShadow 0.15s ease'
@@ -298,17 +311,17 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
               onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(15, 23, 42, 0.03)'; }}
             >
-              <Power size={12} color={isTripped ? '#DC2626' : isRunning ? '#059669' : '#64748B'} />
+              <Power size={12} color={badgeColor} />
               <span>{motorDisplayName}</span>
               <span style={{
                 fontSize: '9px',
                 fontWeight: 800,
                 padding: '2px 6px',
                 borderRadius: '4px',
-                background: isTripped ? '#FEE2E2' : isRunning ? '#D1FAE5' : '#E2E8F0',
-                color: isTripped ? '#991B1B' : isRunning ? '#065F46' : '#334155'
+                background: pillBg,
+                color: pillColor
               }}>
-                {isTripped ? 'TRIP' : isRunning ? 'ON' : 'OFF'}
+                {badgeLabel}
               </span>
             </div>
           );
@@ -624,13 +637,16 @@ const DashboardPage: React.FC = () => {
           const autoAct = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length : 0;
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
 
-          const totalActiveMotors = autoAct;
+          const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+          const totalActiveMotors = Math.max(autoAct, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) {
             operatingMode = 'TRIP';
           } else if (autoAct > 0) {
             operatingMode = 'AUTO';
+          } else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) {
+            operatingMode = 'MANUAL';
           } else {
             operatingMode = 'STANDBY';
           }
@@ -782,11 +798,13 @@ const DashboardPage: React.FC = () => {
             }
           });
 
-          const totalActiveMotors = act;
+          const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+          const totalActiveMotors = Math.max(act, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) operatingMode = 'TRIP';
           else if (act > 0) operatingMode = 'AUTO';
+          else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
           else operatingMode = 'STANDBY';
 
           setDeviceStatusMap(prev => ({
@@ -1494,6 +1512,7 @@ const DashboardPage: React.FC = () => {
                               index={idx}
                               total={layout.tanks.length}
                               onSelectMotor={(m, tName) => setSelectedMotorModal({ motor: m, tankName: tName })}
+                              selectedStatus={deviceStatusMap[selectedDeviceId]}
                             />
                           );
                         })}
@@ -1524,6 +1543,7 @@ const DashboardPage: React.FC = () => {
                   currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
                   operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
                   meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
+                  liveWaterLevel={telemetry?.tanks[0]?.water_level_percent ?? 0}
                 />
               </>
             )}

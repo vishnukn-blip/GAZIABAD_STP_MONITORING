@@ -78,6 +78,8 @@ def parse_water_level(val: Optional[str]) -> float:
     """Convert raw reading directly to 0-100% percentage"""
     try:
         f = float(val)
+        if f <= 4.0:
+            return round(min(max((f / 4.0) * 100.0, 0.0), 100.0), 1)
         return round(min(max(f, 0.0), 100.0), 1)
     except (TypeError, ValueError):
         return 0.0
