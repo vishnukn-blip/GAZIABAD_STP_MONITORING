@@ -771,7 +771,7 @@ def seed_historical_postings(cursor):
                     for m_name in motors_list:
                         m_statuses[m_name] = "OFF"
                 elif dev_id == "350435032681912":
-                    op_mode = "MANUAL"
+                    op_mode = "AUTO"
                     motors_running = 2
                     motors_tripped = 0
                     for idx_m, m_name in enumerate(motors_list):
