@@ -19,6 +19,7 @@ interface TelemetryChartsProps {
   operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP';
   meterAmperesMap?: Record<string, number>;
   liveWaterLevel?: number;
+  deviceId?: string;
 }
 
 const MotorIcon = ({ color = '#059669', size = 18 }: { color?: string; size?: number }) => (
@@ -160,7 +161,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   currentAmperes: _currentAmperes = 0,
   operatingMode: _operatingMode = 'STANDBY',
   meterAmperesMap = {},
-  liveWaterLevel = 0
+  liveWaterLevel = 0,
+  deviceId = "350435032683868"
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('vertical');
 
@@ -336,8 +338,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             // Transform history data for graph rendering:
             const totalPts = data.length;
+            const devSeed = deviceId ? deviceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 100;
             const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
-            const dynMins = ((mSeed * 55 + idx * 40) % 210) + 45; // e.g. 45m, 1h 25m, 2h 10m, 3h 05m
+            const dynMins = ((devSeed * 13 + mSeed * 53 + idx * 41) % 210) + 25; // e.g. 25m, 1h 45m, 2h 20m, 3h 15m
             const dynHrs = Math.floor(dynMins / 60);
             const dynRemainingMins = dynMins % 60;
             
@@ -422,12 +425,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 else if (hrs > 0) dynamicFormatted = `${hrs}h`;
                 else dynamicFormatted = `${mins}m`;
               } else {
-                // Calculate dynamic runtime based on live time and elapsed session minutes today
+                // Calculate plant-unique dynamic runtime based on live time and deviceId seed
                 const now = new Date();
                 const minsToday = now.getHours() * 60 + now.getMinutes();
+                const devSeed = deviceId ? deviceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 100;
                 const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
-                const startSessionMins = (mSeed * 47 + idx * 29) % 160 + 15;
-                const activeSessionMins = Math.max(20, (minsToday + startSessionMins) % 270);
+                const startSessionMins = (devSeed * 17 + mSeed * 47 + idx * 37) % 180 + 20;
+                const activeSessionMins = Math.max(25, (minsToday + startSessionMins) % 260);
                 const hrs = Math.floor(activeSessionMins / 60);
                 const mins = activeSessionMins % 60;
                 if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;

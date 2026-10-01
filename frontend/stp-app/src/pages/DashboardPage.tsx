@@ -1560,6 +1560,7 @@ const DashboardPage: React.FC = () => {
 
                 {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
                 <TelemetryCharts
+                  deviceId={selectedDeviceId}
                   history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
                   motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
                   tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
