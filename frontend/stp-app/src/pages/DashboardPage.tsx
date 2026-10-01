@@ -272,7 +272,7 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
         {tankLayout.motors.map((motor, mi) => {
           const ms = telemetry?.motors.find(m => m.run_param_key === motor.run_param_key) || telemetry?.motors[mi];
           const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${mi + 1}`;
-          const isAutoRunning = ms?.is_running ?? (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
+          const isAutoRunning = (ms?.is_running === true) || (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
           const isTripped = ms?.is_tripped ?? false;
 
           const mId = String(mi + 2);

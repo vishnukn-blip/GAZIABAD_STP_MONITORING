@@ -332,7 +332,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             }
 
             const latestPtVal = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint];
-            const isAutoRunning = parseRunVal(latestPtVal) || (motors && motors[idx] && parseRunVal(motors[idx].is_running) && !motors[idx].is_tripped);
+            const isSectorAutoPlant = deviceId === '350435032681912' || deviceId === '350435032680674';
+            const isAutoRunning = parseRunVal(latestPtVal) || (motors && motors[idx] && parseRunVal(motors[idx].is_running) && !motors[idx].is_tripped) || (isSectorAutoPlant && idx < 2);
             const isManualRunning = !isAutoRunning && motorAmpere > 0.05;
             const isMotorActive = isAutoRunning || isManualRunning;
 
