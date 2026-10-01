@@ -342,11 +342,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               if (ptAuto) {
                 plottedVal = 1.0;
               } else if (isAutoRunning) {
-                if (ptIdx >= Math.max(0, totalPts - 6)) {
+                if (ptIdx === totalPts - 1) {
                   plottedVal = 1.0;
                 }
               } else if (isManualRunning) {
-                if (ptIdx >= Math.max(0, totalPts - 6)) {
+                if (ptIdx === totalPts - 1) {
                   plottedVal = 0.5;
                 }
               }
