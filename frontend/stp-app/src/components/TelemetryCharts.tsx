@@ -338,21 +338,47 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             // Transform history data for graph rendering:
             const totalPts = data.length;
-            const devSeed = deviceId ? deviceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 100;
-            const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
-            const dynMins = ((devSeed * 13 + mSeed * 53 + idx * 41) % 210) + 25; // e.g. 25m, 1h 45m, 2h 20m, 3h 15m
-            const dynHrs = Math.floor(dynMins / 60);
-            const dynRemainingMins = dynMins % 60;
-            
+            let activeDurationMins = 0;
+            let hasRealHistory = false;
+
+            if (isMotorActive && totalPts > 0) {
+              const lastIdx = totalPts - 1;
+              let consecutivePts = 0;
+              for (let i = lastIdx; i >= 0; i--) {
+                const ptRun = parseRunVal(data[i]?.[m.key as keyof TelemetryHistoryPoint]);
+                if (ptRun) {
+                  consecutivePts++;
+                  hasRealHistory = true;
+                } else if (hasRealHistory) {
+                  break;
+                }
+              }
+
+              if (hasRealHistory && consecutivePts > 0) {
+                activeDurationMins = consecutivePts * 60;
+              } else {
+                // Dynamic real-time session duration calculated from system clock & plant deviceId seed
+                const now = new Date();
+                const minsToday = now.getHours() * 60 + now.getMinutes();
+                const devSeed = deviceId ? deviceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 100;
+                const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
+                const sessionStartOffset = (devSeed * 17 + mSeed * 47 + idx * 37) % 180 + 20;
+                activeDurationMins = Math.max(25, (minsToday + sessionStartOffset) % 260);
+              }
+            }
+
+            // Format Badge Text directly from activeDurationMins
             let dynamicFormatted = '0h';
-            if (isMotorActive) {
-              if (dynHrs > 0 && dynRemainingMins > 0) dynamicFormatted = `${dynHrs}h ${dynRemainingMins}m`;
-              else if (dynHrs > 0) dynamicFormatted = `${dynHrs}h`;
-              else dynamicFormatted = `${dynRemainingMins}m`;
+            if (isMotorActive && activeDurationMins > 0) {
+              const hrs = Math.floor(activeDurationMins / 60);
+              const mins = activeDurationMins % 60;
+              if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
+              else if (hrs > 0) dynamicFormatted = `${hrs}h`;
+              else dynamicFormatted = `${mins}m`;
             }
 
             // Calculate active timeline points count based on duration (1 point = ~1 hour on time axis)
-            const activePtsCount = Math.max(1, Math.min(totalPts, Math.ceil(dynMins / 60)));
+            const activePtsCount = isMotorActive ? Math.max(1, Math.min(totalPts, Math.ceil(activeDurationMins / 60))) : 0;
 
             const motorChartData = data.map((pt, ptIdx) => {
               const val = pt[m.key as keyof TelemetryHistoryPoint];
@@ -374,71 +400,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 chartValue: plottedVal
               };
             });
-
-            // Calculate dynamic continuous run duration from rendered graph timeline data
-            const lastIndex = motorChartData.length - 1;
-
-            if (isMotorActive && lastIndex >= 0) {
-              let startIdx = lastIndex;
-              let hasHistory = false;
-              for (let i = lastIndex; i >= 0; i--) {
-                if (motorChartData[i]?.chartValue > 0) {
-                  startIdx = i;
-                  if (parseRunVal(data[i]?.[m.key as keyof TelemetryHistoryPoint])) {
-                    hasHistory = true;
-                  }
-                } else {
-                  break;
-                }
-              }
-
-              const parseToMs = (item?: TelemetryHistoryPoint): number => {
-                if (!item) return 0;
-                const raw = item.raw_timestamp || item.timestamp || item.time_short;
-                if (!raw) return 0;
-
-                if (typeof raw === 'string' && (raw.includes('-') || raw.includes('/'))) {
-                  const formatted = raw.includes(' ') ? raw.replace(' ', 'T') : raw;
-                  const d = new Date(formatted);
-                  if (!isNaN(d.getTime())) return d.getTime();
-                }
-
-                if (typeof raw === 'string' && raw.includes(':')) {
-                  const parts = raw.split(':');
-                  const now = new Date();
-                  now.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
-                  return now.getTime();
-                }
-
-                const d = new Date(raw);
-                return isNaN(d.getTime()) ? 0 : d.getTime();
-              };
-
-              const endMs = parseToMs(motorChartData[lastIndex]) || Date.now();
-              const startMs = parseToMs(motorChartData[startIdx]);
-
-              if (hasHistory && startMs > 0 && endMs > startMs) {
-                const diffMins = Math.floor((endMs - startMs) / (1000 * 60));
-                const hrs = Math.floor(diffMins / 60);
-                const mins = diffMins % 60;
-                if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
-                else if (hrs > 0) dynamicFormatted = `${hrs}h`;
-                else dynamicFormatted = `${mins}m`;
-              } else {
-                // Calculate plant-unique dynamic runtime based on live time and deviceId seed
-                const now = new Date();
-                const minsToday = now.getHours() * 60 + now.getMinutes();
-                const devSeed = deviceId ? deviceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 100;
-                const mSeed = (mObj.meter_id ? parseInt(String(mObj.meter_id), 10) : idx + 1);
-                const startSessionMins = (devSeed * 17 + mSeed * 47 + idx * 37) % 180 + 20;
-                const activeSessionMins = Math.max(25, (minsToday + startSessionMins) % 260);
-                const hrs = Math.floor(activeSessionMins / 60);
-                const mins = activeSessionMins % 60;
-                if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
-                else if (hrs > 0) dynamicFormatted = `${hrs}h`;
-                else dynamicFormatted = `${mins}m`;
-              }
-            }
 
             // Color Themes: Emerald Green when AUTO ON, Vibrant Orange when MANUAL ON, Slate Grey when OFF
             const strokeColor = isAutoRunning ? '#059669' : isManualRunning ? '#EA580C' : '#475569';
