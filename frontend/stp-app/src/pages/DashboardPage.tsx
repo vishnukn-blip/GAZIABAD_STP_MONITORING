@@ -485,7 +485,14 @@ const DashboardPage: React.FC = () => {
     (username || '').toLowerCase().includes('utl') || role === 'water_quality' ? 'water_quality' : 'map'
   );
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>(() => {
+    try {
+      const saved = localStorage.getItem('stp_device_status_map');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -674,7 +681,13 @@ const DashboardPage: React.FC = () => {
         } catch {}
       })
     );
-    setDeviceStatusMap(prev => ({ ...prev, ...statusMap }));
+    setDeviceStatusMap(prev => {
+      const merged = { ...prev, ...statusMap };
+      try {
+        localStorage.setItem('stp_device_status_map', JSON.stringify(merged));
+      } catch {}
+      return merged;
+    });
   };
 
   const loadUserDevices = async () => {
