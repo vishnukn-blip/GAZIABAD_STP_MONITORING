@@ -375,17 +375,45 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               };
             });
 
-            // Calculate total 24-hour run duration for badge
-            const activePtsCount = motorChartData.filter(p => p.chartValue > 0).length;
-            const activeDurationMins = isMotorActive ? Math.max(30, activePtsCount * 60) : 0;
+            // 1. Calculate Current Continuous Running Duration
+            let continuousPts = 0;
+            if (isMotorActive && motorChartData.length > 0) {
+              for (let i = motorChartData.length - 1; i >= 0; i--) {
+                if (motorChartData[i].chartValue > 0) {
+                  continuousPts++;
+                } else {
+                  break;
+                }
+              }
+            }
 
-            let dynamicFormatted = '0h';
-            if (isMotorActive && activeDurationMins > 0) {
-              const hrs = Math.floor(activeDurationMins / 60);
-              const mins = activeDurationMins % 60;
-              if (hrs > 0 && mins > 0) dynamicFormatted = `${hrs}h ${mins}m`;
-              else if (hrs > 0) dynamicFormatted = `${hrs}h`;
-              else dynamicFormatted = `${mins}m`;
+            const currentMins = new Date().getMinutes();
+            const continuousMinsTotal = continuousPts > 0 
+              ? Math.max(15, (continuousPts - 1) * 60 + currentMins)
+              : 0;
+
+            let continuousRunFormatted = '0m';
+            if (isMotorActive && continuousMinsTotal > 0) {
+              const hrs = Math.floor(continuousMinsTotal / 60);
+              const mins = continuousMinsTotal % 60;
+              if (hrs > 0 && mins > 0) continuousRunFormatted = `${hrs}h ${mins}m`;
+              else if (hrs > 0) continuousRunFormatted = `${hrs}h`;
+              else continuousRunFormatted = `${mins}m`;
+            } else if (isMotorActive) {
+              continuousRunFormatted = `${currentMins || 15}m`;
+            }
+
+            // 2. Calculate Total 24-Hour Duty Duration
+            const activePtsCount = motorChartData.filter(p => p.chartValue > 0).length;
+            const total24hMins = isMotorActive ? Math.max(30, activePtsCount * 60) : 0;
+
+            let total24hFormatted = '0h';
+            if (isMotorActive && total24hMins > 0) {
+              const hrs = Math.floor(total24hMins / 60);
+              const mins = total24hMins % 60;
+              if (hrs > 0 && mins > 0) total24hFormatted = `${hrs}h ${mins}m`;
+              else if (hrs > 0) total24hFormatted = `${hrs}h`;
+              else total24hFormatted = `${mins}m`;
             }
 
             // Color Themes: Emerald Green when AUTO ON, Vibrant Orange when MANUAL ON, Slate Grey when OFF
@@ -426,7 +454,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Continuous Running Time Badge */}
                     <span style={{
                       fontSize: '11px',
                       padding: '4px 10px',
@@ -437,10 +466,31 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                       color: isMotorActive ? '#0284C7' : '#64748B',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      boxShadow: isMotorActive ? '0 1px 4px rgba(2, 132, 199, 0.12)' : 'none'
                     }}>
-                      ⏱️ {isMotorActive ? dynamicFormatted : '0h'}
+                      ⏱️ {isMotorActive ? `Continuous: ${continuousRunFormatted}` : '0m'}
                     </span>
+
+                    {/* 24-Hour Total Running Time Badge */}
+                    {isMotorActive && (
+                      <span style={{
+                        fontSize: '11px',
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        color: '#475569',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        📊 24h Total: {total24hFormatted}
+                      </span>
+                    )}
+
+                    {/* Operational Mode Status Badge */}
                     <span style={{
                       fontSize: '11px',
                       padding: '4px 10px',
