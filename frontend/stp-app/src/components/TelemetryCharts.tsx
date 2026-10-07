@@ -187,6 +187,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
   return (
     <div className="telemetry-charts-section" style={{ marginTop: '28px' }}>
+      <style>{`
+        .recharts-wrapper, .recharts-wrapper *, .recharts-surface, .recharts-surface *, .recharts-container, .recharts-responsive-container {
+          outline: none !important;
+          box-shadow: none !important;
+          -webkit-tap-highlight-color: transparent !important;
+        }
+        .recharts-wrapper:focus, .recharts-surface:focus, svg:focus, g:focus, path:focus {
+          outline: none !important;
+        }
+      `}</style>
       <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -403,19 +413,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               continuousRunFormatted = `${currentMins || 15}m`;
             }
 
-            // 2. Calculate Total 24-Hour Duty Duration
-            const activePtsCount = motorChartData.filter(p => p.chartValue > 0).length;
-            const total24hMins = isMotorActive ? Math.max(30, activePtsCount * 60) : 0;
-
-            let total24hFormatted = '0h';
-            if (isMotorActive && total24hMins > 0) {
-              const hrs = Math.floor(total24hMins / 60);
-              const mins = total24hMins % 60;
-              if (hrs > 0 && mins > 0) total24hFormatted = `${hrs}h ${mins}m`;
-              else if (hrs > 0) total24hFormatted = `${hrs}h`;
-              else total24hFormatted = `${mins}m`;
-            }
-
             // Color Themes: Emerald Green when AUTO ON, Vibrant Orange when MANUAL ON, Slate Grey when OFF
             const strokeColor = isAutoRunning ? '#059669' : isManualRunning ? '#EA580C' : '#475569';
             const fillColor = isAutoRunning ? '#10B981' : isManualRunning ? '#F97316' : '#94A3B8';
@@ -471,24 +468,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                     }}>
                       ⏱️ {isMotorActive ? `Continuous: ${continuousRunFormatted}` : '0m'}
                     </span>
-
-                    {/* 24-Hour Total Running Time Badge */}
-                    {isMotorActive && (
-                      <span style={{
-                        fontSize: '11px',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontWeight: 800,
-                        background: '#F8FAFC',
-                        border: '1px solid #E2E8F0',
-                        color: '#475569',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        📊 24h Total: {total24hFormatted}
-                      </span>
-                    )}
 
                     {/* Operational Mode Status Badge */}
                     <span style={{
