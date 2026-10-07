@@ -339,9 +339,9 @@ const DEFAULT_PLANT_DEVICES = [
 ];
 
 const getDeviceGps = (devId: string, customLat?: number, customLng?: number) => {
-  if (customLat && customLng) return { latitude: customLat, longitude: customLng };
   const found = DEFAULT_PLANT_DEVICES.find(d => d.device_id === devId);
   if (found) return { latitude: found.latitude, longitude: found.longitude };
+  if (customLat && customLng) return { latitude: customLat, longitude: customLng };
   return { latitude: 28.657521, longitude: 77.376303 };
 };
 

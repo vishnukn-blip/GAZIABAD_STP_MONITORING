@@ -243,8 +243,8 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
     return {
       device_id: d.device_id,
       device_name: d.device_name || d.name || (isWaterQualityUser ? 'UTL Water Quality Plant' : 'STP Plant Device'),
-      latitude: d.latitude || matchedDefault?.latitude || 28.657521,
-      longitude: d.longitude || matchedDefault?.longitude || 77.376303,
+      latitude: matchedDefault?.latitude || d.latitude || 28.657521,
+      longitude: matchedDefault?.longitude || d.longitude || 77.376303,
       location_address: d.location_address || matchedDefault?.location_address || 'UP, India',
       mapped: true,
       activeMotors: statusObj.activeMotors ?? (d.active_motors || 0),
