@@ -331,26 +331,36 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
   );
 };
 
+const DEFAULT_PLANT_DEVICES = [
+  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
+  { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
+  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
+  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
+];
+
+const getDeviceGps = (devId: string, customLat?: number, customLng?: number) => {
+  if (customLat && customLng) return { latitude: customLat, longitude: customLng };
+  const found = DEFAULT_PLANT_DEVICES.find(d => d.device_id === devId);
+  if (found) return { latitude: found.latitude, longitude: found.longitude };
+  return { latitude: 28.657521, longitude: 77.376303 };
+};
+
 const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
-  const defaultDevs = [
-    { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
-  ];
+  const defaultDevs = DEFAULT_PLANT_DEVICES;
   const localDevsStr = localStorage.getItem('stp_local_devices');
   const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
-  const currentDev = allDevs.find((d: any) =>
+  const rawDev = allDevs.find((d: any) =>
     d.device_id === devId ||
     d.name === devId ||
     d.device_name === devId
   ) || {
     device_id: devId,
     device_name: devId === '350435032683868' ? 'VASUNDHARA SECTOR 7 , 8MLD PLANT' : devId,
-    name: devId,
-    latitude: 28.657521,
-    longitude: 77.376303
+    name: devId
   };
+
+  const gps = getDeviceGps(rawDev.device_id || devId, rawDev.latitude, rawDev.longitude);
+  const currentDev = { ...rawDev, latitude: gps.latitude, longitude: gps.longitude };
 
   const defaultTanks = [
     { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, depth_meters: 10.2, display_order: 1 },
@@ -691,12 +701,7 @@ const DashboardPage: React.FC = () => {
   };
 
   const loadUserDevices = async () => {
-    const defaultDevs = [
-      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
-    ];
+    const defaultDevs = DEFAULT_PLANT_DEVICES;
 
     let allDevices = defaultDevs;
     const centralDevs = await getCentralDevices();
@@ -740,7 +745,10 @@ const DashboardPage: React.FC = () => {
       return userList.includes(userEmail);
     };
 
-    const userDevs = allDevices.filter(isUserAssigned);
+    const userDevs = allDevices.filter(isUserAssigned).map(d => {
+      const gps = getDeviceGps(d.device_id, d.latitude, d.longitude);
+      return { ...d, latitude: gps.latitude, longitude: gps.longitude };
+    });
     setUserDevices(userDevs);
     return userDevs;
   };
