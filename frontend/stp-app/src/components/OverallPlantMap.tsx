@@ -40,8 +40,8 @@ const defaultPlantsList = [
   {
     device_id: '350435032680674',
     device_name: 'VASUNDHARA SECTOR 19',
-    latitude: 28.667200,
-    longitude: 77.371100,
+    latitude: 28.668500,
+    longitude: 77.439000,
     location_address: 'Vasundhara Sector 19, Ghaziabad, UP',
     mapped: true,
     capacity_liters: 8000000,
@@ -60,8 +60,8 @@ const defaultPlantsList = [
   {
     device_id: '350435032681912',
     device_name: 'VAISHALI SECTOR 6',
-    latitude: 28.648000,
-    longitude: 77.382000,
+    latitude: 28.675000,
+    longitude: 77.445000,
     location_address: 'Vaishali Sector 6, Ghaziabad, UP',
     mapped: true,
     capacity_liters: 8000000,

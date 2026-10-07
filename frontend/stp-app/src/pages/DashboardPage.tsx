@@ -483,7 +483,12 @@ const DashboardPage: React.FC = () => {
   const selectedDeviceIdRef = useRef<string>('350435032683868');
   const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
-  const [userDevices, setUserDevices] = useState<any[]>([]);
+  const [userDevices, setUserDevices] = useState<any[]>(() => {
+    return DEFAULT_PLANT_DEVICES.map(d => {
+      const gps = getDeviceGps(d.device_id, (d as any).latitude, (d as any).longitude);
+      return { ...d, latitude: gps.latitude, longitude: gps.longitude };
+    });
+  });
 
   const [online, setOnline] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
