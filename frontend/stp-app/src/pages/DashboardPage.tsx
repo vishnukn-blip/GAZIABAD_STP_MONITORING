@@ -807,66 +807,69 @@ const DashboardPage: React.FC = () => {
       setOnline(true);
       setLastUpdated(new Date().toLocaleTimeString());
 
-      if (data?.tanks) {
-        try {
-          const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
-          const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
-          
-          const rawMeters = await getElectricalMeters(devId).catch(() => []);
-          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
-          const elecResults = await Promise.all(
-            metersList.map((mId: string) => 
-              getElectricalTelemetry(devId, mId).catch(() => null)
-            )
-          );
-
-          let maxAmpere = 0;
-          let hasAmpere = false;
-          const meterAmperesMap: Record<string, number> = {};
-
-          elecResults.forEach((elecData: any, idx: number) => {
-            if (elecData) {
-              const mId = metersList[idx] || String(idx + 1);
-              const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
-              meterAmperesMap[mId] = amp;
-              if (amp > 0.05) {
-                hasAmpere = true;
-                if (amp > maxAmpere) maxAmpere = amp;
-              }
-            }
-          });
-
-          const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
-          const totalActiveMotors = Math.max(act, manualActiveMotors);
-
-          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
-          if (devId === '350435032689659') {
-            operatingMode = 'STANDBY';
-          } else if (trip > 0) operatingMode = 'TRIP';
-          else if (act > 0 || devId === '350435032681912' || devId === '350435032680674') operatingMode = 'AUTO';
-          else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
-          else operatingMode = 'STANDBY';
-
-          setDeviceStatusMap(prev => ({
-            ...prev,
-            [devId]: devId === '350435032689659' 
-              ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
-              : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
-          }));
-        } catch (innerErr) {
-          console.warn('Electrical status parsing error:', innerErr);
-        }
-      }
-
+      // ⚡ Set history charts IMMEDIATELY (0ms delay)
       if (data?.history && Array.isArray(data.history) && data.history.length > 0) {
         setAccumulatedHistory(data.history);
       } else {
-        try {
-          const report = await getReportData(devId, 'daily');
+        getReportData(devId, 'daily').then(report => {
           if (report && report.postings && Array.isArray(report.postings) && report.postings.length > 0) {
             setAccumulatedHistory(report.postings);
           }
-        } catch {}
+        }).catch(() => {});
+      }
+
+      // ⚡ Fetch secondary electrical parameters asynchronously without blocking UI updates
+      if (data?.tanks) {
+        (async () => {
+          try {
+            const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
+            const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
+            
+            const rawMeters = await getElectricalMeters(devId).catch(() => []);
+            const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
+            const elecResults = await Promise.all(
+              metersList.map((mId: string) => 
+                getElectricalTelemetry(devId, mId).catch(() => null)
+              )
+            );
+
+            let maxAmpere = 0;
+            let hasAmpere = false;
+            const meterAmperesMap: Record<string, number> = {};
+
+            elecResults.forEach((elecData: any, idx: number) => {
+              if (elecData) {
+                const mId = metersList[idx] || String(idx + 1);
+                const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+                meterAmperesMap[mId] = amp;
+                if (amp > 0.05) {
+                  hasAmpere = true;
+                  if (amp > maxAmpere) maxAmpere = amp;
+                }
+              }
+            });
+
+            const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+            const totalActiveMotors = Math.max(act, manualActiveMotors);
+
+            let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+            if (devId === '350435032689659') {
+              operatingMode = 'STANDBY';
+            } else if (trip > 0) operatingMode = 'TRIP';
+            else if (act > 0 || devId === '350435032681912' || devId === '350435032680674') operatingMode = 'AUTO';
+            else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
+            else operatingMode = 'STANDBY';
+
+            setDeviceStatusMap(prev => ({
+              ...prev,
+              [devId]: devId === '350435032689659' 
+                ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
+                : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+            }));
+          } catch (innerErr) {
+            console.warn('Electrical status parsing error:', innerErr);
+          }
+        })();
       }
     } catch {
       setOnline(true);
