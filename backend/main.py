@@ -604,6 +604,8 @@ def init_persistent_db():
         os.makedirs(DB_DIR, exist_ok=True)
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
+        cursor.execute("PRAGMA journal_mode = WAL;")
+        cursor.execute("PRAGMA synchronous = NORMAL;")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS config_store (
                 key TEXT PRIMARY KEY,

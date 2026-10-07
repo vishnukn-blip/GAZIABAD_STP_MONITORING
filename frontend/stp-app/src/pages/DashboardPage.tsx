@@ -17,7 +17,7 @@ import { ReportView } from '../components/ReportView';
 import { WaterQualityDashboard } from '../components/WaterQualityDashboard';
 import { UTLMotorStatusDashboard } from '../components/UTLMotorStatusDashboard';
 
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 10000;
 
 
 
