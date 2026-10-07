@@ -481,6 +481,7 @@ const DashboardPage: React.FC = () => {
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('350435032683868');
   const selectedDeviceIdRef = useRef<string>('350435032683868');
+  const telemetryCache = useRef<Record<string, TelemetryResponse>>({});
   const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
   const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
   const [userDevices, setUserDevices] = useState<any[]>(() => {
@@ -643,6 +644,9 @@ const DashboardPage: React.FC = () => {
           if (!data) {
             data = await fetchDirectNimblevision(d.device_id);
           }
+          if (data) {
+            telemetryCache.current[d.device_id] = data;
+          }
           const rawMeters = await getElectricalMeters(d.device_id);
           const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
 
@@ -804,6 +808,9 @@ const DashboardPage: React.FC = () => {
       }
 
       setTelemetry(data);
+      if (data) {
+        telemetryCache.current[devId] = data;
+      }
       setOnline(true);
       setLastUpdated(new Date().toLocaleTimeString());
 
@@ -884,6 +891,11 @@ const DashboardPage: React.FC = () => {
     // ⚡ Instant synchronous layout switch (0ms delay)
     const dynamicLayout = buildDeviceLayoutFromLocal(newDevId);
     setLayout(dynamicLayout);
+
+    // ⚡ Instant water level telemetry render from in-memory cache (0ms delay)
+    if (telemetryCache.current[newDevId]) {
+      setTelemetry(telemetryCache.current[newDevId]);
+    }
 
     // Asynchronous background synchronization
     fetchLayoutForDevice(newDevId);
