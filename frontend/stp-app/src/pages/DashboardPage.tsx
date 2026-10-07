@@ -483,7 +483,14 @@ const DashboardPage: React.FC = () => {
   const selectedDeviceIdRef = useRef<string>('350435032683868');
   const telemetryCache = useRef<Record<string, TelemetryResponse>>({});
   const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
-  const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
+  const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(() => {
+    try {
+      const saved = localStorage.getItem('stp_telemetry_cache_350435032683868');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [userDevices, setUserDevices] = useState<any[]>(() => {
     return DEFAULT_PLANT_DEVICES.map(d => {
       const gps = getDeviceGps(d.device_id, (d as any).latitude, (d as any).longitude);
@@ -646,6 +653,7 @@ const DashboardPage: React.FC = () => {
           }
           if (data) {
             telemetryCache.current[d.device_id] = data;
+            try { localStorage.setItem('stp_telemetry_cache_' + d.device_id, JSON.stringify(data)); } catch {}
           }
           const rawMeters = await getElectricalMeters(d.device_id);
           const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
@@ -892,9 +900,18 @@ const DashboardPage: React.FC = () => {
     const dynamicLayout = buildDeviceLayoutFromLocal(newDevId);
     setLayout(dynamicLayout);
 
-    // ⚡ Instant water level telemetry render from in-memory cache (0ms delay)
-    if (telemetryCache.current[newDevId]) {
-      setTelemetry(telemetryCache.current[newDevId]);
+    // ⚡ Instant water level telemetry render from in-memory or localStorage cache (0ms delay)
+    let cached = telemetryCache.current[newDevId];
+    if (!cached) {
+      try {
+        const saved = localStorage.getItem('stp_telemetry_cache_' + newDevId);
+        if (saved) cached = JSON.parse(saved);
+      } catch {}
+    }
+
+    if (cached) {
+      setTelemetry(cached);
+      telemetryCache.current[newDevId] = cached;
     }
 
     // Asynchronous background synchronization
@@ -1540,7 +1557,7 @@ const DashboardPage: React.FC = () => {
                 userDevices={userDevices}
                 deviceStatusMap={deviceStatusMap}
                 onSelectDevice={(devId) => {
-                  setSelectedDeviceId(devId);
+                  handleDeviceChange(devId);
                   setActiveTab('telemetry');
                 }}
               />
