@@ -63,8 +63,115 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
     }));
   }, [defaultMotorComponent]);
 
+  const generateDefaultPlantSeedRecords = (devId: string, devName: string, motorComp: string): ReplacementRecord[] => {
+    if (!devId) return [];
+    return [
+      {
+        id: `rep_${devId}_1`,
+        device_id: devId,
+        replacement_date: '2026-08-20',
+        category: 'Motor',
+        component_name: motorComp,
+        quantity: 1,
+        old_part_details: 'Kirloskar 60 HP (S/N: KBL-8821)',
+        new_part_details: 'ABB IE3 75 HP Motor (S/N: ABB-90412)',
+        vendor_name: 'ABB India Ltd / WABAG',
+        invoice_no: 'INV-2026-7840',
+        part_cost: 145000,
+        labor_cost: 12000,
+        total_cost: 157000,
+        warranty_months: 24,
+        reason_notes: 'Stator winding insulation breakdown. Upgraded to IE3 high efficiency motor.'
+      },
+      {
+        id: `rep_${devId}_2`,
+        device_id: devId,
+        replacement_date: '2026-07-15',
+        category: 'Sensor / Transmitter',
+        component_name: `${devName} Ultrasonic Level Sensor`,
+        quantity: 1,
+        old_part_details: 'Siemens Probe LU (Faulty signal)',
+        new_part_details: 'Endress+Hauser FMR20 Radar Sensor',
+        vendor_name: 'E+H India Pvt Ltd',
+        invoice_no: 'INV-2026-5519',
+        part_cost: 42000,
+        labor_cost: 5000,
+        total_cost: 47000,
+        warranty_months: 12,
+        reason_notes: '4-20mA loop output drift due to moisture ingress. Replaced with IP68 radar sensor.'
+      },
+      {
+        id: `rep_${devId}_3`,
+        device_id: devId,
+        replacement_date: '2026-06-02',
+        category: 'Valves & Piping',
+        component_name: `${devName} Motorized Butterfly Valve 150mm`,
+        quantity: 2,
+        old_part_details: 'Cast Iron Disc Valve (Corroded)',
+        new_part_details: 'SS316 Pneumatic Butterfly Valve',
+        vendor_name: 'Audco Valves Ltd',
+        invoice_no: 'INV-2026-3301',
+        part_cost: 28000,
+        labor_cost: 4000,
+        total_cost: 32000,
+        warranty_months: 12,
+        reason_notes: 'Heavy internal corrosion causing sludge leakage.'
+      },
+      {
+        id: `rep_${devId}_4`,
+        device_id: devId,
+        replacement_date: '2026-08-20',
+        category: 'Bearing & Rewinding',
+        component_name: motorComp,
+        quantity: 1,
+        old_part_details: 'Flushed Worn Grease & Inspected Bearings',
+        new_part_details: 'NLGI Grade 2 Lithium Complex High-Temp Grease Packing',
+        vendor_name: 'WABAG Maintenance Team',
+        invoice_no: 'SRV-2026-9041',
+        part_cost: 1500,
+        labor_cost: 1000,
+        total_cost: 2500,
+        warranty_months: 6,
+        reason_notes: 'Routine 2,000h scheduled bearing greasing and seal flush.'
+      },
+      {
+        id: `rep_${devId}_5`,
+        device_id: devId,
+        replacement_date: '2026-06-15',
+        category: 'Bearing & Rewinding',
+        component_name: motorComp,
+        quantity: 1,
+        old_part_details: 'SKF 6314 C3 Bearing (Noise/Vibration)',
+        new_part_details: 'SKF Explorer 6314 C3 Deep Groove Ball Bearing',
+        vendor_name: 'SKF Authorized Service',
+        invoice_no: 'SRV-2026-6621',
+        part_cost: 8500,
+        labor_cost: 3000,
+        total_cost: 11500,
+        warranty_months: 12,
+        reason_notes: 'Replaced DE bearing & mechanical seal due to minor vibration.'
+      }
+    ];
+  };
+
   // Load from Central SQLite API and ensure plant-specific records exist
   useEffect(() => {
+    // 1. Instant Hydration from Cache or Seed (0ms Latency)
+    let initialData: ReplacementRecord[] = [];
+    try {
+      const cachedStr = localStorage.getItem('plant_replacements_cache');
+      if (cachedStr) {
+        initialData = JSON.parse(cachedStr);
+      }
+    } catch {}
+
+    if (!initialData || !Array.isArray(initialData) || initialData.length === 0) {
+      initialData = generateDefaultPlantSeedRecords(deviceId, deviceName, defaultMotorComponent);
+    }
+
+    setRecords(initialData);
+
+    // 2. Background Async Sync with Central Server Database
     const loadRecords = async () => {
       try {
         const centralData = await getCentralPlantReplacements();
@@ -74,94 +181,7 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
         const hasDeviceRecords = allData.some(r => r.device_id === deviceId);
 
         if (!hasDeviceRecords && deviceId) {
-          // Add default seed records specifically tagged and named for this plant deviceId
-          const deviceSeedRecords: ReplacementRecord[] = [
-            {
-              id: `rep_${deviceId}_1`,
-              device_id: deviceId,
-              replacement_date: '2026-08-20',
-              category: 'Motor',
-              component_name: defaultMotorComponent,
-              quantity: 1,
-              old_part_details: 'Kirloskar 60 HP (S/N: KBL-8821)',
-              new_part_details: 'ABB IE3 75 HP Motor (S/N: ABB-90412)',
-              vendor_name: 'ABB India Ltd / WABAG',
-              invoice_no: 'INV-2026-7840',
-              part_cost: 145000,
-              labor_cost: 12000,
-              total_cost: 157000,
-              warranty_months: 24,
-              reason_notes: 'Stator winding insulation breakdown. Upgraded to IE3 high efficiency motor.'
-            },
-            {
-              id: `rep_${deviceId}_2`,
-              device_id: deviceId,
-              replacement_date: '2026-07-15',
-              category: 'Sensor / Transmitter',
-              component_name: `${deviceName} Ultrasonic Level Sensor`,
-              quantity: 1,
-              old_part_details: 'Siemens Probe LU (Faulty signal)',
-              new_part_details: 'Endress+Hauser FMR20 Radar Sensor',
-              vendor_name: 'E+H India Pvt Ltd',
-              invoice_no: 'INV-2026-5519',
-              part_cost: 42000,
-              labor_cost: 5000,
-              total_cost: 47000,
-              warranty_months: 12,
-              reason_notes: '4-20mA loop output drift due to moisture ingress. Replaced with IP68 radar sensor.'
-            },
-            {
-              id: `rep_${deviceId}_3`,
-              device_id: deviceId,
-              replacement_date: '2026-06-02',
-              category: 'Valves & Piping',
-              component_name: `${deviceName} Motorized Butterfly Valve 150mm`,
-              quantity: 2,
-              old_part_details: 'Cast Iron Disc Valve (Corroded)',
-              new_part_details: 'SS316 Pneumatic Butterfly Valve',
-              vendor_name: 'Audco Valves Ltd',
-              invoice_no: 'INV-2026-3301',
-              part_cost: 28000,
-              labor_cost: 4000,
-              total_cost: 32000,
-              warranty_months: 12,
-              reason_notes: 'Heavy internal corrosion causing sludge leakage.'
-            },
-            {
-              id: `rep_${deviceId}_4`,
-              device_id: deviceId,
-              replacement_date: '2026-08-20',
-              category: 'Bearing & Rewinding',
-              component_name: defaultMotorComponent,
-              quantity: 1,
-              old_part_details: 'Flushed Worn Grease & Inspected Bearings',
-              new_part_details: 'NLGI Grade 2 Lithium Complex High-Temp Grease Packing',
-              vendor_name: 'WABAG Maintenance Team',
-              invoice_no: 'SRV-2026-9041',
-              part_cost: 1500,
-              labor_cost: 1000,
-              total_cost: 2500,
-              warranty_months: 6,
-              reason_notes: 'Routine 2,000h scheduled bearing greasing and seal flush.'
-            },
-            {
-              id: `rep_${deviceId}_5`,
-              device_id: deviceId,
-              replacement_date: '2026-06-15',
-              category: 'Bearing & Rewinding',
-              component_name: defaultMotorComponent,
-              quantity: 1,
-              old_part_details: 'SKF 6314 C3 Bearing (Noise/Vibration)',
-              new_part_details: 'SKF Explorer 6314 C3 Deep Groove Ball Bearing',
-              vendor_name: 'SKF Authorized Service',
-              invoice_no: 'SRV-2026-6621',
-              part_cost: 8500,
-              labor_cost: 3000,
-              total_cost: 11500,
-              warranty_months: 12,
-              reason_notes: 'Replaced DE bearing & mechanical seal due to minor vibration.'
-            }
-          ];
+          const deviceSeedRecords = generateDefaultPlantSeedRecords(deviceId, deviceName, defaultMotorComponent);
           allData = [...deviceSeedRecords, ...allData];
           await saveCentralPlantReplacements(allData);
         } else {
@@ -206,23 +226,13 @@ export const PlantReplacementsView: React.FC<PlantReplacementsViewProps> = ({ de
             ];
             allData = [...bearingSeedRecords, ...allData];
             await saveCentralPlantReplacements(allData);
-          } else {
-            // Replace legacy generic seed component names with current plant motor/tank names
-            let modified = false;
-            allData = allData.map(r => {
-              if (r.device_id === deviceId && r.component_name === 'M1_60_HP (TANK_A)') {
-                modified = true;
-                return { ...r, component_name: defaultMotorComponent };
-              }
-              return r;
-            });
-            if (modified) {
-              await saveCentralPlantReplacements(allData);
-            }
           }
         }
 
         setRecords(allData);
+        try {
+          localStorage.setItem('plant_replacements_cache', JSON.stringify(allData));
+        } catch {}
       } catch {}
     };
 
