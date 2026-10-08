@@ -196,19 +196,30 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       }
     }
 
-    let activeMeter = selectedMeter;
-    const metersList = await getElectricalMeters(deviceId);
-    let validMeters = availableMeters;
-    if (metersList && metersList.length > 0) {
-      validMeters = metersList;
-      setAvailableMeters(metersList);
-      if (!metersList.includes(selectedMeter)) {
-        activeMeter = metersList[0];
-        setSelectedMeter(activeMeter);
-      }
+    const plantMetersMap: Record<string, string[]> = {
+      "350435032683868": ["2", "3", "4"],
+      "350435032680674": ["2", "3"],
+      "350435032689659": ["2", "3"],
+      "350435032681912": ["2", "3"],
+      "98203928": ["1"]
+    };
+
+    const validMeters = plantMetersMap[deviceId] || availableMeters || ["2", "3"];
+    setAvailableMeters(validMeters);
+
+    let activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
+    if (activeMeter !== selectedMeter) {
+      setSelectedMeter(activeMeter);
     }
 
-    // Concurrently fetch telemetry for all available meters
+    // Async background check for additional meters list (non-blocking)
+    getElectricalMeters(deviceId).then(metersList => {
+      if (metersList && metersList.length > 0 && JSON.stringify(metersList) !== JSON.stringify(validMeters)) {
+        setAvailableMeters(metersList);
+      }
+    }).catch(() => {});
+
+    // Concurrently fetch telemetry for all available meters immediately
     const telemetryPromises = validMeters.map(mId => getElectricalTelemetry(deviceId, mId));
     const results = await Promise.all(telemetryPromises);
 
@@ -314,8 +325,23 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   useEffect(() => {
     if (!deviceId) return;
 
+    const plantMetersMap: Record<string, string[]> = {
+      "350435032683868": ["2", "3", "4"],
+      "350435032680674": ["2", "3"],
+      "350435032689659": ["2", "3"],
+      "350435032681912": ["2", "3"],
+      "98203928": ["1"]
+    };
+
+    const validMeters = plantMetersMap[deviceId] || ["2", "3"];
+    setAvailableMeters(validMeters);
+    const activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
+    if (activeMeter !== selectedMeter) {
+      setSelectedMeter(activeMeter);
+    }
+
     // 1. Instant Cache Hydration (0ms Latency)
-    const cacheKey = getElectricalCacheKey(deviceId, selectedMeter);
+    const cacheKey = getElectricalCacheKey(deviceId, activeMeter);
     let loadedFromCache = false;
 
     try {
@@ -338,7 +364,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
     // 2. Synthetic Baseline Seed if first visit ever (never show zeros!)
     if (!loadedFromCache) {
-      const baseline = getSyntheticBaselineTelemetry(deviceId, selectedMeter);
+      const baseline = getSyntheticBaselineTelemetry(deviceId, activeMeter);
       setTelemetry(baseline);
       const timeOnly = new Date().toLocaleTimeString('en-GB');
       setDataAtTime(timeOnly);
