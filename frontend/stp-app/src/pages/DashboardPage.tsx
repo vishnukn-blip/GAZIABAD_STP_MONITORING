@@ -871,7 +871,7 @@ const DashboardPage: React.FC = () => {
             if (devId === '350435032689659') {
               operatingMode = 'STANDBY';
             } else if (trip > 0) operatingMode = 'TRIP';
-            else if (act > 0 || devId === '350435032681912' || devId === '350435032680674') operatingMode = 'AUTO';
+            else if (act > 0 || devId === '350435032681912') operatingMode = 'AUTO';
             else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
             else operatingMode = 'STANDBY';
 
