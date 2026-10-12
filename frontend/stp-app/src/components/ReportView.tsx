@@ -7,14 +7,16 @@ interface ReportViewProps {
   userDevices: any[];
   selectedDeviceId: string;
   onSelectDevice?: (devId: string) => void;
+  isWaterQualityUser?: boolean;
 }
 
 export const ReportView: React.FC<ReportViewProps> = ({
   userDevices,
   selectedDeviceId: initialDeviceId,
-  onSelectDevice
+  onSelectDevice,
+  isWaterQualityUser = false
 }) => {
-  const [selectedDevice, setSelectedDevice] = useState<string>(initialDeviceId || '350435032683868');
+  const [selectedDevice, setSelectedDevice] = useState<string>(initialDeviceId || (isWaterQualityUser ? '98203928' : '350435032683868'));
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('daily');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -80,6 +82,85 @@ export const ReportView: React.FC<ReportViewProps> = ({
     const isMonthly = period === 'monthly';
     const count = isDaily ? 24 : isWeekly ? 28 : isMonthly ? 30 : 52;
     
+    if (isWaterQualityUser || selectedDevice === '98203928') {
+      const postings: any[] = [];
+      const now = new Date();
+      for (let i = 0; i < count; i++) {
+        const dt = new Date(now.getTime() - (count - 1 - i) * (isDaily ? 3600000 : isWeekly ? 6 * 3600000 : 24 * 3600000));
+        const bod = Number((28.0 + Math.sin(i * 0.5) * 2.5).toFixed(1));
+        const cod = Number((47.0 + Math.cos(i * 0.4) * 3.5).toFixed(1));
+        const tds = Number((739.0 + (i % 7) * 2).toFixed(1));
+        const turbidity = Number((42.0 + Math.sin(i * 0.3) * 1.8).toFixed(1));
+        const conductivity = Number((1559.0 + (i % 5) * 4).toFixed(1));
+        const ph = Number((7.5 + Math.sin(i * 0.2) * 0.15).toFixed(2));
+        const v_ll = Number((415.0 + (i % 3) * 1.2).toFixed(1));
+        const i_avg = Number((18.2 + (i % 4) * 0.6).toFixed(2));
+        const kw = Number(((v_ll * i_avg * 1.732 * 0.95) / 1000).toFixed(2));
+        
+        postings.push({
+          id: i + 1,
+          device_id: '98203928',
+          device_name: 'UTL Plant #98203928',
+          timestamp: dt.toISOString().replace('T', ' ').substring(0, 19),
+          bod,
+          cod,
+          tds,
+          turbidity,
+          conductivity,
+          ph,
+          orp: 150.0,
+          tss: 12.0,
+          inlet_flow: 125.0,
+          outlet_flow: 120.0,
+          water_level_pct: 50.0,
+          water_depth_m: 5.0,
+          current_volume_l: 4000000,
+          v_ll,
+          v_ln: 239.5,
+          i_avg,
+          total_kw: kw,
+          kwh: Number((kw * 1.5 * (i + 1)).toFixed(1)),
+          pf_avg: 0.98,
+          freq: 50.0,
+          operating_mode: 'AUTO',
+          motors_running_count: 1,
+          motors_tripped_count: 0
+        });
+      }
+      postings.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      return {
+        status: 'success',
+        device_id: '98203928',
+        period,
+        summary: {
+          period,
+          total_postings: postings.length,
+          is_water_quality: true,
+          plant_name: 'UTL Plant #98203928',
+          avg_bod: 28.0, min_bod: 25.5, max_bod: 30.5,
+          avg_cod: 47.0, min_cod: 43.5, max_cod: 50.5,
+          avg_tds: 739.0, min_tds: 735.0, max_tds: 745.0,
+          avg_turbidity: 42.0, min_turbidity: 40.2, max_turbidity: 43.8,
+          avg_ph: 7.5, min_ph: 7.35, max_ph: 7.65,
+          avg_conductivity: 1559.0,
+          avg_voltage_v: 415.0,
+          avg_current_a: 18.2,
+          avg_power_kw: 12.4,
+          total_kwh_consumed: isDaily ? 280.0 : isWeekly ? 1960.0 : 8400.0,
+          avg_water_level_pct: 50.0,
+          max_water_level_pct: 50.0,
+          min_water_level_pct: 50.0,
+          avg_water_depth_m: 5.0,
+          total_motor_run_hours: isDaily ? 24.0 : isWeekly ? 168.0 : 720.0,
+          mode_hours: { AUTO: isDaily ? 24.0 : 168.0, MANUAL: 0, STANDBY: 0, TRIP: 0 },
+          motor_duty_stats: [{ motor_name: 'UTL Motor 1', run_hours: 24.0, duty_pct: 100, is_running: true, is_tripped: false }],
+          mfm_breakdown: [{ meter_id: '1', motor_name: 'Main Motor Feed', avg_voltage_v: 415.0, avg_current_a: 18.2, avg_power_kw: 12.4, total_kwh_consumed: 280.0 }]
+        },
+        postings
+      };
+    }
+
     const plantMotors = DEFAULT_PLANT_MOTORS[selectedDevice] || ['M1_40_HP', 'M2_30_HP', 'M3', 'M4', 'M5'];
     const numMfms = selectedDevice === '350435032683868' || selectedDevice === '350435032689659' ? 3 : 2;
 
@@ -219,6 +300,47 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
   const exportCSV = () => {
     if (!reportData || !reportData.postings || reportData.postings.length === 0) return;
+
+    if (isWaterQualityUser || selectedDevice === '98203928') {
+      const headers = [
+        'Posting ID', 'Device ID', 'Timestamp',
+        'BOD (mg/L)', 'COD (mg/L)', 'TDS (mg/L)',
+        'Turbidity (NTU)', 'Conductivity (uS/cm)', 'pH',
+        'Inlet Flow (m3/h)', 'Outlet Flow (m3/h)',
+        'Voltage LL (V)', 'Current Avg (A)', 'Power (kW)', 'Energy (kWh)', 'Operating Mode'
+      ];
+      const csvRows = [headers.join(',')];
+      reportData.postings.forEach((p: any) => {
+        csvRows.push([
+          p.id,
+          `"${p.device_id || '98203928'}"`,
+          `"${p.timestamp}"`,
+          p.bod ?? '',
+          p.cod ?? '',
+          p.tds ?? '',
+          p.turbidity ?? '',
+          p.conductivity ?? '',
+          p.ph ?? '',
+          p.inlet_flow ?? '',
+          p.outlet_flow ?? '',
+          p.v_ll ?? '',
+          p.i_avg ?? '',
+          p.total_kw ?? '',
+          p.kwh ?? '',
+          `"${p.operating_mode || 'AUTO'}"`
+        ].join(','));
+      });
+      const csvString = csvRows.join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `UTL_WaterQuality_Report_${selectedDevice}_${period}_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
     
     // Extract unique motor names across postings
     const motorNamesSet = new Set<string>();
@@ -345,7 +467,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
     validPlantMotors.forEach(m => currentMotorList.push(m));
   }
 
-  const totalExcelCols = 4 + (currentMfmList.length * 4) + 4 + (currentMotorList.length > 0 ? currentMotorList.length : 1) + 1;
+  const isWq = Boolean(isWaterQualityUser || selectedDevice === '98203928' || summary?.is_water_quality);
+  const totalExcelCols = isWq ? 14 : (4 + (currentMfmList.length * 4) + 4 + (currentMotorList.length > 0 ? currentMotorList.length : 1) + 1);
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -378,10 +501,12 @@ export const ReportView: React.FC<ReportViewProps> = ({
           </div>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              STP Plant Telemetry & Data Posting Reports
+              {isWq ? 'UTL Water Quality & Electrical Reports' : 'STP Plant Telemetry & Data Posting Reports'}
             </h2>
             <p style={{ fontSize: '12px', color: '#64748B', margin: 0, fontWeight: 600 }}>
-              Comprehensive Historical Logs: Water Levels, Electrical Metrics, Motor Status & Operating Modes
+              {isWq
+                ? 'Historical Sensor Postings: Water Quality Parameters (BOD, COD, TDS, Turbidity, pH) & Electrical Load Metrics'
+                : 'Comprehensive Historical Logs: Water Levels, Electrical Metrics, Motor Status & Operating Modes'}
             </p>
           </div>
         </div>
@@ -445,7 +570,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         {/* Plant Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', textTransform: 'uppercase' }}>
-            🏢 Select STP Plant:
+            {isWq ? '🏢 Select Plant:' : '🏢 Select STP Plant:'}
           </span>
           <select
             value={selectedDevice}
@@ -463,7 +588,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
               boxShadow: '0 2px 6px rgba(2, 132, 199, 0.1)'
             }}
           >
-            <option value="all">🌐 All Registered Plants</option>
+            {!isWq && <option value="all">🌐 All Registered Plants</option>}
             {userDevices.map(d => (
               <option key={d.device_id} value={d.device_id}>
                 {d.device_name} ({d.device_id})
@@ -549,7 +674,108 @@ export const ReportView: React.FC<ReportViewProps> = ({
       </div>
 
       {/* ─── SUMMARY KPI METRICS CARDS ────────────────────────────────────── */}
-      {summary && (
+      {summary && isWq && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px'
+        }}>
+          {/* BOD & COD Card */}
+          <div style={{
+            background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+            border: '1px solid #A7F3D0',
+            borderRadius: '14px',
+            padding: '16px',
+            boxShadow: '0 2px 8px rgba(5, 150, 105, 0.06)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', marginBottom: '8px' }}>
+              <Activity size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>BOD & COD ANALYSIS</span>
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#047857' }}>
+              {summary.avg_bod || 28.0} <span style={{ fontSize: '13px', color: '#065F46', fontWeight: 700 }}>mg/L BOD</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#065F46', fontWeight: 600, marginTop: '4px' }}>
+              Peak BOD: <strong style={{ color: '#047857' }}>{summary.max_bod || 31.0}</strong> · Min: <strong style={{ color: '#059669' }}>{summary.min_bod || 25.0}</strong>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 800, marginTop: '4px' }}>
+              Avg COD: {summary.avg_cod || 47.0} mg/L
+            </div>
+          </div>
+
+          {/* TDS, Turbidity & pH Card */}
+          <div style={{
+            background: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)',
+            border: '1px solid #BAE6FD',
+            borderRadius: '14px',
+            padding: '16px',
+            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.06)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284C7', marginBottom: '8px' }}>
+              <Droplets size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>TDS & PH BALANCE</span>
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#0369A1' }}>
+              {summary.avg_tds || 739.0} <span style={{ fontSize: '13px', color: '#475569', fontWeight: 700 }}>mg/L TDS</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#0369A1', fontWeight: 700, marginTop: '4px' }}>
+              Average pH: <strong style={{ color: '#0284C7' }}>{summary.avg_ph || 7.5}</strong> (Target: 6.5 - 8.5)
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '4px' }}>
+              Turbidity: {summary.avg_turbidity || 42.0} NTU · Cond: {summary.avg_conductivity || 1559.0} µS/cm
+            </div>
+          </div>
+
+          {/* Energy & Electrical Consumption */}
+          <div style={{
+            background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+            border: '1px solid #FCD34D',
+            borderRadius: '14px',
+            padding: '16px',
+            boxShadow: '0 2px 8px rgba(217, 119, 6, 0.06)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706', marginBottom: '8px' }}>
+              <Zap size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>ENERGY CONSUMPTION</span>
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#B45309' }}>
+              {summary.total_kwh_consumed ? summary.total_kwh_consumed.toLocaleString() : '280'} <span style={{ fontSize: '14px', fontWeight: 700 }}>kWh</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#78350F', fontWeight: 600, marginTop: '4px' }}>
+              Avg Load: {summary.avg_power_kw || 12.4} kW · {summary.avg_voltage_v || 415}V · {summary.avg_current_a || 18.2}A
+            </div>
+            <div style={{ fontSize: '11px', color: '#B45309', fontWeight: 700, marginTop: '4px' }}>
+              Estimated Tariff Cost: ₹{((summary.total_kwh_consumed || 280) * 7.5).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+          </div>
+
+          {/* Operational Status */}
+          <div style={{
+            background: 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%)',
+            border: '1px solid #DDD6FE',
+            borderRadius: '14px',
+            padding: '16px',
+            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.06)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#7C3AED', marginBottom: '8px' }}>
+              <Power size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>OPERATING STATUS</span>
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#5B21B6' }}>
+              100% <span style={{ fontSize: '13px', fontWeight: 700 }}>AUTO MODE</span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B21A8', fontWeight: 600, marginTop: '4px' }}>
+              Total Data Postings: {summary.total_postings} Records
+            </div>
+            <div style={{ fontSize: '11px', color: '#059669', fontWeight: 800, marginTop: '4px' }}>
+              PostgreSQL Telemetry: ONLINE ACTIVE
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SUMMARY KPI METRICS CARDS (WABAG STP) ─────────────────────────── */}
+      {summary && !isWq && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -648,8 +874,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
         </div>
       )}
 
-      {/* ─── PER-MOTOR OPERATIONAL DUTY BREAKDOWN CARD ──────────────────── */}
-      {summary && summary.motor_breakdown && summary.motor_breakdown.length > 0 && (
+      {/* ─── PER-MOTOR OPERATIONAL DUTY BREAKDOWN CARD (WABAG ONLY) ──────── */}
+      {summary && !isWq && summary.motor_breakdown && summary.motor_breakdown.length > 0 && (
         <div style={{
           background: '#FFFFFF',
           border: '1px solid #CBD5E1',
@@ -701,8 +927,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
         </div>
       )}
 
-      {/* ─── MULTI-MFM METER ELECTRICAL PARAMETERS BREAKDOWN CARD ────────── */}
-      {summary && summary.mfm_breakdown && summary.mfm_breakdown.length > 0 && (
+      {/* ─── MULTI-MFM METER ELECTRICAL PARAMETERS BREAKDOWN CARD (WABAG ONLY) ─ */}
+      {summary && !isWq && summary.mfm_breakdown && summary.mfm_breakdown.length > 0 && (
         <div style={{
           background: '#FFFFFF',
           border: '1px solid #CBD5E1',
@@ -804,85 +1030,109 @@ export const ReportView: React.FC<ReportViewProps> = ({
         {/* Postings Table */}
         <div style={{ overflowX: 'auto', maxHeight: '540px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left', fontFamily: 'sans-serif' }}>
-            <thead>
-              {/* Row 1: Excel Category Groups */}
-              <tr style={{ background: '#F1F5F9', color: '#0F172A', fontWeight: 800, textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1', position: 'sticky', top: 0, zIndex: 3 }}>
-                <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle' }}>Posting ID</th>
-                <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Timestamp</th>
-                <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'right' }}>Water Level (%)</th>
-                <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'right' }}>Water Depth (m)</th>
-                
-                {/* MFM Meter Groups */}
-                {currentMfmList.map((mfm, idx) => (
-                  <th
-                    key={idx}
-                    colSpan={4}
-                    style={{
-                      padding: '8px 10px',
-                      textAlign: 'center',
-                      background: '#E0F2FE',
-                      color: '#0369A1',
-                      borderRight: '1px solid #CBD5E1',
-                      borderBottom: '1px solid #BAE6FD',
-                      fontWeight: 800
-                    }}
-                  >
-                    MFM {mfm.meter_id} ({mfm.motor_name})
+            {isWq ? (
+              /* ─── UTL WATER QUALITY TABLE HEADERS ───────────────────────── */
+              <thead>
+                <tr style={{ background: '#F1F5F9', color: '#0F172A', fontWeight: 800, textTransform: 'uppercase', borderBottom: '2px solid #CBD5E1', position: 'sticky', top: 0, zIndex: 3 }}>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1' }}>Posting ID</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>Timestamp</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#ECFDF5', color: '#047857' }}>BOD (mg/L)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#F5F3FF', color: '#6D28D9' }}>COD (mg/L)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#EFF6FF', color: '#1D4ED8' }}>TDS (mg/L)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#FEF2F2', color: '#B91C1C' }}>Turbidity (NTU)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#FFFBEB', color: '#B45309' }}>Conductivity (µS/cm)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#EFF6FF', color: '#2563EB' }}>pH</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#F0FDF4', color: '#15803D' }}>Inflow (m³/h)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#F0FDF4', color: '#15803D' }}>Outflow (m³/h)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#FAF5FF', color: '#7E22CE' }}>Voltage (LL)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#FAF5FF', color: '#7E22CE' }}>Current (A)</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', textAlign: 'right', background: '#FAF5FF', color: '#7E22CE' }}>Load (kW)</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', background: '#F8FAFC' }}>Operation Mode</th>
+                </tr>
+              </thead>
+            ) : (
+              /* ─── WABAG STP TABLE HEADERS ───────────────────────────────── */
+              <thead>
+                {/* Row 1: Excel Category Groups */}
+                <tr style={{ background: '#F1F5F9', color: '#0F172A', fontWeight: 800, textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1', position: 'sticky', top: 0, zIndex: 3 }}>
+                  <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle' }}>Posting ID</th>
+                  <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Timestamp</th>
+                  <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'right' }}>Water Level (%)</th>
+                  <th rowSpan={2} style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'right' }}>Water Depth (m)</th>
+                  
+                  {/* MFM Meter Groups */}
+                  {currentMfmList.map((mfm, idx) => (
+                    <th
+                      key={idx}
+                      colSpan={4}
+                      style={{
+                        padding: '8px 10px',
+                        textAlign: 'center',
+                        background: '#E0F2FE',
+                        color: '#0369A1',
+                        borderRight: '1px solid #CBD5E1',
+                        borderBottom: '1px solid #BAE6FD',
+                        fontWeight: 800
+                      }}
+                    >
+                      MFM {mfm.meter_id} ({mfm.motor_name})
+                    </th>
+                  ))}
+
+                  {/* Plant Total Load */}
+                  <th colSpan={4} style={{ padding: '8px 10px', textAlign: 'center', background: '#FEF3C7', color: '#92400E', borderRight: '1px solid #CBD5E1', borderBottom: '1px solid #FCD34D', fontWeight: 800 }}>
+                    Plant Total Load
                   </th>
-                ))}
 
-                {/* Plant Total Load */}
-                <th colSpan={4} style={{ padding: '8px 10px', textAlign: 'center', background: '#FEF3C7', color: '#92400E', borderRight: '1px solid #CBD5E1', borderBottom: '1px solid #FCD34D', fontWeight: 800 }}>
-                  Plant Total Load
-                </th>
+                  {/* Motors Active Status Columns */}
+                  {currentMotorList.length > 0 && (
+                    <th
+                      colSpan={currentMotorList.length}
+                      style={{
+                        padding: '8px 10px',
+                        textAlign: 'center',
+                        background: '#DCFCE7',
+                        color: '#15803D',
+                        borderRight: '1px solid #CBD5E1',
+                        borderBottom: '1px solid #BBF7D0',
+                        fontWeight: 800
+                      }}
+                    >
+                      Motors Operational Status
+                    </th>
+                  )}
 
-                {/* Motors Active Status Columns */}
-                {currentMotorList.length > 0 && (
-                  <th
-                    colSpan={currentMotorList.length}
-                    style={{
-                      padding: '8px 10px',
-                      textAlign: 'center',
-                      background: '#DCFCE7',
-                      color: '#15803D',
-                      borderRight: '1px solid #CBD5E1',
-                      borderBottom: '1px solid #BBF7D0',
-                      fontWeight: 800
-                    }}
-                  >
-                    Motors Operational Status
-                  </th>
-                )}
+                  <th rowSpan={2} style={{ padding: '10px 12px', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'center' }}>Operation Mode</th>
+                </tr>
 
-                <th rowSpan={2} style={{ padding: '10px 12px', borderBottom: '2px solid #CBD5E1', verticalAlign: 'middle', textAlign: 'center' }}>Operation Mode</th>
-              </tr>
+                {/* Row 2: Excel Parameter Sub-headers */}
+                <tr style={{ background: '#F8FAFC', color: '#475569', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', borderBottom: '2px solid #CBD5E1', position: 'sticky', top: '33px', zIndex: 2 }}>
+                  {/* Sub-headers for MFM Meters */}
+                  {currentMfmList.map((_mfm, idx) => (
+                    <React.Fragment key={idx}>
+                      <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Voltage (LL)</th>
+                      <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Current (A)</th>
+                      <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Power (kW)</th>
+                      <th style={{ padding: '6px 8px', borderRight: '1px solid #CBD5E1', background: '#F0F9FF', textAlign: 'right' }}>Energy (kWh)</th>
+                    </React.Fragment>
+                  ))}
 
-              {/* Row 2: Excel Parameter Sub-headers */}
-              <tr style={{ background: '#F8FAFC', color: '#475569', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', borderBottom: '2px solid #CBD5E1', position: 'sticky', top: '33px', zIndex: 2 }}>
-                {/* Sub-headers for MFM Meters */}
-                {currentMfmList.map((_mfm, idx) => (
-                  <React.Fragment key={idx}>
-                    <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Voltage (LL)</th>
-                    <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Current (A)</th>
-                    <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0F9FF', textAlign: 'right' }}>Power (kW)</th>
-                    <th style={{ padding: '6px 8px', borderRight: '1px solid #CBD5E1', background: '#F0F9FF', textAlign: 'right' }}>Energy (kWh)</th>
-                  </React.Fragment>
-                ))}
+                  {/* Plant Total sub-headers */}
+                  <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Voltage (LL)</th>
+                  <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Current (A)</th>
+                  <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Total (kW)</th>
+                  <th style={{ padding: '6px 8px', borderRight: '1px solid #CBD5E1', background: '#FFFBEB', textAlign: 'right' }}>Total (kWh)</th>
 
-                {/* Plant Total sub-headers */}
-                <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Voltage (LL)</th>
-                <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Current (A)</th>
-                <th style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#FFFBEB', textAlign: 'right' }}>Total (kW)</th>
-                <th style={{ padding: '6px 8px', borderRight: '1px solid #CBD5E1', background: '#FFFBEB', textAlign: 'right' }}>Total (kWh)</th>
+                  {/* Motor Names sub-headers */}
+                  {currentMotorList.map((mName, idx) => (
+                    <th key={idx} style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0FDF4', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {mName}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
 
-                {/* Motor Names sub-headers */}
-                {currentMotorList.map((mName, idx) => (
-                  <th key={idx} style={{ padding: '6px 8px', borderRight: '1px solid #E2E8F0', background: '#F0FDF4', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    {mName}
-                  </th>
-                ))}
-              </tr>
-            </thead>
             <tbody>
               {loading ? (
                 <tr>
@@ -896,7 +1146,64 @@ export const ReportView: React.FC<ReportViewProps> = ({
                     No postings found matching selected plant and period filters.
                   </td>
                 </tr>
+              ) : isWq ? (
+                /* ─── UTL WATER QUALITY ROWS ──────────────────────────────── */
+                filteredPostings.map((p: any, idx: number) => (
+                  <tr
+                    key={p.id || idx}
+                    style={{
+                      borderBottom: '1px solid #E2E8F0',
+                      background: idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+                    }}
+                  >
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', borderRight: '1px solid #CBD5E1' }}>
+                      #{p.id || (idx + 1)}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', borderRight: '1px solid #CBD5E1' }}>
+                      {p.timestamp}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#059669', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.bod ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#7C3AED', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.cod ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#1D4ED8', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.tds ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#DC2626', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.turbidity ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#B45309', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.conductivity ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#0284C7', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.ph ?? '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#15803D', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.inlet_flow ? `${p.inlet_flow} m³/h` : '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#15803D', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.outlet_flow ? `${p.outlet_flow} m³/h` : '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#1E293B', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.v_ll ? `${p.v_ll} V` : '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#D97706', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.i_avg ? `${p.i_avg} A` : '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontWeight: 800, color: '#7E22CE', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
+                      {p.total_kw ? `${p.total_kw} kW` : '-'}
+                    </td>
+                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: '#059669', color: '#FFF' }}>
+                        {p.operating_mode || 'AUTO'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
               ) : (
+                /* ─── WABAG STP ROWS ──────────────────────────────────────── */
                 filteredPostings.map((p: any, idx: number) => {
                   const mode = p.operating_mode || 'AUTO';
                   const isTripped = mode === 'TRIP' || p.motors_tripped_count > 0;

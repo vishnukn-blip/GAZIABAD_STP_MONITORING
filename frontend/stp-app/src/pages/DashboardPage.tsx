@@ -1108,6 +1108,14 @@ const DashboardPage: React.FC = () => {
                 <ImageIcon size={18} />
                 <span>All Photos</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`dash-sidebar-link ${activeTab === 'reports' ? 'active' : ''}`}
+              >
+                <FileText size={18} />
+                <span>Reports & Data Logs</span>
+              </button>
             </>
           ) : (
             <>
@@ -1536,6 +1544,12 @@ const DashboardPage: React.FC = () => {
               <CameraMonitoring deviceId="98203928" deviceName="UTL Plant #98203928" isWaterQualityUser={true} />
             ) : activeTab === 'telemetry' || activeTab === 'motor_status' ? (
               <UTLMotorStatusDashboard />
+            ) : activeTab === 'reports' ? (
+              <ReportView
+                userDevices={[{ device_id: '98203928', device_name: 'UTL Plant #98203928' }]}
+                selectedDeviceId="98203928"
+                isWaterQualityUser={true}
+              />
             ) : (
               <WaterQualityDashboard />
             )}
