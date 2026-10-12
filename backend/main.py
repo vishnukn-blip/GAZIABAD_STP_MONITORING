@@ -1679,7 +1679,7 @@ async def get_telemetry_reports(
 
         # ── Dedicated PostgreSQL Query for UTL Plant (98203928) ───────────────
         if device_id and ("98203928" in str(device_id) or str(device_id) == "98203928"):
-            wq_query = "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928'"
+            wq_query = "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928'"
             el_query = "SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928'"
             
             if cutoff_dt:
@@ -1703,7 +1703,7 @@ async def get_telemetry_reports(
 
             # If range yields empty, fetch latest 100 rows so report is always populated
             if not wq_rows:
-                wq_rows = query_nimble_db("SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
+                wq_rows = query_nimble_db("SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
             if not el_rows:
                 el_rows = query_nimble_db("SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
 
@@ -2123,7 +2123,7 @@ async def get_water_quality_telemetry_endpoint():
     last_data_at_str = sys_time_str
 
     rows = query_nimble_db(
-        "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 1;"
+        "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 1;"
     )
 
     if rows and len(rows) > 0:

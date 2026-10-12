@@ -31,39 +31,54 @@ export const ReportView: React.FC<ReportViewProps> = ({
   }, [initialDeviceId]);
 
   const fetchReport = async () => {
-    // 1. Instant Cache or Seed Hydration (0ms Latency)
+    const isWq = isWaterQualityUser || selectedDevice === '98203928';
     const cacheKey = `report_cache_${selectedDevice}_${period}`;
-    let loadedFromCache = false;
-    try {
-      const cachedStr = localStorage.getItem(cacheKey);
-      if (cachedStr) {
-        const cached = JSON.parse(cachedStr);
-        if (cached && cached.summary && cached.postings) {
-          setReportData(cached);
-          setLoading(false);
-          loadedFromCache = true;
-        }
-      }
-    } catch {}
 
-    if (!loadedFromCache) {
-      // Synchronously generate instant report dataset so screen is 100% populated in 0ms
-      const initialReport = generateFallbackReportData();
-      setReportData(initialReport);
-      setLoading(false);
+    // For UTL, clear any local cached mock dataset so ONLY fresh dynamic DB telemetry is rendered
+    if (isWq) {
+      try {
+        localStorage.removeItem(cacheKey);
+      } catch {}
+    } else {
+      try {
+        const cachedStr = localStorage.getItem(cacheKey);
+        if (cachedStr) {
+          const cached = JSON.parse(cachedStr);
+          if (cached && cached.summary && cached.postings) {
+            setReportData(cached);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
     }
 
-    // 2. Async Background Sync with Server Database
+    setLoading(true);
+
     try {
       const res = await getReportData(selectedDevice, period, startDate || undefined, endDate || undefined);
       if (res && res.summary && res.postings) {
         setReportData(res);
         try {
-          localStorage.setItem(cacheKey, JSON.stringify(res));
+          if (!isWq) {
+            localStorage.setItem(cacheKey, JSON.stringify(res));
+          }
         } catch {}
+      } else if (!isWq) {
+        // WABAG only fallback if server database is unreachable
+        const initialReport = generateFallbackReportData();
+        setReportData(initialReport);
+      } else {
+        // UTL: strictly dynamic, no mock fallback
+        setReportData(null);
       }
     } catch {
-      // Preserve instant baseline dataset if backend request times out
+      if (!isWq) {
+        const initialReport = generateFallbackReportData();
+        setReportData(initialReport);
+      } else {
+        setReportData(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -81,85 +96,6 @@ export const ReportView: React.FC<ReportViewProps> = ({
     const isWeekly = period === 'weekly';
     const isMonthly = period === 'monthly';
     const count = isDaily ? 24 : isWeekly ? 28 : isMonthly ? 30 : 52;
-    
-    if (isWaterQualityUser || selectedDevice === '98203928') {
-      const postings: any[] = [];
-      const now = new Date();
-      for (let i = 0; i < count; i++) {
-        const dt = new Date(now.getTime() - (count - 1 - i) * (isDaily ? 3600000 : isWeekly ? 6 * 3600000 : 24 * 3600000));
-        const bod = Number((28.0 + Math.sin(i * 0.5) * 2.5).toFixed(1));
-        const cod = Number((47.0 + Math.cos(i * 0.4) * 3.5).toFixed(1));
-        const tds = Number((739.0 + (i % 7) * 2).toFixed(1));
-        const turbidity = Number((42.0 + Math.sin(i * 0.3) * 1.8).toFixed(1));
-        const conductivity = Number((1559.0 + (i % 5) * 4).toFixed(1));
-        const ph = Number((7.5 + Math.sin(i * 0.2) * 0.15).toFixed(2));
-        const v_ll = Number((415.0 + (i % 3) * 1.2).toFixed(1));
-        const i_avg = Number((18.2 + (i % 4) * 0.6).toFixed(2));
-        const kw = Number(((v_ll * i_avg * 1.732 * 0.95) / 1000).toFixed(2));
-        
-        postings.push({
-          id: i + 1,
-          device_id: '98203928',
-          device_name: 'UTL Plant #98203928',
-          timestamp: dt.toISOString().replace('T', ' ').substring(0, 19),
-          bod,
-          cod,
-          tds,
-          turbidity,
-          conductivity,
-          ph,
-          orp: 150.0,
-          tss: 12.0,
-          inlet_flow: 125.0,
-          outlet_flow: 120.0,
-          water_level_pct: 50.0,
-          water_depth_m: 5.0,
-          current_volume_l: 4000000,
-          v_ll,
-          v_ln: 239.5,
-          i_avg,
-          total_kw: kw,
-          kwh: Number((kw * 1.5 * (i + 1)).toFixed(1)),
-          pf_avg: 0.98,
-          freq: 50.0,
-          operating_mode: 'AUTO',
-          motors_running_count: 1,
-          motors_tripped_count: 0
-        });
-      }
-      postings.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      return {
-        status: 'success',
-        device_id: '98203928',
-        period,
-        summary: {
-          period,
-          total_postings: postings.length,
-          is_water_quality: true,
-          plant_name: 'UTL Plant #98203928',
-          avg_bod: 28.0, min_bod: 25.5, max_bod: 30.5,
-          avg_cod: 47.0, min_cod: 43.5, max_cod: 50.5,
-          avg_tds: 739.0, min_tds: 735.0, max_tds: 745.0,
-          avg_turbidity: 42.0, min_turbidity: 40.2, max_turbidity: 43.8,
-          avg_ph: 7.5, min_ph: 7.35, max_ph: 7.65,
-          avg_conductivity: 1559.0,
-          avg_voltage_v: 415.0,
-          avg_current_a: 18.2,
-          avg_power_kw: 12.4,
-          total_kwh_consumed: isDaily ? 280.0 : isWeekly ? 1960.0 : 8400.0,
-          avg_water_level_pct: 50.0,
-          max_water_level_pct: 50.0,
-          min_water_level_pct: 50.0,
-          avg_water_depth_m: 5.0,
-          total_motor_run_hours: isDaily ? 24.0 : isWeekly ? 168.0 : 720.0,
-          mode_hours: { AUTO: isDaily ? 24.0 : 168.0, MANUAL: 0, STANDBY: 0, TRIP: 0 },
-          motor_duty_stats: [{ motor_name: 'UTL Motor 1', run_hours: 24.0, duty_pct: 100, is_running: true, is_tripped: false }],
-          mfm_breakdown: [{ meter_id: '1', motor_name: 'Main Motor Feed', avg_voltage_v: 415.0, avg_current_a: 18.2, avg_power_kw: 12.4, total_kwh_consumed: 280.0 }]
-        },
-        postings
-      };
-    }
 
     const plantMotors = DEFAULT_PLANT_MOTORS[selectedDevice] || ['M1_40_HP', 'M2_30_HP', 'M3', 'M4', 'M5'];
     const numMfms = selectedDevice === '350435032683868' || selectedDevice === '350435032689659' ? 3 : 2;
@@ -321,8 +257,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
           p.turbidity ?? '',
           p.conductivity ?? '',
           p.ph ?? '',
-          p.inlet_flow ?? '',
-          p.outlet_flow ?? '',
+          p.inlet_flow ?? 0,
+          p.outlet_flow ?? 0,
           p.v_ll ?? '',
           p.i_avg ?? '',
           p.total_kw ?? '',
@@ -1181,10 +1117,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
                       {p.ph ?? '-'}
                     </td>
                     <td style={{ padding: '8px 12px', fontWeight: 700, color: '#15803D', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
-                      {p.inlet_flow ? `${p.inlet_flow} m³/h` : '-'}
+                      {p.inlet_flow ? `${p.inlet_flow} m³/h` : '0 m³/h'}
                     </td>
                     <td style={{ padding: '8px 12px', fontWeight: 700, color: '#15803D', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
-                      {p.outlet_flow ? `${p.outlet_flow} m³/h` : '-'}
+                      {p.outlet_flow ? `${p.outlet_flow} m³/h` : '0 m³/h'}
                     </td>
                     <td style={{ padding: '8px 12px', fontWeight: 700, color: '#1E293B', textAlign: 'right', borderRight: '1px solid #CBD5E1' }}>
                       {p.v_ll ? `${p.v_ll} V` : '-'}
