@@ -604,8 +604,6 @@ def init_persistent_db():
         os.makedirs(DB_DIR, exist_ok=True)
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("PRAGMA journal_mode = WAL;")
-        cursor.execute("PRAGMA synchronous = NORMAL;")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS config_store (
                 key TEXT PRIMARY KEY,
@@ -1123,13 +1121,19 @@ async def receive_electrical_telemetry(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-import psycopg2
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 import subprocess
 
 _GLOBAL_PG_CONN = None
 
 def get_persistent_db_conn():
     global _GLOBAL_PG_CONN
+    if psycopg2 is None:
+        return None
+
     if _GLOBAL_PG_CONN is not None:
         try:
             if not _GLOBAL_PG_CONN.closed:
@@ -1138,59 +1142,76 @@ def get_persistent_db_conn():
             pass
         _GLOBAL_PG_CONN = None
 
-    # 1. Try direct connection to remote AWS DB host (13.200.3.124:5432)
-    try:
-        _GLOBAL_PG_CONN = psycopg2.connect(
-            host="13.200.3.124",
-            port="5432",
-            database="nimble_db",
-            user="wsuser",
-            password="Watersaviour@123",
-            connect_timeout=3
-        )
-        return _GLOBAL_PG_CONN
-    except Exception:
-        pass
+    db_name = "nimble_db"
+    db_user = "wsuser"
+    db_pass = "Watersaviour@123"
 
-    # 2. Try localhost connections (ports 5432 and 5433)
-    for p in ["5432", "5433"]:
+    # 1. Try local/internal hosts
+    for host_candidate in ["127.0.0.1", "host.docker.internal", "172.31.35.67"]:
+        for port_candidate in ["5432", "5433"]:
+            try:
+                _GLOBAL_PG_CONN = psycopg2.connect(
+                    host=host_candidate,
+                    port=port_candidate,
+                    database=db_name,
+                    user=db_user,
+                    password=db_pass,
+                    connect_timeout=3
+                )
+                print(f"DB: Connected via {host_candidate}:{port_candidate}")
+                return _GLOBAL_PG_CONN
+            except Exception:
+                pass
+
+    # 2. Try direct connection to remote AWS DB host if accessible
+    for remote_ip in ["13.206.207.146", "13.200.3.124"]:
         try:
             _GLOBAL_PG_CONN = psycopg2.connect(
-                host="127.0.0.1",
-                port=p,
-                database="nimble_db",
-                user="wsuser",
-                password="Watersaviour@123",
-                connect_timeout=2
+                host=remote_ip,
+                port="5432",
+                database=db_name,
+                user=db_user,
+                password=db_pass,
+                connect_timeout=3
             )
+            print(f"DB: Connected via {remote_ip}:5432")
             return _GLOBAL_PG_CONN
         except Exception:
             pass
 
-    # 3. Try SSH tunnel if local pem file exists
-    pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
-    if os.path.exists(pem_path):
-        try:
-            subprocess.Popen([
-                "ssh", "-i", pem_path,
-                "-o", "StrictHostKeyChecking=no",
-                "-L", "5433:127.0.0.1:5432",
-                "ubuntu@13.200.3.124", "-N"
-            ])
-            import time
-            time.sleep(1.5)
-            _GLOBAL_PG_CONN = psycopg2.connect(
-                host="127.0.0.1",
-                port="5433",
-                database="nimble_db",
-                user="wsuser",
-                password="Watersaviour@123",
-                connect_timeout=4
-            )
-            return _GLOBAL_PG_CONN
-        except Exception as err:
-            print("Failed to connect via SSH tunnel:", err)
+    # 3. Try SSH tunnel if local pem file exists (dev machine)
+    pem_candidates = [
+        r"C:\Users\ASUS\Desktop\wabag_gaziabad_aws_pem\wabagp.pem",
+        r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
+    ]
+    for pem_path in pem_candidates:
+        if os.path.exists(pem_path):
+            server_host = "13.206.207.146" if "wabagp" in pem_path else "13.200.3.124"
+            try:
+                subprocess.Popen([
+                    "ssh", "-i", pem_path,
+                    "-o", "StrictHostKeyChecking=no",
+                    "-L", "5433:127.0.0.1:5432",
+                    f"ubuntu@{server_host}", "-N"
+                ])
+                import time
+                time.sleep(1.5)
+                _GLOBAL_PG_CONN = psycopg2.connect(
+                    host="127.0.0.1",
+                    port="5433",
+                    database=db_name,
+                    user=db_user,
+                    password=db_pass,
+                    connect_timeout=4
+                )
+                print(f"DB: Connected via SSH tunnel to {server_host}")
+                return _GLOBAL_PG_CONN
+            except Exception as err:
+                print(f"Failed to connect via SSH tunnel with {pem_path}:", err)
+
+    print("DB: All PostgreSQL connection attempts failed")
     return None
+
 
 def query_nimble_db(query, params=()):
     conn = get_persistent_db_conn()
@@ -1679,7 +1700,7 @@ async def get_telemetry_reports(
 
         # ── Dedicated PostgreSQL Query for UTL Plant (98203928) ───────────────
         if device_id and ("98203928" in str(device_id) or str(device_id) == "98203928"):
-            wq_query = "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928'"
+            wq_query = "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928'"
             el_query = "SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928'"
             
             if cutoff_dt:
@@ -1694,65 +1715,16 @@ async def get_telemetry_reports(
                     el_query += f" AND recorded_at <= '{end_str}'"
                 except Exception:
                     pass
-
             wq_query += " ORDER BY recorded_at DESC LIMIT 500;"
             el_query += " ORDER BY recorded_at DESC LIMIT 500;"
-
             wq_rows = query_nimble_db(wq_query) or []
             el_rows = query_nimble_db(el_query) or []
 
-            # If range yields empty, fetch latest 100 rows so report is always populated
+            # If range yields empty, fetch latest 100 rows from nimble_db so report is populated
             if not wq_rows:
-                wq_rows = query_nimble_db("SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
-            
-            if not wq_rows:
-                count = 24 if period == "daily" else (28 if period == "weekly" else (30 if period == "monthly" else 52))
-                step_hours = 1 if period == "daily" else (6 if period == "weekly" else 24)
-                
-                base_bod = float(LATEST_WQ_CACHE.get("bod_mg_l") if LATEST_WQ_CACHE else 28.0)
-                base_cod = float(LATEST_WQ_CACHE.get("cod_mg_l") if LATEST_WQ_CACHE else 47.0)
-                base_tds = float(LATEST_WQ_CACHE.get("tds_mg_l") if LATEST_WQ_CACHE else 739.0)
-                base_turb = float(LATEST_WQ_CACHE.get("turbidity_ntu") if LATEST_WQ_CACHE else 42.0)
-                base_cond = float(LATEST_WQ_CACHE.get("conductivity_us_cm") if LATEST_WQ_CACHE else 1559.0)
-                base_ph = float(LATEST_WQ_CACHE.get("ph_level") if LATEST_WQ_CACHE else 7.5)
-                base_orp = float(LATEST_WQ_CACHE.get("orp_mv") if LATEST_WQ_CACHE else 247.0)
-                base_tss = float(LATEST_WQ_CACHE.get("tss_mg_l") if LATEST_WQ_CACHE else 56.0)
-
-                wq_rows = []
-                for i in range(count):
-                    t_point = now_dt - timedelta(hours=(count - 1 - i) * step_hours)
-                    wq_rows.append({
-                        "recorded_at": t_point,
-                        "bod": round(base_bod + math.sin(i * 0.5) * 1.5, 1),
-                        "cod": round(base_cod + math.cos(i * 0.4) * 2.2, 1),
-                        "tds": round(base_tds + (i % 7) * 2 - 6, 1),
-                        "turbidity": round(base_turb + math.sin(i * 0.3) * 1.2, 1),
-                        "conductivity": round(base_cond + (i % 5) * 3 - 6, 1),
-                        "ph": round(base_ph + math.sin(i * 0.2) * 0.08, 2),
-                        "orp": base_orp,
-                        "tss": base_tss,
-                        "inlet_flow": 0.0,
-                        "outlet_flow": 0.0
-                    })
-                wq_rows.sort(key=lambda x: x["recorded_at"], reverse=True)
-
+                wq_rows = query_nimble_db("SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
             if not el_rows:
                 el_rows = query_nimble_db("SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
-
-            if not el_rows:
-                el_rows = []
-                base_v = float(LATEST_ELECTRICAL_CACHE.get("data", {}).get("v_ll", 416.0) if LATEST_ELECTRICAL_CACHE else 416.0)
-                base_i = float(LATEST_ELECTRICAL_CACHE.get("data", {}).get("i_avg", 19.4) if LATEST_ELECTRICAL_CACHE else 19.4)
-                base_kw = float(LATEST_ELECTRICAL_CACHE.get("data", {}).get("total_kw", 13.5) if LATEST_ELECTRICAL_CACHE else 13.5)
-                for wr_item in wq_rows:
-                    el_rows.append({
-                        "recorded_at": wr_item["recorded_at"],
-                        "v_avg_ll": base_v,
-                        "v_avg_ln": round(base_v / 1.732, 1),
-                        "i_avg": base_i,
-                        "total_kw": base_kw,
-                        "pf_avg": 0.98
-                    })
 
             postings = []
             bod_vals, cod_vals, tds_vals, turb_vals, ph_vals, cond_vals = [], [], [], [], [], []
@@ -1861,13 +1833,7 @@ async def get_telemetry_reports(
                 "avg_water_depth_m": 5.0,
                 "total_motor_run_hours": round(total_postings * 0.25, 1),
                 "mode_hours": {"AUTO": round(total_postings * 0.25, 1), "MANUAL": 0, "STANDBY": 0, "TRIP": 0},
-                "motor_duty_stats": [{
-                    "motor_name": "UTL Motor 1",
-                    "run_hours": round(total_postings * 0.25, 1),
-                    "duty_pct": 75.0,
-                    "is_running": True,
-                    "is_tripped": False
-                }],
+                "motor_breakdown": [],
                 "mfm_breakdown": [{
                     "meter_id": "1",
                     "motor_name": "Main Motor Feed",
@@ -2170,7 +2136,7 @@ async def get_water_quality_telemetry_endpoint():
     last_data_at_str = sys_time_str
 
     rows = query_nimble_db(
-        "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 1;"
+        "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 1;"
     )
 
     if rows and len(rows) > 0:
