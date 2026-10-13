@@ -17,7 +17,7 @@ import { ReportView } from '../components/ReportView';
 import { WaterQualityDashboard } from '../components/WaterQualityDashboard';
 import { UTLMotorStatusDashboard } from '../components/UTLMotorStatusDashboard';
 
-const POLL_INTERVAL = 10000;
+const POLL_INTERVAL = 5000;
 
 
 
@@ -33,9 +33,9 @@ interface TankCardProps {
 const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSelectMotor, selectedStatus }) => {
   const level = telemetry?.water_level_percent ?? 0;
   const capacity = tankLayout.capacity_liters || 8000000;
-  const totalDepthMeters = (tankLayout as any).depth_meters || 
-    (tankLayout.name === 'TANK_A' || (tankLayout as any).tank_name === 'TANK_A' ? 10.2 : 
-     tankLayout.name === 'TANK_B' || (tankLayout as any).tank_name === 'TANK_B' ? 11.74 : 10.0);
+  const totalDepthMeters = (tankLayout as any).depth_meters ||
+    (tankLayout.name === 'TANK_A' || (tankLayout as any).tank_name === 'TANK_A' ? 10.2 :
+      tankLayout.name === 'TANK_B' || (tankLayout as any).tank_name === 'TANK_B' ? 11.74 : 10.0);
   const currentDepthMeters = ((level / 100) * totalDepthMeters).toFixed(2);
   const volume = Math.round((level / 100) * capacity);
   const tankDisplayName = tankLayout.name || (tankLayout as any).tank_name || telemetry?.tank_name || `Tank ${index + 1}`;
@@ -97,7 +97,7 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
 
       {/* Main SCADA Tank & Meter Visual Row */}
       <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', width: '100%', justifyContent: 'center' }}>
-        
+
         {/* Left Side: Physical Depth Meter Gauge Column */}
         <div style={{
           display: 'flex',
@@ -114,7 +114,7 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
           <div style={{ fontSize: '10px', fontWeight: 800, color: '#0284C7', textAlign: 'center', letterSpacing: '0.3px' }}>
             DEPTH METER
           </div>
-          
+
           <div style={{
             position: 'relative',
             width: '18px',
@@ -218,8 +218,8 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
               fontSize: '36px',
               fontWeight: 900,
               color: fillHeight > 50 ? '#FFFFFF' : '#0284C7',
-              textShadow: fillHeight > 50 
-                ? '0 2px 8px rgba(0, 0, 0, 0.55)' 
+              textShadow: fillHeight > 50
+                ? '0 2px 8px rgba(0, 0, 0, 0.55)'
                 : '0 1px 4px rgba(255, 255, 255, 0.9)',
               letterSpacing: '-1px'
             }}>
@@ -331,36 +331,26 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
   );
 };
 
-const DEFAULT_PLANT_DEVICES = [
-  { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
-  { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
-  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
-  { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
-];
-
-const getDeviceGps = (devId: string, customLat?: number, customLng?: number) => {
-  const found = DEFAULT_PLANT_DEVICES.find(d => d.device_id === devId);
-  if (found) return { latitude: found.latitude, longitude: found.longitude };
-  if (customLat && customLng) return { latitude: customLat, longitude: customLng };
-  return { latitude: 28.657521, longitude: 77.376303 };
-};
-
 const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
-  const defaultDevs = DEFAULT_PLANT_DEVICES;
+  const defaultDevs = [
+    { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
+  ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
   const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
-  const rawDev = allDevs.find((d: any) =>
+  const currentDev = allDevs.find((d: any) =>
     d.device_id === devId ||
     d.name === devId ||
     d.device_name === devId
   ) || {
     device_id: devId,
     device_name: devId === '350435032683868' ? 'VASUNDHARA SECTOR 7 , 8MLD PLANT' : devId,
-    name: devId
+    name: devId,
+    latitude: 28.657521,
+    longitude: 77.376303
   };
-
-  const gps = getDeviceGps(rawDev.device_id || devId, rawDev.latitude, rawDev.longitude);
-  const currentDev = { ...rawDev, latitude: gps.latitude, longitude: gps.longitude };
 
   const defaultTanks = [
     { name: 'TANK_A', tank_name: 'TANK_A', device: '350435032683868', variant: 'main', capacity_liters: 8000000, depth_meters: 10.2, display_order: 1 },
@@ -379,7 +369,7 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
       } else {
         allTanks = parsed;
       }
-    } catch {}
+    } catch { }
   }
 
   const matchedTanks = allTanks.filter((t: any) =>
@@ -481,22 +471,9 @@ const DashboardPage: React.FC = () => {
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('350435032683868');
   const selectedDeviceIdRef = useRef<string>('350435032683868');
-  const telemetryCache = useRef<Record<string, TelemetryResponse>>({});
   const [layout, setLayout] = useState<DeviceLayout | null>(() => buildDeviceLayoutFromLocal('350435032683868'));
-  const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(() => {
-    try {
-      const saved = localStorage.getItem('stp_telemetry_cache_350435032683868');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [userDevices, setUserDevices] = useState<any[]>(() => {
-    return DEFAULT_PLANT_DEVICES.map(d => {
-      const gps = getDeviceGps(d.device_id, (d as any).latitude, (d as any).longitude);
-      return { ...d, latitude: gps.latitude, longitude: gps.longitude };
-    });
-  });
+  const [telemetry, setTelemetry] = useState<TelemetryResponse | null>(null);
+  const [userDevices, setUserDevices] = useState<any[]>([]);
 
   const [online, setOnline] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
@@ -504,19 +481,12 @@ const DashboardPage: React.FC = () => {
   const timerRef = useRef<number | null>(null);
 
   const [accumulatedHistory, setAccumulatedHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<string>(() => 
+  const [activeTab, setActiveTab] = useState<string>(() =>
     (username || '').toLowerCase().includes('utl') || role === 'water_quality' ? 'water_quality' : 'map'
   );
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>(() => {
-    try {
-      const saved = localStorage.getItem('stp_device_status_map');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-  
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
+
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
     overhaulAlarms: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -546,7 +516,7 @@ const DashboardPage: React.FC = () => {
           if (!isNaN(dt.getTime()) && (Date.now() - dt.getTime()) > 86400000) {
             isStale = true;
           }
-        } catch {}
+        } catch { }
       } else {
         isStale = true;
       }
@@ -651,15 +621,11 @@ const DashboardPage: React.FC = () => {
           if (!data) {
             data = await fetchDirectNimblevision(d.device_id);
           }
-          if (data) {
-            telemetryCache.current[d.device_id] = data;
-            try { localStorage.setItem('stp_telemetry_cache_' + d.device_id, JSON.stringify(data)); } catch {}
-          }
           const rawMeters = await getElectricalMeters(d.device_id);
           const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
 
           const elecResults = await Promise.all(
-            metersList.map((mId: string) => 
+            metersList.map((mId: string) =>
               getElectricalTelemetry(d.device_id, mId).catch(() => null)
             )
           );
@@ -705,20 +671,19 @@ const DashboardPage: React.FC = () => {
             operatingMode,
             meterAmperesMap
           };
-        } catch {}
+        } catch { }
       })
     );
-    setDeviceStatusMap(prev => {
-      const merged = { ...prev, ...statusMap };
-      try {
-        localStorage.setItem('stp_device_status_map', JSON.stringify(merged));
-      } catch {}
-      return merged;
-    });
+    setDeviceStatusMap(prev => ({ ...prev, ...statusMap }));
   };
 
   const loadUserDevices = async () => {
-    const defaultDevs = DEFAULT_PLANT_DEVICES;
+    const defaultDevs = [
+      { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
+    ];
 
     let allDevices = defaultDevs;
     const centralDevs = await getCentralDevices();
@@ -730,12 +695,12 @@ const DashboardPage: React.FC = () => {
       if (localDevicesStr) {
         try {
           const parsed = JSON.parse(localDevicesStr);
-          if (parsed.some((d: any) => 
-            d.device_name === 'STP PLANT A' || 
-            d.device_name === 'STP PLANT D' || 
-            d.device_name === 'STP Telemetry Device' || 
-            d.device_id === '863110085106451' || 
-            d.device_id === '350435032683869' || 
+          if (parsed.some((d: any) =>
+            d.device_name === 'STP PLANT A' ||
+            d.device_name === 'STP PLANT D' ||
+            d.device_name === 'STP Telemetry Device' ||
+            d.device_id === '863110085106451' ||
+            d.device_id === '350435032683869' ||
             d.device_id === '12345'
           )) {
             localStorage.removeItem('stp_local_devices');
@@ -745,13 +710,13 @@ const DashboardPage: React.FC = () => {
           } else {
             allDevices = parsed;
           }
-        } catch {}
+        } catch { }
       }
     }
 
     const isUserAssigned = (d: any) => {
       if (!username || username === 'Administrator' || username === 'admin') return true;
-      
+
       const userEmail = (username || '').toLowerCase().trim();
       if (!userEmail) return false;
 
@@ -762,10 +727,7 @@ const DashboardPage: React.FC = () => {
       return userList.includes(userEmail);
     };
 
-    const userDevs = allDevices.filter(isUserAssigned).map(d => {
-      const gps = getDeviceGps(d.device_id, d.latitude, d.longitude);
-      return { ...d, latitude: gps.latitude, longitude: gps.longitude };
-    });
+    const userDevs = allDevices.filter(isUserAssigned);
     setUserDevices(userDevs);
     return userDevs;
   };
@@ -777,7 +739,7 @@ const DashboardPage: React.FC = () => {
         setLayout(data);
         return;
       }
-    } catch {}
+    } catch { }
 
     try {
       const [cTanks, cMotors] = await Promise.all([getCentralTanks(), getCentralMotors()]);
@@ -787,7 +749,7 @@ const DashboardPage: React.FC = () => {
       if (cMotors && cMotors.length > 0) {
         localStorage.setItem('stp_local_motors', JSON.stringify(cMotors));
       }
-    } catch {}
+    } catch { }
 
     const dynamicLayout = buildDeviceLayoutFromLocal(devId);
     setLayout(dynamicLayout);
@@ -816,75 +778,69 @@ const DashboardPage: React.FC = () => {
       }
 
       setTelemetry(data);
-      if (data) {
-        telemetryCache.current[devId] = data;
-      }
       setOnline(true);
       setLastUpdated(new Date().toLocaleTimeString());
 
-      // ⚡ Set history charts IMMEDIATELY (0ms delay)
+      if (data?.tanks) {
+        try {
+          const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
+          const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
+
+          const rawMeters = await getElectricalMeters(devId).catch(() => []);
+          const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
+          const elecResults = await Promise.all(
+            metersList.map((mId: string) =>
+              getElectricalTelemetry(devId, mId).catch(() => null)
+            )
+          );
+
+          let maxAmpere = 0;
+          let hasAmpere = false;
+          const meterAmperesMap: Record<string, number> = {};
+
+          elecResults.forEach((elecData: any, idx: number) => {
+            if (elecData) {
+              const mId = metersList[idx] || String(idx + 1);
+              const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
+              meterAmperesMap[mId] = amp;
+              if (amp > 0.05) {
+                hasAmpere = true;
+                if (amp > maxAmpere) maxAmpere = amp;
+              }
+            }
+          });
+
+          const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+          const totalActiveMotors = Math.max(act, manualActiveMotors);
+
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+          if (devId === '350435032689659') {
+            operatingMode = 'STANDBY';
+          } else if (trip > 0) operatingMode = 'TRIP';
+          else if (act > 0 || devId === '350435032681912' || devId === '350435032680674') operatingMode = 'AUTO';
+          else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
+          else operatingMode = 'STANDBY';
+
+          setDeviceStatusMap(prev => ({
+            ...prev,
+            [devId]: devId === '350435032689659'
+              ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
+              : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+          }));
+        } catch (innerErr) {
+          console.warn('Electrical status parsing error:', innerErr);
+        }
+      }
+
       if (data?.history && Array.isArray(data.history) && data.history.length > 0) {
         setAccumulatedHistory(data.history);
       } else {
-        getReportData(devId, 'daily').then(report => {
+        try {
+          const report = await getReportData(devId, 'daily');
           if (report && report.postings && Array.isArray(report.postings) && report.postings.length > 0) {
             setAccumulatedHistory(report.postings);
           }
-        }).catch(() => {});
-      }
-
-      // ⚡ Fetch secondary electrical parameters asynchronously without blocking UI updates
-      if (data?.tanks) {
-        (async () => {
-          try {
-            const act = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_running && !m.is_tripped).length;
-            const trip = data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length;
-            
-            const rawMeters = await getElectricalMeters(devId).catch(() => []);
-            const metersList: string[] = Array.isArray(rawMeters) ? rawMeters : [];
-            const elecResults = await Promise.all(
-              metersList.map((mId: string) => 
-                getElectricalTelemetry(devId, mId).catch(() => null)
-              )
-            );
-
-            let maxAmpere = 0;
-            let hasAmpere = false;
-            const meterAmperesMap: Record<string, number> = {};
-
-            elecResults.forEach((elecData: any, idx: number) => {
-              if (elecData) {
-                const mId = metersList[idx] || String(idx + 1);
-                const amp = elecData.i_avg || elecData.i1 || (elecData.total_kw ? elecData.total_kw / 0.7 : 0) || 0;
-                meterAmperesMap[mId] = amp;
-                if (amp > 0.05) {
-                  hasAmpere = true;
-                  if (amp > maxAmpere) maxAmpere = amp;
-                }
-              }
-            });
-
-            const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
-            const totalActiveMotors = Math.max(act, manualActiveMotors);
-
-            let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
-            if (devId === '350435032689659') {
-              operatingMode = 'STANDBY';
-            } else if (trip > 0) operatingMode = 'TRIP';
-            else if (act > 0 || devId === '350435032681912') operatingMode = 'AUTO';
-            else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
-            else operatingMode = 'STANDBY';
-
-            setDeviceStatusMap(prev => ({
-              ...prev,
-              [devId]: devId === '350435032689659' 
-                ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
-                : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
-            }));
-          } catch (innerErr) {
-            console.warn('Electrical status parsing error:', innerErr);
-          }
-        })();
+        } catch { }
       }
     } catch {
       setOnline(true);
@@ -899,20 +855,6 @@ const DashboardPage: React.FC = () => {
     // ⚡ Instant synchronous layout switch (0ms delay)
     const dynamicLayout = buildDeviceLayoutFromLocal(newDevId);
     setLayout(dynamicLayout);
-
-    // ⚡ Instant water level telemetry render from in-memory or localStorage cache (0ms delay)
-    let cached = telemetryCache.current[newDevId];
-    if (!cached) {
-      try {
-        const saved = localStorage.getItem('stp_telemetry_cache_' + newDevId);
-        if (saved) cached = JSON.parse(saved);
-      } catch {}
-    }
-
-    if (cached) {
-      setTelemetry(cached);
-      telemetryCache.current[newDevId] = cached;
-    }
 
     // Asynchronous background synchronization
     fetchLayoutForDevice(newDevId);
@@ -976,23 +918,23 @@ const DashboardPage: React.FC = () => {
             const currentHours = motorSpec.total_run_hours ?? motorSpec.running_hours ?? defaultHours;
 
             const logs = logsMap?.[motorId] || [];
-            const lastGreaseLog = logs.find((l: any) => 
-              l.service_type?.toLowerCase().includes('greasing') || 
+            const lastGreaseLog = logs.find((l: any) =>
+              l.service_type?.toLowerCase().includes('greasing') ||
               l.service_type?.toLowerCase().includes('bearing') ||
               l.service_type?.toLowerCase().includes('rewind') ||
               l.service_type?.toLowerCase().includes('overhaul')
             );
-            const lastOverhaulLog = logs.find((l: any) => 
-              l.service_type?.toLowerCase().includes('rewind') || 
+            const lastOverhaulLog = logs.find((l: any) =>
+              l.service_type?.toLowerCase().includes('rewind') ||
               l.service_type?.toLowerCase().includes('overhaul')
             );
 
-            const lastGreaseHours = lastGreaseLog 
-              ? (parseInt(lastGreaseLog.running_hours) || 0) 
+            const lastGreaseHours = lastGreaseLog
+              ? (parseInt(lastGreaseLog.running_hours) || 0)
               : (motorSpec.last_grease_hours || 0);
 
-            const lastOverhaulHours = lastOverhaulLog 
-              ? (parseInt(lastOverhaulLog.running_hours) || 0) 
+            const lastOverhaulHours = lastOverhaulLog
+              ? (parseInt(lastOverhaulLog.running_hours) || 0)
               : (motorSpec.last_overhaul_hours || 0);
 
             const hoursSinceGrease = Math.max(0, currentHours - lastGreaseHours);
@@ -1008,7 +950,7 @@ const DashboardPage: React.FC = () => {
         });
 
         setMaintenanceAlerts({ greaseNotifs, overhaulAlarms });
-      } catch {}
+      } catch { }
     };
 
     evaluateMaintenanceAlarms();
@@ -1026,8 +968,8 @@ const DashboardPage: React.FC = () => {
 
   const selectedStatus = deviceStatusMap[selectedDeviceId];
   const autoActiveMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_running).length ?? 0;
-  const manualActiveMeters = selectedStatus?.meterAmperesMap 
-    ? Object.values(selectedStatus.meterAmperesMap).filter(amp => Number(amp) > 0.05).length 
+  const manualActiveMeters = selectedStatus?.meterAmperesMap
+    ? Object.values(selectedStatus.meterAmperesMap).filter(amp => Number(amp) > 0.05).length
     : 0;
 
   const activeMotors = Math.max(
@@ -1107,14 +1049,6 @@ const DashboardPage: React.FC = () => {
               >
                 <ImageIcon size={18} />
                 <span>All Photos</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('reports')}
-                className={`dash-sidebar-link ${activeTab === 'reports' ? 'active' : ''}`}
-              >
-                <FileText size={18} />
-                <span>Reports & Data Logs</span>
               </button>
             </>
           ) : (
@@ -1220,156 +1154,156 @@ const DashboardPage: React.FC = () => {
         {/* Top Nav Header (Only for WABAG STP views, Hidden for Water Quality user and Reports) */}
         {!isWaterQualityUser && activeTab !== 'reports' && (
           <header className="dash-header">
-          <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
-            {activeTab === 'map' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-                  padding: '6px 12px',
-                  borderRadius: '10px',
-                  color: '#FFFFFF',
-                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <MapPin size={18} color="#FFFFFF" />
-                  <span style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.5px' }}>
-                    REGIONAL NETWORK
-                  </span>
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
-                    Ghaziabad STP Command Center Map
-                  </h2>
-                  <p style={{ fontSize: '11px', color: '#64748B', margin: 0, fontWeight: 600 }}>
-                    Real-Time Geographical Monitoring across {userDevices.length > 0 ? userDevices.length : 4} Registered Plants
-                  </p>
-                </div>
-              </div>
-            ) : (
-              userDevices.length > 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
-                    📡 Select STP Plant Device:
-                  </span>
-                  <select
-                    id="device-select-dropdown"
-                    value={selectedDeviceId}
-                    onChange={(e) => handleDeviceChange(e.target.value)}
-                    style={{
-                      padding: '7px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #0284C7',
-                      background: '#FFFFFF',
-                      color: '#0F172A',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      outline: 'none',
-                      boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
-                    }}
-                  >
-                    {userDevices.map(d => (
-                      <option key={d.device_id} value={d.device_id}>
-                        {d.device_name} — ({d.device_id})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Plant Operational Mode Badge (AUTO / MANUAL OVERRIDE / STANDBY) */}
-                  {(() => {
-                    const currentStatus = deviceStatusMap[selectedDeviceId];
-                    const mode = currentStatus?.operatingMode || 'STANDBY';
-
-                    if (mode === 'AUTO') {
-                      return (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          background: '#ECFDF5',
-                          color: '#059669',
-                          border: '1px solid #A7F3D0',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          ⚙️ AUTOMATIC MODE
-                        </span>
-                      );
-                    } else if (mode === 'MANUAL') {
-                      return (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          background: '#FFF7ED',
-                          color: '#EA580C',
-                          border: '1px solid #FFEDD5',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          boxShadow: '0 0 10px rgba(234, 88, 12, 0.25)'
-                        }}>
-                          🖐️ MANUAL MODE
-                        </span>
-                      );
-                    } else if (mode === 'TRIP') {
-                      return (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          background: '#FEF2F2',
-                          color: '#DC2626',
-                          border: '1px solid #FCA5A5',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          🚨 FAULT / TRIPPED
-                        </span>
-                      );
-                    } else {
-                      return (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          background: '#F1F5F9',
-                          color: '#64748B',
-                          border: '1px solid #CBD5E1',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          ⚪ STANDBY / IDLE
-                        </span>
-                      );
-                    }
-                  })()}
+            <div className="dash-center" style={{ justifyContent: 'flex-start' }}>
+              {activeTab === 'map' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                    padding: '6px 12px',
+                    borderRadius: '10px',
+                    color: '#FFFFFF',
+                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <MapPin size={18} color="#FFFFFF" />
+                    <span style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.5px' }}>
+                      REGIONAL NETWORK
+                    </span>
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1.2 }}>
+                      Ghaziabad STP Command Center Map
+                    </h2>
+                    <p style={{ fontSize: '11px', color: '#64748B', margin: 0, fontWeight: 600 }}>
+                      Real-Time Geographical Monitoring across {userDevices.length > 0 ? userDevices.length : 4} Registered Plants
+                    </p>
+                  </div>
                 </div>
               ) : (
-                layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
-              )
-            )}
-          </div>
+                userDevices.length > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+                      📡 Select STP Plant Device:
+                    </span>
+                    <select
+                      id="device-select-dropdown"
+                      value={selectedDeviceId}
+                      onChange={(e) => handleDeviceChange(e.target.value)}
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #0284C7',
+                        background: '#FFFFFF',
+                        color: '#0F172A',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        outline: 'none',
+                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)'
+                      }}
+                    >
+                      {userDevices.map(d => (
+                        <option key={d.device_id} value={d.device_id}>
+                          {d.device_name} — ({d.device_id})
+                        </option>
+                      ))}
+                    </select>
 
-          <div className="dash-actions">
-            <div className={`online-indicator ${online ? 'online' : 'offline'}`}>
-              {online ? <Wifi size={14} /> : <WifiOff size={14} />}
-              <span>{online ? `Live · ${lastUpdated}` : 'Offline'}</span>
+                    {/* Plant Operational Mode Badge (AUTO / MANUAL OVERRIDE / STANDBY) */}
+                    {(() => {
+                      const currentStatus = deviceStatusMap[selectedDeviceId];
+                      const mode = currentStatus?.operatingMode || 'STANDBY';
+
+                      if (mode === 'AUTO') {
+                        return (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: '#ECFDF5',
+                            color: '#059669',
+                            border: '1px solid #A7F3D0',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            ⚙️ AUTOMATIC MODE
+                          </span>
+                        );
+                      } else if (mode === 'MANUAL') {
+                        return (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: '#FFF7ED',
+                            color: '#EA580C',
+                            border: '1px solid #FFEDD5',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 0 10px rgba(234, 88, 12, 0.25)'
+                          }}>
+                            🖐️ MANUAL MODE
+                          </span>
+                        );
+                      } else if (mode === 'TRIP') {
+                        return (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: '#FEF2F2',
+                            color: '#DC2626',
+                            border: '1px solid #FCA5A5',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            🚨 FAULT / TRIPPED
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            background: '#F1F5F9',
+                            color: '#64748B',
+                            border: '1px solid #CBD5E1',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            ⚪ STANDBY / IDLE
+                          </span>
+                        );
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  layout && <span className="device-tag">📡 Device: <strong>{layout.device_id}</strong> — {layout.device_name}</span>
+                )
+              )}
             </div>
-            <button className="icon-btn" title="Refresh Telemetry" onClick={() => fetchTelemetryForDevice(selectedDeviceId)}>
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        </header>
+
+            <div className="dash-actions">
+              <div className={`online-indicator ${online ? 'online' : 'offline'}`}>
+                {online ? <Wifi size={14} /> : <WifiOff size={14} />}
+                <span>{online ? `Live · ${lastUpdated}` : 'Offline'}</span>
+              </div>
+              <button className="icon-btn" title="Refresh Telemetry" onClick={() => fetchTelemetryForDevice(selectedDeviceId)}>
+                <RefreshCw size={16} />
+              </button>
+            </div>
+          </header>
         )}
 
         {/* KPI Bar (Show only for WABAG single-plant views, hidden for UTL water quality user, map & reports) */}
@@ -1530,122 +1464,116 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
 
-      {/* Main Content Area */}
-      <main className="scada-main">
-        {loading && <div className="loading-screen"><div className="spinner-lg" /><p>Loading SCADA dashboard...</p></div>}
+        {/* Main Content Area */}
+        <main className="scada-main">
+          {loading && <div className="loading-screen"><div className="spinner-lg" /><p>Loading SCADA dashboard...</p></div>}
 
-        {!loading && isWaterQualityUser && (
-          <>
-            {activeTab === 'electrical' ? (
-              <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} isWaterQualityUser={true} />
-            ) : activeTab === 'digital_twin' ? (
-              <OverallPlantMap userDevices={userDevices} deviceStatusMap={deviceStatusMap} onSelectDevice={handleDeviceChange} isWaterQualityUser={true} />
-            ) : activeTab === 'camera' || activeTab === 'photos' ? (
-              <CameraMonitoring deviceId="98203928" deviceName="UTL Plant #98203928" isWaterQualityUser={true} />
-            ) : activeTab === 'telemetry' || activeTab === 'motor_status' ? (
-              <UTLMotorStatusDashboard />
-            ) : activeTab === 'reports' ? (
-              <ReportView
-                userDevices={[{ device_id: '98203928', device_name: 'UTL Plant #98203928' }]}
-                selectedDeviceId="98203928"
-                isWaterQualityUser={true}
-              />
-            ) : (
-              <WaterQualityDashboard />
-            )}
-          </>
-        )}
+          {!loading && isWaterQualityUser && (
+            <>
+              {activeTab === 'electrical' ? (
+                <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} isWaterQualityUser={true} />
+              ) : activeTab === 'digital_twin' ? (
+                <OverallPlantMap userDevices={userDevices} deviceStatusMap={deviceStatusMap} onSelectDevice={handleDeviceChange} isWaterQualityUser={true} />
+              ) : activeTab === 'camera' || activeTab === 'photos' ? (
+                <CameraMonitoring deviceId="98203928" deviceName="UTL Plant #98203928" isWaterQualityUser={true} />
+              ) : activeTab === 'telemetry' || activeTab === 'motor_status' ? (
+                <UTLMotorStatusDashboard />
+              ) : (
+                <WaterQualityDashboard />
+              )}
+            </>
+          )}
 
-        {!loading && !isWaterQualityUser && !layout && (
-          <div className="empty-state">
-            <Droplets size={64} color="#38BDF8" />
-            <h2>No Device Assigned</h2>
-            <p>Contact your administrator to assign a device and configure tanks.</p>
-          </div>
-        )}
+          {!loading && !isWaterQualityUser && !layout && (
+            <div className="empty-state">
+              <Droplets size={64} color="#38BDF8" />
+              <h2>No Device Assigned</h2>
+              <p>Contact your administrator to assign a device and configure tanks.</p>
+            </div>
+          )}
 
-        {!loading && !isWaterQualityUser && layout && (
-          <>
-            {activeTab === 'map' ? (
-              <OverallPlantMap
-                userDevices={userDevices}
-                deviceStatusMap={deviceStatusMap}
-                onSelectDevice={(devId) => {
-                  handleDeviceChange(devId);
-                  setActiveTab('telemetry');
-                }}
-              />
-            ) : activeTab === 'camera' ? (
-              <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} isWaterQualityUser={false} />
-            ) : activeTab === 'electrical' ? (
-              <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
-            ) : activeTab === 'maintenance' ? (
-              <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
-            ) : activeTab === 'replacements' ? (
-              <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
-            ) : activeTab === 'reports' ? (
-              <ReportView userDevices={userDevices} selectedDeviceId={selectedDeviceId} onSelectDevice={handleDeviceChange} />
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
-                  <div className="scada-canvas" style={{ margin: 0, height: '100%' }}>
-                    <div className="canvas-header">
-                      <h2 className="canvas-title">Water Tank Monitoring</h2>
-                      <p className="canvas-sub">Live STP Tank Water Level & Capacity</p>
+          {!loading && !isWaterQualityUser && layout && (
+            <>
+              {activeTab === 'map' ? (
+                <OverallPlantMap
+                  userDevices={userDevices}
+                  deviceStatusMap={deviceStatusMap}
+                  onSelectDevice={(devId) => {
+                    setSelectedDeviceId(devId);
+                    setActiveTab('telemetry');
+                  }}
+                />
+              ) : activeTab === 'camera' ? (
+                <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} isWaterQualityUser={false} />
+              ) : activeTab === 'electrical' ? (
+                <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
+              ) : activeTab === 'maintenance' ? (
+                <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
+              ) : activeTab === 'replacements' ? (
+                <PlantReplacementsView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
+              ) : activeTab === 'reports' ? (
+                <ReportView userDevices={userDevices} selectedDeviceId={selectedDeviceId} onSelectDevice={handleDeviceChange} />
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px', alignItems: 'stretch', marginBottom: '24px' }}>
+                    <div className="scada-canvas" style={{ margin: 0, height: '100%' }}>
+                      <div className="canvas-header">
+                        <h2 className="canvas-title">Water Tank Monitoring</h2>
+                        <p className="canvas-sub">Live STP Tank Water Level & Capacity</p>
+                      </div>
+
+                      <div className="tanks-row" style={{ justifyContent: 'center' }}>
+                        {layout.tanks
+                          .sort((a, b) => a.display_order - b.display_order)
+                          .map((tank, idx) => {
+                            const tankTelemetry = telemetry?.tanks.find(tt => tt.tank_id === tank.id || tt.tank_name === tank.name) ?? telemetry?.tanks[idx] ?? null;
+                            return (
+                              <TankCard
+                                key={tank.id}
+                                tankLayout={tank}
+                                telemetry={tankTelemetry}
+                                index={idx}
+                                total={layout.tanks.length}
+                                onSelectMotor={(m, tName) => setSelectedMotorModal({ motor: m, tankName: tName })}
+                                selectedStatus={deviceStatusMap[selectedDeviceId]}
+                              />
+                            );
+                          })}
+                      </div>
                     </div>
 
-                    <div className="tanks-row" style={{ justifyContent: 'center' }}>
-                      {layout.tanks
-                        .sort((a, b) => a.display_order - b.display_order)
-                        .map((tank, idx) => {
-                          const tankTelemetry = telemetry?.tanks.find(tt => tt.tank_id === tank.id || tt.tank_name === tank.name) ?? telemetry?.tanks[idx] ?? null;
-                          return (
-                            <TankCard
-                              key={tank.id}
-                              tankLayout={tank}
-                              telemetry={tankTelemetry}
-                              index={idx}
-                              total={layout.tanks.length}
-                              onSelectMotor={(m, tName) => setSelectedMotorModal({ motor: m, tankName: tName })}
-                              selectedStatus={deviceStatusMap[selectedDeviceId]}
-                            />
-                          );
-                        })}
-                    </div>
+                    {/* Device Location GIS Map on the right side */}
+                    <DeviceMap
+                      deviceId={layout.device_id}
+                      deviceName={layout.device_name}
+                      waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
+                      activeMotorsCount={activeMotors}
+                      trippedMotorsCount={trippedMotors}
+                      operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
+                      latitude={layout.latitude}
+                      longitude={layout.longitude}
+                      userDevices={userDevices}
+                      deviceStatusMap={deviceStatusMap}
+                      onSelectDevice={handleDeviceChange}
+                    />
                   </div>
 
-                  {/* Device Location GIS Map on the right side */}
-                  <DeviceMap
-                    deviceId={layout.device_id}
-                    deviceName={layout.device_name}
-                    waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
-                    activeMotorsCount={activeMotors}
-                    trippedMotorsCount={trippedMotors}
+                  {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
+                  <TelemetryCharts
+                    deviceId={selectedDeviceId}
+                    history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
+                    motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
+                    tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
+                    currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
                     operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
-                    latitude={layout.latitude}
-                    longitude={layout.longitude}
-                    userDevices={userDevices}
-                    deviceStatusMap={deviceStatusMap}
-                    onSelectDevice={handleDeviceChange}
+                    meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
+                    liveWaterLevel={telemetry?.tanks[0]?.water_level_percent ?? 0}
                   />
-                </div>
-
-                {/* Real-Time Analytical Graphs: 1 Water Level & Motor Run-Time Graphs */}
-                <TelemetryCharts
-                  deviceId={selectedDeviceId}
-                  history={accumulatedHistory.length > 0 ? accumulatedHistory : (telemetry?.history || [])}
-                  motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
-                  tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
-                  currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
-                  operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
-                  meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
-                  liveWaterLevel={telemetry?.tanks[0]?.water_level_percent ?? 0}
-                />
-              </>
-            )}
-          </>
-        )}
-      </main>
+                </>
+              )}
+            </>
+          )}
+        </main>
       </div>
 
       {/* Motor Specifications, Continuous Run Tracking & Service History Modal */}

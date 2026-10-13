@@ -13,6 +13,8 @@ services:
     restart: always
     environment:
       - PORT=8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:

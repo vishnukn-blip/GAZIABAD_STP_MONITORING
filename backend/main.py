@@ -1121,19 +1121,13 @@ async def receive_electrical_telemetry(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
+import psycopg2
 import subprocess
 
 _GLOBAL_PG_CONN = None
 
 def get_persistent_db_conn():
     global _GLOBAL_PG_CONN
-    if psycopg2 is None:
-        return None
-
     if _GLOBAL_PG_CONN is not None:
         try:
             if not _GLOBAL_PG_CONN.closed:
@@ -1146,8 +1140,9 @@ def get_persistent_db_conn():
     db_user = "wsuser"
     db_pass = "Watersaviour@123"
 
-    # 1. Try local/internal hosts
-    for host_candidate in ["127.0.0.1", "host.docker.internal", "172.31.35.67"]:
+    # 1. Try host.docker.internal — works when running inside Docker on Linux
+    #    (docker-compose extra_hosts maps this to the host machine's gateway)
+    for host_candidate in ["host.docker.internal", "172.31.35.67", "127.0.0.1"]:
         for port_candidate in ["5432", "5433"]:
             try:
                 _GLOBAL_PG_CONN = psycopg2.connect(
@@ -1163,52 +1158,44 @@ def get_persistent_db_conn():
             except Exception:
                 pass
 
-    # 2. Try direct connection to remote AWS DB host if accessible
-    for remote_ip in ["13.206.207.146", "13.200.3.124"]:
+    # 2. Try direct connection to remote UTL AWS DB host (13.200.3.124:5432)
+    try:
+        _GLOBAL_PG_CONN = psycopg2.connect(
+            host="13.200.3.124",
+            port="5432",
+            database=db_name,
+            user=db_user,
+            password=db_pass,
+            connect_timeout=3
+        )
+        print("DB: Connected via 13.200.3.124:5432")
+        return _GLOBAL_PG_CONN
+    except Exception:
+        pass
+
+    # 3. Try SSH tunnel if local pem file exists (dev machine only)
+    pem_path = r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
+    if os.path.exists(pem_path):
         try:
+            subprocess.Popen([
+                "ssh", "-i", pem_path,
+                "-o", "StrictHostKeyChecking=no",
+                "-L", "5433:127.0.0.1:5432",
+                "ubuntu@13.200.3.124", "-N"
+            ])
+            import time
+            time.sleep(1.5)
             _GLOBAL_PG_CONN = psycopg2.connect(
-                host=remote_ip,
-                port="5432",
+                host="127.0.0.1",
+                port="5433",
                 database=db_name,
                 user=db_user,
                 password=db_pass,
-                connect_timeout=3
+                connect_timeout=4
             )
-            print(f"DB: Connected via {remote_ip}:5432")
             return _GLOBAL_PG_CONN
-        except Exception:
-            pass
-
-    # 3. Try SSH tunnel if local pem file exists (dev machine)
-    pem_candidates = [
-        r"C:\Users\ASUS\Desktop\wabag_gaziabad_aws_pem\wabagp.pem",
-        r"C:\Users\ASUS\Desktop\watersaviour_aws\NimbleVisionWorkTrack.pem"
-    ]
-    for pem_path in pem_candidates:
-        if os.path.exists(pem_path):
-            server_host = "13.206.207.146" if "wabagp" in pem_path else "13.200.3.124"
-            try:
-                subprocess.Popen([
-                    "ssh", "-i", pem_path,
-                    "-o", "StrictHostKeyChecking=no",
-                    "-L", "5433:127.0.0.1:5432",
-                    f"ubuntu@{server_host}", "-N"
-                ])
-                import time
-                time.sleep(1.5)
-                _GLOBAL_PG_CONN = psycopg2.connect(
-                    host="127.0.0.1",
-                    port="5433",
-                    database=db_name,
-                    user=db_user,
-                    password=db_pass,
-                    connect_timeout=4
-                )
-                print(f"DB: Connected via SSH tunnel to {server_host}")
-                return _GLOBAL_PG_CONN
-            except Exception as err:
-                print(f"Failed to connect via SSH tunnel with {pem_path}:", err)
-
+        except Exception as err:
+            print("Failed to connect via SSH tunnel:", err)
     print("DB: All PostgreSQL connection attempts failed")
     return None
 
@@ -1698,161 +1685,6 @@ async def get_telemetry_reports(
             except Exception:
                 cutoff_dt = now_dt - timedelta(days=30)
 
-        # ── Dedicated PostgreSQL Query for UTL Plant (98203928) ───────────────
-        if device_id and ("98203928" in str(device_id) or str(device_id) == "98203928"):
-            wq_query = "SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928'"
-            el_query = "SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928'"
-            
-            if cutoff_dt:
-                cutoff_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
-                wq_query += f" AND recorded_at >= '{cutoff_str}'"
-                el_query += f" AND recorded_at >= '{cutoff_str}'"
-            if end_date:
-                try:
-                    end_dt = datetime.fromisoformat(end_date.replace("Z", ""))
-                    end_str = end_dt.strftime("%Y-%m-%d 23:59:59")
-                    wq_query += f" AND recorded_at <= '{end_str}'"
-                    el_query += f" AND recorded_at <= '{end_str}'"
-                except Exception:
-                    pass
-            wq_query += " ORDER BY recorded_at DESC LIMIT 500;"
-            el_query += " ORDER BY recorded_at DESC LIMIT 500;"
-            wq_rows = query_nimble_db(wq_query) or []
-            el_rows = query_nimble_db(el_query) or []
-
-            # If range yields empty, fetch latest 100 rows from nimble_db so report is populated
-            if not wq_rows:
-                wq_rows = query_nimble_db("SELECT recorded_at, bod, cod, tds, turbidity, conductivity, ph, orp, tss, inlet_flow, outlet_flow FROM readings_waterquality WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
-            if not el_rows:
-                el_rows = query_nimble_db("SELECT recorded_at, v_avg_ln, v12, v23, v31, v_avg_ll, i1, i2, i3, i_avg, kw1, kw2, kw3, (kw1 + kw2 + kw3) AS total_kw, pf_avg FROM mfm376_logs WHERE device_id = '98203928' ORDER BY recorded_at DESC LIMIT 100;") or []
-
-            postings = []
-            bod_vals, cod_vals, tds_vals, turb_vals, ph_vals, cond_vals = [], [], [], [], [], []
-            volt_vals, curr_vals, kw_vals = [], [], []
-
-            el_lookup = {}
-            for er in el_rows:
-                er_dt = _to_ist(er.get("recorded_at"))
-                if er_dt:
-                    el_lookup[er_dt.strftime("%Y-%m-%d %H:%M")] = er
-
-            for idx, wr in enumerate(wq_rows):
-                rec_dt = _to_ist(wr.get("recorded_at"))
-                ts_str = rec_dt.strftime("%Y-%m-%d %H:%M:%S") if rec_dt else now_dt.strftime("%Y-%m-%d %H:%M:%S")
-                min_key = rec_dt.strftime("%Y-%m-%d %H:%M") if rec_dt else ""
-                
-                er_match = el_lookup.get(min_key) or (el_rows[idx % len(el_rows)] if el_rows else {})
-
-                bod = float(wr.get("bod") or 28.0)
-                cod = float(wr.get("cod") or 47.0)
-                tds = float(wr.get("tds") or 739.0)
-                turb = float(wr.get("turbidity") or 42.0)
-                cond = float(wr.get("conductivity") or 1559.0)
-                ph = float(wr.get("ph") or 7.5)
-                orp = float(wr.get("orp") or 0.0)
-                tss = float(wr.get("tss") or 0.0)
-                in_flow = float(wr.get("inlet_flow") or 0.0)
-                out_flow = float(wr.get("outlet_flow") or 0.0)
-
-                v_ll = float(er_match.get("v_avg_ll") or 415.0)
-                v_ln = float(er_match.get("v_avg_ln") or 239.0)
-                i_avg = float(er_match.get("i_avg") or 0.0)
-                total_kw = float(er_match.get("total_kw") or 0.0)
-                pf_avg = float(er_match.get("pf_avg") or 0.98)
-
-                bod_vals.append(bod); cod_vals.append(cod); tds_vals.append(tds)
-                turb_vals.append(turb); cond_vals.append(cond); ph_vals.append(ph)
-                volt_vals.append(v_ll); curr_vals.append(i_avg); kw_vals.append(total_kw)
-
-                postings.append({
-                    "id": len(postings) + 1,
-                    "device_id": "98203928",
-                    "device_name": "UTL Plant #98203928",
-                    "timestamp": ts_str,
-                    "bod": round(bod, 1),
-                    "cod": round(cod, 1),
-                    "tds": round(tds, 1),
-                    "turbidity": round(turb, 1),
-                    "conductivity": round(cond, 1),
-                    "ph": round(ph, 2),
-                    "orp": round(orp, 1),
-                    "tss": round(tss, 1),
-                    "inlet_flow": round(in_flow, 1),
-                    "outlet_flow": round(out_flow, 1),
-                    "water_level_pct": 50.0,
-                    "water_depth_m": 5.0,
-                    "current_volume_l": 4000000,
-                    "v_ll": round(v_ll, 1),
-                    "v_ln": round(v_ln, 1),
-                    "i_avg": round(i_avg, 2),
-                    "total_kw": round(total_kw, 2),
-                    "kwh": round(total_kw * 1.5, 2),
-                    "pf_avg": round(pf_avg, 2),
-                    "freq": 50.0,
-                    "operating_mode": "AUTO",
-                    "motors_running_count": 1 if i_avg > 0.5 else 0,
-                    "motors_tripped_count": 0,
-                    "motor_statuses": {"Motor 1": "ON" if i_avg > 0.5 else "OFF"},
-                    "mfm_meters": [{
-                        "meter_id": "1",
-                        "motor_name": "Main Motor Feed",
-                        "v_ll": round(v_ll, 1),
-                        "i_avg": round(i_avg, 2),
-                        "total_kw": round(total_kw, 2),
-                        "kwh": round(total_kw * 1.5, 2),
-                        "pf_avg": round(pf_avg, 2)
-                    }]
-                })
-
-            total_postings = len(postings)
-            avg_bod = round(sum(bod_vals) / len(bod_vals), 1) if bod_vals else 28.0
-            avg_cod = round(sum(cod_vals) / len(cod_vals), 1) if cod_vals else 47.0
-            avg_tds = round(sum(tds_vals) / len(tds_vals), 1) if tds_vals else 739.0
-            avg_turb = round(sum(turb_vals) / len(turb_vals), 1) if turb_vals else 42.0
-            avg_ph = round(sum(ph_vals) / len(ph_vals), 2) if ph_vals else 7.5
-            avg_cond = round(sum(cond_vals) / len(cond_vals), 1) if cond_vals else 1559.0
-
-            summary = {
-                "period": period,
-                "total_postings": total_postings,
-                "is_water_quality": True,
-                "plant_name": "UTL Plant #98203928",
-                "avg_bod": avg_bod, "min_bod": round(min(bod_vals), 1) if bod_vals else 24.0, "max_bod": round(max(bod_vals), 1) if bod_vals else 32.0,
-                "avg_cod": avg_cod, "min_cod": round(min(cod_vals), 1) if cod_vals else 40.0, "max_cod": round(max(cod_vals), 1) if cod_vals else 55.0,
-                "avg_tds": avg_tds, "min_tds": round(min(tds_vals), 1) if tds_vals else 710.0, "max_tds": round(max(tds_vals), 1) if tds_vals else 760.0,
-                "avg_turbidity": avg_turb, "min_turbidity": round(min(turb_vals), 1) if turb_vals else 38.0, "max_turbidity": round(max(turb_vals), 1) if turb_vals else 46.0,
-                "avg_ph": avg_ph, "min_ph": round(min(ph_vals), 2) if ph_vals else 7.2, "max_ph": round(max(ph_vals), 2) if ph_vals else 7.8,
-                "avg_conductivity": avg_cond,
-                "avg_voltage_v": round(sum(volt_vals) / len(volt_vals), 1) if volt_vals else 415.0,
-                "avg_current_a": round(sum(curr_vals) / len(curr_vals), 2) if curr_vals else 0.0,
-                "avg_power_kw": round(sum(kw_vals) / len(kw_vals), 2) if kw_vals else 0.0,
-                "total_kwh_consumed": round(sum(kw_vals) * 1.5, 2) if kw_vals else 120.0,
-                "avg_water_level_pct": 50.0,
-                "max_water_level_pct": 50.0,
-                "min_water_level_pct": 50.0,
-                "avg_water_depth_m": 5.0,
-                "total_motor_run_hours": round(total_postings * 0.25, 1),
-                "mode_hours": {"AUTO": round(total_postings * 0.25, 1), "MANUAL": 0, "STANDBY": 0, "TRIP": 0},
-                "motor_breakdown": [],
-                "mfm_breakdown": [{
-                    "meter_id": "1",
-                    "motor_name": "Main Motor Feed",
-                    "avg_voltage_v": round(sum(volt_vals) / len(volt_vals), 1) if volt_vals else 415.0,
-                    "avg_current_a": round(sum(curr_vals) / len(curr_vals), 2) if curr_vals else 0.0,
-                    "avg_power_kw": round(sum(kw_vals) / len(kw_vals), 2) if kw_vals else 0.0,
-                    "total_kwh_consumed": round(sum(kw_vals) * 1.5, 2) if kw_vals else 120.0
-                }]
-            }
-
-            return {
-                "status": "success",
-                "device_id": "98203928",
-                "period": period,
-                "summary": summary,
-                "postings": postings
-            }
-
-        # ── Existing WABAG Query ──────────────────────────────────────────────
         query = """
             SELECT id, device_id, timestamp, water_level_pct, water_depth_m, current_volume_l,
                    v_ln, v_ll, i_avg, total_kw, kwh, pf_avg, freq,
