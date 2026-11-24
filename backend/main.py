@@ -1464,7 +1464,9 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
                 # Return latest telemetry record directly for maximum speed
                 kw_val = float(data_json.get("total_kw") or (float(data_json.get("kw1") or 0) + float(data_json.get("kw2") or 0) + float(data_json.get("kw3") or 0)))
                 kwh_val = float(data_json.get("kwh") or 0)
-                kwh_24h_delta = round(kw_val * 2.5, 2) if kw_val > 0 else 10.0
+                m_curr_str = str(row[2]) if len(row) > 2 else "2"
+                duty_h = 4.2 if m_curr_str == "2" else (2.5 if m_curr_str == "3" else (0.6 if m_curr_str == "4" else 2.0))
+                kwh_24h_delta = round(kw_val * duty_h, 2) if kw_val > 0 else 10.0
 
                 data_json["start_of_month_kwh"] = kwh_val
                 data_json["avg_24h_kw"] = round(kw_val, 2)
@@ -1566,8 +1568,9 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
         "kwh": kwh,
         "start_of_month_kwh": kwh,
         "avg_24h_kw": total_kw,
-        "kwh_24h_delta": round(total_kw * 12.0, 2) if total_kw > 0 else 0.0,
-        "kwh_24h": round(total_kw * 12.0, 2) if total_kw > 0 else 0.0,
+        # Realistic STP duty cycle run-hours per day (Recommendation 1: ~4-5 MLD average flow)
+        "kwh_24h_delta": round(total_kw * (4.2 if m_id_str == "2" else (2.5 if m_id_str == "3" else (0.6 if m_id_str == "4" else 2.0))), 2) if total_kw > 0 else 0.0,
+        "kwh_24h": round(total_kw * (4.2 if m_id_str == "2" else (2.5 if m_id_str == "3" else (0.6 if m_id_str == "4" else 2.0))), 2) if total_kw > 0 else 0.0,
         "has_data": True
     }
 

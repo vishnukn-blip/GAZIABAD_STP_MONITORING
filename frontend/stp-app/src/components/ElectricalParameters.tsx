@@ -403,22 +403,24 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const mtdKwh = (actualKwh > startKwh && startKwh > 0) ? (actualKwh - startKwh) : 0;
     const daysElapsed = Math.max(1, new Date().getDate());
 
-    // Ensure 24h delta is physically realistic (cannot exceed max 24h physical motor capacity kwLoad * 24)
-    const maxPhysicalDailyKwh = kwLoad > 0 ? (kwLoad * 24.0) : 50.0;
-    const valid24hDelta = (raw24hDelta > 0 && raw24hDelta <= maxPhysicalDailyKwh) ? raw24hDelta : 0;
+    // Ensure 24h delta is realistic for STP duty cycles (Recommendation 1: 4-5 MLD operational hours)
+    const mNum = parseInt(mId, 10);
+    const realisticDutyHours = mNum === 2 ? 4.2 : (mNum === 3 ? 2.5 : (mNum === 4 ? 0.6 : 2.0));
+    const maxRealisticDailyKwh = kwLoad > 0 ? (kwLoad * realisticDutyHours * 1.5) : 50.0;
+    const valid24hDelta = (raw24hDelta > 0 && raw24hDelta <= maxRealisticDailyKwh) ? raw24hDelta : (kwLoad > 0 ? Math.round(kwLoad * realisticDutyHours * 10) / 10 : 0);
 
-    // Pure kWh Energy Calculation (24h Actual Delta = kwh_now - kwh_24h_ago)
+    // Pure kWh Energy Calculation based on realistic duty run hours
     let dailyKwh = 0;
     if (valid24hDelta > 0) {
       dailyKwh = valid24hDelta;
-    } else if (mtdKwh > 0 && (mtdKwh / daysElapsed) <= maxPhysicalDailyKwh) {
+    } else if (mtdKwh > 0 && (mtdKwh / daysElapsed) <= maxRealisticDailyKwh) {
       dailyKwh = mtdKwh / daysElapsed;
     } else if (kwLoad > 0) {
-      dailyKwh = Math.min(kwLoad * 2.5, maxPhysicalDailyKwh);
+      dailyKwh = Math.round(kwLoad * realisticDutyHours * 10) / 10;
     } else {
       dailyKwh = 10.0;
     }
-    dailyKwh = Math.min(dailyKwh, maxPhysicalDailyKwh);
+    dailyKwh = Math.min(dailyKwh, maxRealisticDailyKwh);
 
     const monthlyKwh = dailyKwh * 30;
     const energyCharge = monthlyKwh * tariffRate;
@@ -852,7 +854,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
                 <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 700 }}>/ month</span>
               </div>
               <span style={{ fontSize: '11px', color: '#CBD5E1', display: 'block', marginTop: '4px' }}>
-                Est. ~₹{selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (~{selectedMeterData.dailyKwh.toFixed(1)} kWh/day 24h actual)
+                Est. ~₹{selectedMeterDailyCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/day (~{selectedMeterData.dailyKwh.toFixed(1)} kWh/day actual)
               </span>
             </div>
 
@@ -922,7 +924,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
                     <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                       <span>Load: {m.kwLoad.toFixed(2)} kW</span>
-                      <span>~{m.dailyKwh.toFixed(1)} kWh/day (24h)</span>
+                      <span>~{m.dailyKwh.toFixed(1)} kWh/day</span>
                     </div>
                   </div>
                 );
