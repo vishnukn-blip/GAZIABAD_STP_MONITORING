@@ -676,16 +676,21 @@ def init_persistent_db():
         else:
             try:
                 curr_m = json.loads(m_row[0])
-                # Remove obsolete dummy motors M4 and M5 for TANK_A
-                filtered_m = [m for m in curr_m if not (m.get("tank") == "TANK_A" and m.get("motor_name") in ["M4", "M5"])]
-                if len(filtered_m) != len(curr_m):
-                    cursor.execute("UPDATE config_store SET json_data = ? WHERE key = 'motors'", (json.dumps(filtered_m),))
+                valid_names = {m["name"] for m in DEFAULT_CENTRAL_MOTORS}
+                filtered_m = [m for m in curr_m if m.get("name") in valid_names]
+                if len(filtered_m) != len(curr_m) or len(filtered_m) != len(DEFAULT_CENTRAL_MOTORS):
+                    cursor.execute("UPDATE config_store SET json_data = ? WHERE key = 'motors'", (json.dumps(DEFAULT_CENTRAL_MOTORS),))
             except Exception:
                 pass
 
-        # Clean up stale/test electrical records for Sector 7 with meter_id not in ('2', '3', '4')
+        # Clean up stale/test electrical records
         try:
-            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032683868%' AND meter_id NOT IN ('2', '3', '4')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE updated_at < date('now', '-1 day')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE meter_id NOT IN ('1', '2', '3', '4')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032683868%' AND meter_id = '1'")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032689659%' AND meter_id NOT IN ('2', '3', '4')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032680674%' AND meter_id NOT IN ('2', '3')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032681912%' AND meter_id NOT IN ('2', '3')")
         except Exception:
             pass
 
@@ -1465,22 +1470,34 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
                 row = cursor.fetchone()
 
             if row and row[0]:
-                data_json = json.loads(row[0])
-                data_json["has_data"] = True
+                row_ts_str = str(row[1] or "")
+                is_stale_record = False
+                try:
+                    if row_ts_str:
+                        cleaned_ts = row_ts_str.replace("T", " ").split(".")[0]
+                        r_dt = datetime.strptime(cleaned_ts, "%Y-%m-%d %H:%M:%S")
+                        if (get_local_now() - r_dt).total_seconds() > 86400:
+                            is_stale_record = True
+                except Exception:
+                    is_stale_record = True
 
-                # Return latest telemetry record directly for maximum speed
-                kw_val = float(data_json.get("total_kw") or (float(data_json.get("kw1") or 0) + float(data_json.get("kw2") or 0) + float(data_json.get("kw3") or 0)))
-                kwh_val = float(data_json.get("kwh") or 0)
-                kwh_24h_delta = round(kw_val * 2.5, 2) if kw_val > 0 else 10.0
+                if not is_stale_record:
+                    data_json = json.loads(row[0])
+                    data_json["has_data"] = True
 
-                data_json["start_of_month_kwh"] = kwh_val
-                data_json["avg_24h_kw"] = round(kw_val, 2)
-                data_json["kwh_24h_delta"] = kwh_24h_delta
-                data_json["kwh_24h"] = kwh_24h_delta
-                conn.close()
-                res_ok = {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
-                PROXY_CACHE[cache_key] = (res_ok, now_ts)
-                return res_ok
+                    # Return latest telemetry record directly for maximum speed
+                    kw_val = float(data_json.get("total_kw") or (float(data_json.get("kw1") or 0) + float(data_json.get("kw2") or 0) + float(data_json.get("kw3") or 0)))
+                    kwh_val = float(data_json.get("kwh") or 0)
+                    kwh_24h_delta = round(kw_val * 2.5, 2) if kw_val > 0 else 10.0
+
+                    data_json["start_of_month_kwh"] = kwh_val
+                    data_json["avg_24h_kw"] = round(kw_val, 2)
+                    data_json["kwh_24h_delta"] = kwh_24h_delta
+                    data_json["kwh_24h"] = kwh_24h_delta
+                    conn.close()
+                    res_ok = {"status": "success", "device_id": device_id, "meter_id": row[2], "timestamp": row[1], "has_data": True, "data": data_json}
+                    PROXY_CACHE[cache_key] = (res_ok, now_ts)
+                    return res_ok
             
             conn.close()
     except Exception as e:
@@ -1489,10 +1506,10 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
     # 2. Dynamic Electrical Parameter Synthesis when raw table has no entry
     m_id_str = str(meter_id or "1")
     hp_ratings = {
-        "350435032683868": {"1": 60, "2": 75, "3": 60, "4": 40, "5": 40},
-        "350435032680674": {"1": 40, "2": 30, "3": 30, "4": 30, "5": 30},
-        "350435032689659": {"1": 50, "2": 50, "3": 30, "4": 30, "5": 30},
-        "350435032681912": {"1": 30, "2": 30, "3": 25, "4": 20, "5": 20},
+        "350435032683868": {"2": 60, "3": 75, "4": 60},
+        "350435032680674": {"2": 40, "3": 30},
+        "350435032689659": {"2": 50, "3": 50, "4": 30},
+        "350435032681912": {"2": 30, "3": 25},
     }
     plant_hp_map = hp_ratings.get(device_id, {})
     motor_hp = plant_hp_map.get(m_id_str, 30)
@@ -1527,6 +1544,15 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
         if device_id in HISTORY_BUFFER and HISTORY_BUFFER[device_id]:
             latest_pt = HISTORY_BUFFER[device_id][-1]
             is_motor_running = getattr(latest_pt, param_key, 0) == 1
+        else:
+            tel_cache = PROXY_CACHE.get(f"tel_{device_id}")
+            if tel_cache and tel_cache[0]:
+                c_data = tel_cache[0]
+                tanks = c_data.get("tanks", [])
+                if tanks and len(tanks) > 0:
+                    motors = tanks[0].get("motors", [])
+                    if len(motors) >= motor_idx:
+                        is_motor_running = bool(motors[motor_idx - 1].get("is_running"))
     except Exception:
         pass
 
@@ -1586,8 +1612,8 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
 PLANT_DEFAULT_METERS = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
+    "350435032689659": ["2", "3", "4"],
     "350435032681912": ["2", "3"],
-    "350435032689659": ["2", "3"],
     "98203928": ["1"]
 }
 

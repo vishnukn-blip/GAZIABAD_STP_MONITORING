@@ -215,8 +215,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
         );
       }
     }
-    const defaultMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
-    const validMeters = dynamicMeters.length > 0 ? dynamicMeters : defaultMeters;
+    const allowedMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
+    const filteredMeters = dynamicMeters.filter(m => allowedMeters.includes(m));
+    const validMeters = filteredMeters.length > 0 ? filteredMeters : allowedMeters;
     setAvailableMeters(validMeters);
 
     let activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
@@ -227,7 +228,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     // Async background check for additional meters list (strictly validated against configured meters)
     getElectricalMeters(deviceId).then(metersList => {
       if (metersList && Array.isArray(metersList) && metersList.length > 0) {
-        const filtered = metersList.filter((m: string) => validMeters.includes(m));
+        const filtered = metersList.filter((m: string) => allowedMeters.includes(m));
         if (filtered.length > 0 && JSON.stringify(filtered) !== JSON.stringify(validMeters)) {
           setAvailableMeters(filtered);
         }
@@ -357,8 +358,9 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
         );
       }
     }
-    const defaultMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
-    const validMeters = dynamicMeters.length > 0 ? dynamicMeters : defaultMeters;
+    const allowedMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
+    const filteredMeters = dynamicMeters.filter(m => allowedMeters.includes(m));
+    const validMeters = filteredMeters.length > 0 ? filteredMeters : allowedMeters;
     setAvailableMeters(validMeters);
     const activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
     if (activeMeter !== selectedMeter) {
@@ -377,8 +379,10 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           setTelemetry(cached.telemetry);
           if (cached.allMetersTelemetry) setAllMetersTelemetry(cached.allMetersTelemetry);
           if (cached.availableMeters && cached.availableMeters.length > 0) {
-            const cleanCached = cached.availableMeters.filter((m: string) => validMeters.includes(m));
-            setAvailableMeters(cleanCached.length === validMeters.length ? cleanCached : validMeters);
+            const cleanCached = cached.availableMeters.filter((m: string) => allowedMeters.includes(m));
+            if (cleanCached.length > 0) {
+              setAvailableMeters(cleanCached);
+            }
           }
           if (cached.lastUpdated) setLastUpdated(cached.lastUpdated);
           if (cached.dataAtTime) setDataAtTime(cached.dataAtTime);

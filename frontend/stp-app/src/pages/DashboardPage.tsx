@@ -412,17 +412,18 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
     { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
   ];
+  const PHANTOM_MOTORS = ['MOTOR_A_4', 'MOTOR_A_5', 'MOTOR_B_3', 'MOTOR_B_4', 'MOTOR_B_5', 'MOTOR_C_4', 'MOTOR_C_5', 'MOTOR_D_3', 'MOTOR_D_4', 'MOTOR_D_5'];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
   let parsedLocalMotors: any[] | null = null;
   if (localMotorsStr) {
     try {
       parsedLocalMotors = JSON.parse(localMotorsStr).filter(
-        (m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5'
+        (m: any) => !PHANTOM_MOTORS.includes(m.name)
       );
     } catch { }
   }
   const allMotors = (customMotors && customMotors.length > 0)
-    ? customMotors.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5')
+    ? customMotors.filter((m: any) => !PHANTOM_MOTORS.includes(m.name))
     : (parsedLocalMotors && parsedLocalMotors.length > 0 ? parsedLocalMotors : defaultMotors);
 
   const compiledTanks = tanksToUse.map((t: any, tIdx: number) => {
@@ -488,7 +489,7 @@ const DashboardPage: React.FC = () => {
     (username || '').toLowerCase().includes('utl') || role === 'water_quality' ? 'water_quality' : 'map'
   );
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; isOnline?: boolean; meterAmperesMap?: Record<string, number> }>>({});
 
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -603,7 +604,7 @@ const DashboardPage: React.FC = () => {
 
   const fetchAllDevicesTelemetry = async (devices: any[]) => {
     if (!devices || devices.length === 0) return;
-    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }> = {};
+    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; isOnline?: boolean; meterAmperesMap?: Record<string, number> }> = {};
     await Promise.all(
       devices.map(async (d) => {
         try {
@@ -643,13 +644,13 @@ const DashboardPage: React.FC = () => {
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
           const totalActiveMotors = Math.max(autoAct, manualActiveMotors);
 
-          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
           if (trip > 0) {
             operatingMode = 'TRIP';
-          } else if (autoAct > 0) {
-            operatingMode = 'AUTO';
           } else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) {
             operatingMode = 'MANUAL';
+          } else if (data) {
+            operatingMode = 'AUTO';
           } else {
             operatingMode = 'STANDBY';
           }
@@ -660,6 +661,7 @@ const DashboardPage: React.FC = () => {
             currentAmperes: maxAmpere,
             hasElectricalAmpere: hasAmpere,
             operatingMode,
+            isOnline: Boolean(data),
             meterAmperesMap
           };
         } catch { }
@@ -817,15 +819,15 @@ const DashboardPage: React.FC = () => {
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
           const totalActiveMotors = Math.max(act, manualActiveMotors);
 
-          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
           if (trip > 0) operatingMode = 'TRIP';
-          else if (act > 0) operatingMode = 'AUTO';
           else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
+          else if (data) operatingMode = 'AUTO';
           else operatingMode = 'STANDBY';
 
           setDeviceStatusMap(prev => ({
             ...prev,
-            [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+            [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, isOnline: Boolean(data), meterAmperesMap }
           }));
         } catch (innerErr) {
           console.warn('Electrical status parsing error:', innerErr);
@@ -1213,7 +1215,8 @@ const DashboardPage: React.FC = () => {
                     {/* Plant Operational Mode Badge (AUTO / MANUAL OVERRIDE / STANDBY) */}
                     {(() => {
                       const currentStatus = deviceStatusMap[selectedDeviceId];
-                      const mode = currentStatus?.operatingMode || 'STANDBY';
+                      const mode = currentStatus?.operatingMode || 'AUTO';
+                      const actCount = currentStatus?.activeMotors || 0;
 
                       if (mode === 'AUTO') {
                         return (
@@ -1229,7 +1232,7 @@ const DashboardPage: React.FC = () => {
                             alignItems: 'center',
                             gap: '6px'
                           }}>
-                            ⚙️ AUTOMATIC MODE
+                            {actCount > 0 ? `⚙️ AUTOMATIC MODE (${actCount} RUNNING)` : '⚙️ AUTOMATIC MODE (STANDBY READY)'}
                           </span>
                         );
                       } else if (mode === 'MANUAL') {
@@ -1548,7 +1551,7 @@ const DashboardPage: React.FC = () => {
                       waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
                       activeMotorsCount={activeMotors}
                       trippedMotorsCount={trippedMotors}
-                      operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
+                      operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || (telemetry ? 'AUTO' : 'STANDBY')}
                       latitude={layout.latitude}
                       longitude={layout.longitude}
                       userDevices={userDevices}
@@ -1564,7 +1567,7 @@ const DashboardPage: React.FC = () => {
                     motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
                     tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
                     currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
-                    operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
+                    operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || (telemetry ? 'AUTO' : 'STANDBY')}
                     meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
                     liveWaterLevel={telemetry?.tanks[0]?.water_level_percent ?? 0}
                   />
