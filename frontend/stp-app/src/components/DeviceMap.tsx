@@ -124,7 +124,7 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   waterLevel,
   activeMotorsCount,
   trippedMotorsCount = 0,
-  operatingMode = 'AUTO',
+  operatingMode = 'STANDBY',
   latitude,
   longitude,
   locationName,
@@ -138,11 +138,11 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Helper to resolve icon by status
-  const getMarkerIcon = (mode?: string, _devActive?: number, devTripped?: number) => {
+  const getMarkerIcon = (mode?: string, devActive?: number, devTripped?: number) => {
     if (mode === 'TRIP' || (devTripped && devTripped > 0)) return redPinIcon;
     if (mode === 'MANUAL') return amberPinIcon;
-    if (mode === 'OFFLINE') return bluePinIcon;
-    return greenPinIcon;
+    if (mode === 'AUTO' || (devActive && devActive > 0)) return greenPinIcon;
+    return bluePinIcon;
   };
 
   // 1. Initialize Map & Single Selected Plant Marker
@@ -174,8 +174,8 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     const marker = L.marker([finalLat, finalLng], { icon: iconToUse }).addTo(map);
     markersMapRef.current.set(deviceId, marker);
 
-    let statusLabel = '⚙️ AUTOMATIC MODE (STANDBY READY)';
-    let statusBg = '#059669';
+    let statusLabel = '⚪ STANDBY / IDLE';
+    let statusBg = '#0284C7';
 
     if (operatingMode === 'TRIP' || trippedMotorsCount > 0) {
       statusLabel = '🚨 FAULT / TRIPPED';
@@ -183,11 +183,8 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
     } else if (operatingMode === 'MANUAL') {
       statusLabel = '🖐️ MANUAL MODE';
       statusBg = '#EA580C';
-    } else if (operatingMode === 'OFFLINE') {
-      statusLabel = '⚪ OFFLINE / DISCONNECTED';
-      statusBg = '#64748B';
-    } else {
-      statusLabel = activeMotorsCount > 0 ? `⚙️ AUTOMATIC MODE (${activeMotorsCount} RUNNING)` : '⚙️ AUTOMATIC MODE (STANDBY READY)';
+    } else if (operatingMode === 'AUTO' || activeMotorsCount > 0) {
+      statusLabel = '⚙️ AUTOMATIC MODE';
       statusBg = '#059669';
     }
 
@@ -376,8 +373,8 @@ export const DeviceMap: React.FC<DeviceMapProps> = ({
           <div style={{ fontSize: '10px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
             <Zap size={12} color={operatingMode === 'MANUAL' ? '#EA580C' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '#059669' : operatingMode === 'TRIP' ? '#DC2626' : '#64748B'} /> Operational Status
           </div>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: operatingMode === 'MANUAL' ? '#EA580C' : operatingMode === 'TRIP' ? '#DC2626' : operatingMode === 'OFFLINE' ? '#64748B' : '#059669', fontFamily: 'monospace' }}>
-            {operatingMode === 'MANUAL' ? '🖐️ Manual Mode' : operatingMode === 'TRIP' || trippedMotorsCount > 0 ? '🚨 Tripped' : operatingMode === 'OFFLINE' ? '⚪ Offline' : (activeMotorsCount > 0 ? `⚙️ Automatic Mode (${activeMotorsCount} Running)` : '⚙️ Automatic Mode (Standby Ready)')}
+          <div style={{ fontSize: '12px', fontWeight: 700, color: operatingMode === 'MANUAL' ? '#EA580C' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '#059669' : operatingMode === 'TRIP' ? '#DC2626' : '#64748B', fontFamily: 'monospace' }}>
+            {operatingMode === 'MANUAL' ? '🖐️ Manual Mode' : operatingMode === 'AUTO' || activeMotorsCount > 0 ? '⚙️ Automatic Mode' : operatingMode === 'TRIP' ? '🚨 Tripped' : '⚪ Standby'}
           </div>
         </div>
 

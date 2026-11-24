@@ -8,7 +8,7 @@ import {
 
 interface OverallPlantMapProps {
   userDevices?: any[];
-  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' | 'OFFLINE'; isOnline?: boolean }>;
+  deviceStatusMap?: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' }>;
   onSelectDevice?: (deviceId: string) => void;
   isWaterQualityUser?: boolean;
 }
@@ -49,7 +49,7 @@ const defaultPlantsList = [
   },
   {
     device_id: '350435032689659',
-    device_name: 'SPS_SANJAY_PLANT',
+    device_name: 'SPS_SANJAY PLANT',
     latitude: 28.672000,
     longitude: 77.442000,
     location_address: 'Raj Nagar Extension, Ghaziabad, UP',
@@ -240,8 +240,6 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
   const plantsToRender = baseList.map(d => {
     const matchedDefault = (isWaterQualityUser ? utlPlantList : defaultPlantsList).find(dp => dp.device_id === d.device_id);
     const statusObj = deviceStatusMap[d.device_id] || {};
-    const hasData = statusObj.isOnline !== false;
-    const mode = statusObj.operatingMode || (hasData ? 'AUTO' : 'OFFLINE');
     return {
       device_id: d.device_id,
       device_name: d.device_name || d.name || (isWaterQualityUser ? 'UTL Water Quality Plant' : 'STP Plant Device'),
@@ -253,8 +251,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
       trippedMotors: statusObj.trippedMotors ?? (d.tripped_motors || 0),
       currentAmperes: statusObj.currentAmperes ?? 0,
       hasElectricalAmpere: statusObj.hasElectricalAmpere ?? false,
-      isOnline: hasData,
-      operatingMode: mode
+      operatingMode: statusObj.operatingMode || (statusObj.activeMotors > 0 ? 'AUTO' : 'STANDBY')
     };
   });
 
@@ -264,11 +261,11 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
     p.location_address.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Calculate Metrics KPI counts: plants actively posting telemetry are Online & Active
+  // Calculate Metrics KPI counts
   const totalDevicesCount = plantsToRender.length;
-  const onlineCount = plantsToRender.filter(p => p.isOnline && p.operatingMode !== 'OFFLINE').length;
+  const onlineCount = plantsToRender.filter(p => p.operatingMode === 'AUTO' || p.operatingMode === 'MANUAL' || p.activeMotors > 0).length;
   const faultCount = plantsToRender.filter(p => p.trippedMotors > 0 || p.operatingMode === 'TRIP').length;
-  const offlineCount = plantsToRender.filter(p => !p.isOnline || p.operatingMode === 'OFFLINE').length;
+  const offlineCount = plantsToRender.filter(p => p.operatingMode === 'STANDBY' || (p.activeMotors === 0 && p.trippedMotors === 0 && p.operatingMode !== 'AUTO' && p.operatingMode !== 'MANUAL')).length;
 
   // Initialize Map
   useEffect(() => {
@@ -333,26 +330,19 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
     filteredPlants.forEach(plant => {
       const mode = plant.operatingMode;
       const isTripped = plant.trippedMotors > 0 || mode === 'TRIP';
+      const isAuto = mode === 'AUTO' || (plant.activeMotors > 0 && !isTripped);
       const isManual = mode === 'MANUAL';
-      const isAuto = mode === 'AUTO' || (!isTripped && !isManual && plant.isOnline);
+      const isOnline = isAuto || isManual;
 
       const shortName = plant.device_name.split(',')[0].replace('VASUNDHARA', 'VAS').replace('SECTOR', 'SEC');
       const pinIcon = isTripped ? createRedIcon(shortName) : isManual ? createAmberIcon(shortName) : isAuto ? createGreenIcon(shortName) : createGrayIcon(shortName);
 
       const marker = L.marker([plant.latitude, plant.longitude], { icon: pinIcon }).addTo(mapRef.current!);
 
-      const badgeText = isTripped 
-        ? '🚨 FAULT ALARM' 
-        : isManual 
-          ? `🖐️ MANUAL MODE (${plant.currentAmperes.toFixed(1)} A)` 
-          : plant.activeMotors > 0 
-            ? `🟢 AUTOMATIC MODE (${plant.activeMotors} RUNNING)` 
-            : isAuto 
-              ? '🟢 AUTOMATIC MODE (STANDBY READY)' 
-              : '⚪ OFFLINE / DISCONNECTED';
-      const badgeBg = isTripped ? '#FEF2F2' : isManual ? '#FFF7ED' : isAuto ? '#ECFDF5' : '#F1F5F9';
-      const badgeColor = isTripped ? '#DC2626' : isManual ? '#EA580C' : isAuto ? '#059669' : '#475569';
-      const badgeBorder = isTripped ? '#FCA5A5' : isManual ? '#FFEDD5' : isAuto ? '#A7F3D0' : '#CBD5E1';
+      const badgeText = isTripped ? '🚨 FAULT ALARM' : isAuto ? '🟢 AUTOMATIC MODE (PLC CONTROL)' : isManual ? `🖐️ MANUAL MODE (${plant.currentAmperes.toFixed(1)} A)` : '⚪ STANDBY / IDLE';
+      const badgeBg = isTripped ? '#FEF2F2' : isAuto ? '#ECFDF5' : isManual ? '#FFF7ED' : '#F1F5F9';
+      const badgeColor = isTripped ? '#DC2626' : isAuto ? '#059669' : isManual ? '#EA580C' : '#475569';
+      const badgeBorder = isTripped ? '#FCA5A5' : isAuto ? '#A7F3D0' : isManual ? '#FFEDD5' : '#CBD5E1';
 
       const activeDisplay = plant.activeMotors > 0 
         ? `${plant.activeMotors} Active` 
@@ -393,7 +383,7 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
             </div>
             <div>
               <div style="font-size: 10px; color: #64748B; font-weight: 700;">PUMPS RUNNING</div>
-              <div style="font-size: 12px; font-weight: 800; color: ${plant.isOnline ? '#059669' : '#0F172A'};">
+              <div style="font-size: 12px; font-weight: 800; color: ${isOnline ? '#059669' : '#0F172A'};">
                 ${activeDisplay} ${isTripped ? `(${plant.trippedMotors} Tripped)` : ''}
               </div>
             </div>
@@ -535,12 +525,12 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               Online & Active
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              Live Telemetry Connected
+              Pumps Running Normal
             </div>
           </div>
         </div>
 
-        {/* Card 3: Offline / Inactive */}
+        {/* Card 3: Offline / Standby */}
         <div style={{
           background: '#FFFFFF',
           borderRadius: '16px',
@@ -567,10 +557,10 @@ export const OverallPlantMap: React.FC<OverallPlantMapProps> = ({
               {offlineCount}
             </div>
             <div style={{ fontSize: '13px', fontWeight: 800, color: '#64748B', marginTop: '4px' }}>
-              Offline / Inactive
+              Offline / Standby
             </div>
             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-              No Data Posted
+              Plants Idle on Standby
             </div>
           </div>
         </div>

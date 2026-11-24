@@ -272,12 +272,11 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
         {tankLayout.motors.map((motor, mi) => {
           const ms = telemetry?.motors.find(m => m.run_param_key === motor.run_param_key) || telemetry?.motors[mi];
           const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${mi + 1}`;
-          const isAutoRunning = ms?.is_running === true;
+          const isAutoRunning = (ms?.is_running === true) || (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
           const isTripped = ms?.is_tripped ?? false;
 
-          const mId = (motor as any).meter_id ? String((motor as any).meter_id) : String(mi + 2);
-          const motorAmp = Number(selectedStatus?.meterAmperesMap?.[mId] ?? 0);
-
+          const mId = String(mi + 2);
+          const motorAmp = selectedStatus?.meterAmperesMap?.[mId] ?? 0;
           const isManualRunning = !isAutoRunning && !isTripped && motorAmp > 0.05;
           const isRunning = isAutoRunning || isManualRunning;
           const motorObj = { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped };
@@ -336,7 +335,7 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
   const defaultDevs = [
     { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
     { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
     { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
@@ -394,36 +393,38 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     { name: 'MOTOR-004', motor_name: 'Motor_4', tank: 'TANK-001', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
     { name: 'MOTOR-005', motor_name: 'Motor_5', tank: 'TANK-001', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-    // TANK_A (STP PLANT A - Vasundhara Sector 7, 8MLD: Strictly 3 motors installed)
-    { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+    // TANK_A (STP PLANT A)
+    { name: 'MOTOR_A_1', motor_name: 'MOTOR_A_1', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_A_2', motor_name: 'MOTOR_A_2', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_A_3', motor_name: 'MOTOR_A_3', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+    { name: 'MOTOR_A_4', motor_name: 'MOTOR_A_4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+    { name: 'MOTOR_A_5', motor_name: 'MOTOR_A_5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-    // TANK_B (STP PLANT B - Vasundhara Sector 19: 2 motors installed)
-    { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    // TANK_B (STP PLANT B)
+    { name: 'MOTOR_B_1', motor_name: 'MOTOR_B_1', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_B_2', motor_name: 'MOTOR_B_2', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_B_3', motor_name: 'MOTOR_B_3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+    { name: 'MOTOR_B_4', motor_name: 'MOTOR_B_4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+    { name: 'MOTOR_B_5', motor_name: 'MOTOR_B_5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-    // TANK_C (STP PLANT C - SPS Sanjay: 2 motors installed)
-    { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    // TANK_C (STP PLANT C)
+    { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+    { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+    { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-    // TANK_D (STP PLANT D - Vaishali Sector 6: 2 motors installed)
-    { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
+    // TANK_D (STP PLANT D)
+    { name: 'MOTOR_D_1', motor_name: 'MOTOR_D_1', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_D_2', motor_name: 'MOTOR_D_2', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_D_3', motor_name: 'MOTOR_D_3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+    { name: 'MOTOR_D_4', motor_name: 'MOTOR_D_4', tank: 'TANK_D', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+    { name: 'MOTOR_D_5', motor_name: 'MOTOR_D_5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
   ];
-  const PHANTOM_MOTORS = ['MOTOR_A_4', 'MOTOR_A_5', 'MOTOR_B_3', 'MOTOR_B_4', 'MOTOR_B_5', 'MOTOR_C_3', 'MOTOR_C_4', 'MOTOR_C_5', 'MOTOR_D_3', 'MOTOR_D_4', 'MOTOR_D_5'];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
-  let parsedLocalMotors: any[] | null = null;
-  if (localMotorsStr) {
-    try {
-      parsedLocalMotors = JSON.parse(localMotorsStr).filter(
-        (m: any) => !PHANTOM_MOTORS.includes(m.name)
-      );
-    } catch { }
-  }
   const allMotors = (customMotors && customMotors.length > 0)
-    ? customMotors.filter((m: any) => !PHANTOM_MOTORS.includes(m.name))
-    : (parsedLocalMotors && parsedLocalMotors.length > 0 ? parsedLocalMotors : defaultMotors);
+    ? customMotors
+    : (localMotorsStr ? JSON.parse(localMotorsStr) : defaultMotors);
 
   const compiledTanks = tanksToUse.map((t: any, tIdx: number) => {
     const matchedMotors = allMotors.filter((m: any) =>
@@ -433,9 +434,11 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     );
 
     const motorsToUse = matchedMotors.length > 0 ? matchedMotors : [
-      { name: `MOTOR-1`, motor_name: 'M1_60_HP', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-      { name: `MOTOR-2`, motor_name: 'M2_75_HP', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-      { name: `MOTOR-3`, motor_name: 'M3_60_HP', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 }
+      { name: `MOTOR-1`, motor_name: 'Motor 1', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+      { name: `MOTOR-2`, motor_name: 'Motor 2', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+      { name: `MOTOR-3`, motor_name: 'Motor 3', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+      { name: `MOTOR-4`, motor_name: 'Motor 4', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+      { name: `MOTOR-5`, motor_name: 'Motor 5', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
     ];
 
     return {
@@ -488,7 +491,7 @@ const DashboardPage: React.FC = () => {
     (username || '').toLowerCase().includes('utl') || role === 'water_quality' ? 'water_quality' : 'map'
   );
   const [selectedMotorModal, setSelectedMotorModal] = useState<{ motor: any; tankName: string } | null>(null);
-  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; isOnline?: boolean; meterAmperesMap?: Record<string, number> }>>({});
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }>>({});
 
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<{
     greaseNotifs: Array<{ motorName: string; tankName: string; hours: number }>;
@@ -565,12 +568,12 @@ const DashboardPage: React.FC = () => {
       const m5_r = isStale ? false : (parseRun(raw.low_pressure) && !m5_t);
 
       const m_map: Record<string, string[]> = {
-        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
-        "350435032680674": ["M1_40_HP", "M2_30_HP"],
-        "350435032689659": ["M1_50_HP", "M2_50_HP"],
-        "350435032681912": ["M1_30_HP", "M2_30_HP"]
+        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
+        "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
+        "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
+        "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
       };
-      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP"];
+      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"];
 
       return {
         device_id: devId,
@@ -603,7 +606,7 @@ const DashboardPage: React.FC = () => {
 
   const fetchAllDevicesTelemetry = async (devices: any[]) => {
     if (!devices || devices.length === 0) return;
-    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; isOnline?: boolean; meterAmperesMap?: Record<string, number> }> = {};
+    const statusMap: Record<string, { activeMotors: number; trippedMotors: number; currentAmperes?: number; hasElectricalAmpere?: boolean; operatingMode?: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP'; meterAmperesMap?: Record<string, number> }> = {};
     await Promise.all(
       devices.map(async (d) => {
         try {
@@ -641,29 +644,36 @@ const DashboardPage: React.FC = () => {
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
 
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+          const totalActiveMotors = Math.max(autoAct, manualActiveMotors);
 
-          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
+          const hasPostedData = Boolean(
+            data && (
+              data.timestamp ||
+              data.water_level_raw != null ||
+              data.raw_params?.timestamp ||
+              (data.water_level_percent != null && data.water_level_percent > 0)
+            )
+          );
+
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) {
             operatingMode = 'TRIP';
           } else if (autoAct > 0) {
             operatingMode = 'AUTO';
           } else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) {
             operatingMode = 'MANUAL';
-          } else if (data) {
+          } else if (hasPostedData) {
             operatingMode = 'AUTO';
           } else {
             operatingMode = 'STANDBY';
           }
 
-          const totalActiveMotors = operatingMode === 'MANUAL' ? manualActiveMotors : autoAct;
-
           statusMap[d.device_id] = {
-            activeMotors: totalActiveMotors,
+            activeMotors: totalActiveMotors > 0 ? totalActiveMotors : (hasPostedData ? 1 : 0),
             trippedMotors: trip,
             currentAmperes: maxAmpere,
             hasElectricalAmpere: hasAmpere,
             operatingMode,
-            isOnline: Boolean(data),
             meterAmperesMap
           };
         } catch { }
@@ -676,15 +686,16 @@ const DashboardPage: React.FC = () => {
     const defaultDevs = [
       { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
 
     let allDevices = defaultDevs;
     const centralDevs = await getCentralDevices();
     if (centralDevs && centralDevs.length > 0) {
-      localStorage.setItem('stp_local_devices', JSON.stringify(centralDevs));
-      allDevices = centralDevs;
+      const fixed = centralDevs.map((d: any) => d.device_id === '350435032689659' && (d.device_name === 'STP PLANT C' || d.name === 'STP PLANT C') ? { ...d, name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT' } : d);
+      localStorage.setItem('stp_local_devices', JSON.stringify(fixed));
+      allDevices = fixed;
     } else {
       const localDevicesStr = localStorage.getItem('stp_local_devices');
       if (localDevicesStr) {
@@ -703,19 +714,10 @@ const DashboardPage: React.FC = () => {
             localStorage.removeItem('stp_local_motors');
             allDevices = defaultDevs;
           } else {
-            allDevices = parsed;
+            allDevices = parsed.map((d: any) => d.device_id === '350435032689659' && (d.device_name === 'STP PLANT C' || d.name === 'STP PLANT C') ? { ...d, name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT' } : d);
           }
         } catch { }
       }
-    }
-
-    if (allDevices && Array.isArray(allDevices)) {
-      allDevices = allDevices.map((d: any) => {
-        if (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) {
-          return { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' };
-        }
-        return d;
-      });
     }
 
     const isUserAssigned = (d: any) => {
@@ -819,19 +821,34 @@ const DashboardPage: React.FC = () => {
           });
 
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
+          const totalActiveMotors = Math.max(act, manualActiveMotors);
 
-          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
+          const hasPostedData = Boolean(
+            data && (
+              data.timestamp ||
+              data.water_level_raw != null ||
+              data.raw_params?.timestamp ||
+              (data.water_level_percent != null && data.water_level_percent > 0)
+            )
+          );
+
+          let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
           if (trip > 0) operatingMode = 'TRIP';
           else if (act > 0) operatingMode = 'AUTO';
           else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
-          else if (data) operatingMode = 'AUTO';
+          else if (hasPostedData) operatingMode = 'AUTO';
           else operatingMode = 'STANDBY';
-
-          const totalActiveMotors = operatingMode === 'MANUAL' ? manualActiveMotors : act;
 
           setDeviceStatusMap(prev => ({
             ...prev,
-            [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, isOnline: Boolean(data), meterAmperesMap }
+            [devId]: {
+              activeMotors: totalActiveMotors > 0 ? totalActiveMotors : (hasPostedData ? 1 : 0),
+              trippedMotors: trip,
+              currentAmperes: maxAmpere,
+              hasElectricalAmpere: hasAmpere,
+              operatingMode,
+              meterAmperesMap
+            }
           }));
         } catch (innerErr) {
           console.warn('Electrical status parsing error:', innerErr);
@@ -981,7 +998,8 @@ const DashboardPage: React.FC = () => {
   const activeMotors = Math.max(
     selectedStatus?.activeMotors ?? 0,
     autoActiveMotors,
-    manualActiveMeters
+    manualActiveMeters,
+    selectedStatus?.operatingMode === 'MANUAL' ? 1 : 0
   );
   const trippedMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_tripped).length ?? 0;
   const avgLevel = layout?.tanks.length
@@ -1219,8 +1237,7 @@ const DashboardPage: React.FC = () => {
                     {/* Plant Operational Mode Badge (AUTO / MANUAL OVERRIDE / STANDBY) */}
                     {(() => {
                       const currentStatus = deviceStatusMap[selectedDeviceId];
-                      const mode = currentStatus?.operatingMode || 'AUTO';
-                      const actCount = currentStatus?.activeMotors || 0;
+                      const mode = currentStatus?.operatingMode || 'STANDBY';
 
                       if (mode === 'AUTO') {
                         return (
@@ -1236,7 +1253,7 @@ const DashboardPage: React.FC = () => {
                             alignItems: 'center',
                             gap: '6px'
                           }}>
-                            {actCount > 0 ? `⚙️ AUTOMATIC MODE (${actCount} RUNNING)` : '⚙️ AUTOMATIC MODE (STANDBY READY)'}
+                            ⚙️ AUTOMATIC MODE
                           </span>
                         );
                       } else if (mode === 'MANUAL') {
@@ -1477,7 +1494,7 @@ const DashboardPage: React.FC = () => {
           {!loading && isWaterQualityUser && (
             <>
               {activeTab === 'electrical' ? (
-                <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} plantTelemetry={telemetry} isWaterQualityUser={true} />
+                <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} isWaterQualityUser={true} />
               ) : activeTab === 'digital_twin' ? (
                 <OverallPlantMap userDevices={userDevices} deviceStatusMap={deviceStatusMap} onSelectDevice={handleDeviceChange} isWaterQualityUser={true} />
               ) : activeTab === 'camera' || activeTab === 'photos' ? (
@@ -1512,7 +1529,7 @@ const DashboardPage: React.FC = () => {
               ) : activeTab === 'camera' ? (
                 <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} isWaterQualityUser={false} />
               ) : activeTab === 'electrical' ? (
-                <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} plantTelemetry={telemetry} />
+                <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
               ) : activeTab === 'maintenance' ? (
                 <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
               ) : activeTab === 'replacements' ? (
@@ -1555,7 +1572,7 @@ const DashboardPage: React.FC = () => {
                       waterLevel={telemetry?.tanks[0]?.water_level_percent || 0}
                       activeMotorsCount={activeMotors}
                       trippedMotorsCount={trippedMotors}
-                      operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || (telemetry ? 'AUTO' : 'STANDBY')}
+                      operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
                       latitude={layout.latitude}
                       longitude={layout.longitude}
                       userDevices={userDevices}
@@ -1571,7 +1588,7 @@ const DashboardPage: React.FC = () => {
                     motors={telemetry?.tanks[0]?.motors || layout?.tanks[0]?.motors || []}
                     tankName={layout?.tanks[0]?.name || (layout?.tanks[0] as any)?.tank_name}
                     currentAmperes={deviceStatusMap[selectedDeviceId]?.currentAmperes || 0}
-                    operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || (telemetry ? 'AUTO' : 'STANDBY')}
+                    operatingMode={deviceStatusMap[selectedDeviceId]?.operatingMode || 'STANDBY'}
                     meterAmperesMap={deviceStatusMap[selectedDeviceId]?.meterAmperesMap || {}}
                     liveWaterLevel={telemetry?.tanks[0]?.water_level_percent ?? 0}
                   />

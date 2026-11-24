@@ -247,41 +247,22 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   const v23 = Number((v_ll + 0.6).toFixed(1));
   const v31 = Number((v_ll - 0.3).toFixed(1));
 
-  // Dynamic running state detection based on live motor state
-  let isRunning = false;
-  try {
-    const cachedTel = localStorage.getItem(`stp_telemetry_${deviceId}`);
-    if (cachedTel) {
-      const parsed = JSON.parse(cachedTel);
-      const motorIdx = (mNum >= 2) ? (mNum - 2) : 0;
-      const mState = parsed?.tanks?.[0]?.motors?.[motorIdx];
-      if (mState && mState.is_running) {
-        isRunning = true;
-      }
-    }
-  } catch {}
+  const pf_avg = Number((basePf + ((mNum % 2) * 0.012 - 0.006)).toFixed(3));
+  const freq = 49.94;
 
-  // Live fallback: Sector 19 currently has both motors running in live telemetry
-  if (!isRunning && deviceId === "350435032680674" && (mIdStr === "2" || mIdStr === "3")) {
-    isRunning = true;
-  }
-
-  const pf_avg = isRunning ? Number((basePf + ((mNum % 2) * 0.012 - 0.006)).toFixed(3)) : 0.0;
-  const freq = isRunning ? 49.94 : 50.0;
-
-  const total_kw = isRunning ? Number((hp * 0.746 * meterLoadScale).toFixed(2)) : 0.0;
+  const total_kw = Number((hp * 0.746 * meterLoadScale).toFixed(2));
   const kw1 = Number((total_kw / 3).toFixed(2));
   const kw2 = Number((total_kw / 3).toFixed(2));
   const kw3 = Number((total_kw / 3).toFixed(2));
 
-  const total_amp = (isRunning && pf_avg > 0) ? Number(((total_kw * 1000) / (1.732 * v_ll * pf_avg)).toFixed(1)) : 0.0;
+  const total_amp = Number(((total_kw * 1000) / (1.732 * v_ll * pf_avg)).toFixed(1));
   const i1 = Number((total_amp * 0.99).toFixed(1));
   const i2 = Number((total_amp * 1.01).toFixed(1));
   const i3 = Number((total_amp * 1.00).toFixed(1));
   const i_avg = total_amp;
 
-  const total_kva = (isRunning && pf_avg > 0) ? Number((total_kw / pf_avg).toFixed(2)) : 0.0;
-  const total_kvar = (isRunning && total_kva > 0) ? Number(Math.sqrt(Math.max(0, total_kva * total_kva - total_kw * total_kw)).toFixed(2)) : 0.0;
+  const total_kva = Number((total_kw / pf_avg).toFixed(2));
+  const total_kvar = Number(Math.sqrt(Math.max(0, total_kva * total_kva - total_kw * total_kw)).toFixed(2));
   const kwh = Number((baseKwh + (mNum * 1420.5) + (hp * 14.2 * meterLoadScale)).toFixed(2));
 
   return {

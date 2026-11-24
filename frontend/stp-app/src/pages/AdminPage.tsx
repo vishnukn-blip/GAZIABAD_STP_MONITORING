@@ -41,7 +41,7 @@ const DEFAULT_LOCAL_USERS = [
 export const DEFAULT_LOCAL_DEVICES = [
   { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
-  { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'UTL WATER MONITORING PLANT #98203928', device_name: 'UTL WATER MONITORING PLANT #98203928', device_id: '98203928', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 12.9698, longitude: 77.7500, assigned_user: 'utl@nimblevision.io', is_active: 1 }
 ];
@@ -57,12 +57,23 @@ export const DEFAULT_LOCAL_MOTORS = [
   { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_A_4', motor_name: 'M4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_A_5', motor_name: 'M5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
   { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_B_3', motor_name: 'M3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_B_4', motor_name: 'M4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_B_5', motor_name: 'M5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+  { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+  { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
   { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
+  { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_D_3', motor_name: 'M3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
+  { name: 'MOTOR_D_4', motor_name: 'M4', tank: 'TANK_D', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
+  { name: 'MOTOR_D_5', motor_name: 'M5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
 ];
 
 const AdminPage: React.FC = () => {
@@ -70,7 +81,7 @@ const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'users' | 'devices' | 'tanks' | 'motors' | 'desk'>('users');
 
-  const [users, setUsers] = useState<any[]>(DEFAULT_LOCAL_USERS);
+  const [users, setUsers] = useState<any[]>([]);
   const [userForm, setUserForm] = useState({
     email: '', first_name: '', last_name: '', password: '', role: 'System User'
   });
@@ -111,7 +122,13 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(localUsersStr);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setUsers(parsed);
+          const merged = [...parsed];
+          DEFAULT_LOCAL_USERS.forEach(u => {
+            if (!merged.some(m => m.email === u.email || m.name === u.name)) {
+              merged.push(u);
+            }
+          });
+          setUsers(merged);
           return;
         }
       } catch {}
@@ -158,7 +175,7 @@ const AdminPage: React.FC = () => {
     setEditingUser(null);
   };
 
-  const [devices, setDevices] = useState<any[]>(DEFAULT_LOCAL_DEVICES);
+  const [devices, setDevices] = useState<any[]>([]);
   const [deviceForm, setDeviceForm] = useState({
     device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1
   });
@@ -170,18 +187,17 @@ const AdminPage: React.FC = () => {
       const data = await frappeGetList('STP Device',
         ['name', 'device_name', 'device_id', 'api_key', 'assigned_user', 'is_active']);
       if (data && data.length > 0) {
-        const norm = data.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
-        setDevices(norm);
-        localStorage.setItem('stp_local_devices', JSON.stringify(norm));
+        setDevices(data);
+        localStorage.setItem('stp_local_devices', JSON.stringify(data));
         return;
       }
     } catch {}
 
     const central = await getCentralDevices();
     if (central && Array.isArray(central) && central.length > 0) {
-      const norm = central.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
-      localStorage.setItem('stp_local_devices', JSON.stringify(norm));
-      setDevices(norm);
+      const fixed = central.map((d: any) => d.device_id === '350435032689659' && (d.device_name === 'STP PLANT C' || d.name === 'STP PLANT C') ? { ...d, name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT' } : d);
+      localStorage.setItem('stp_local_devices', JSON.stringify(fixed));
+      setDevices(fixed);
       return;
     }
 
@@ -190,8 +206,8 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const norm = parsed.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
-          setDevices(norm);
+          const fixed = parsed.map((d: any) => d.device_id === '350435032689659' && (d.device_name === 'STP PLANT C' || d.name === 'STP PLANT C') ? { ...d, name: 'SPS_SANJAY PLANT', device_name: 'SPS_SANJAY PLANT' } : d);
+          setDevices(fixed);
           return;
         }
       } catch {}
@@ -309,9 +325,8 @@ const AdminPage: React.FC = () => {
 
     const central = await getCentralMotors();
     if (central && Array.isArray(central) && central.length > 0) {
-      const sanitized = central.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5');
-      localStorage.setItem('stp_local_motors', JSON.stringify(sanitized));
-      setMotors(sanitized);
+      localStorage.setItem('stp_local_motors', JSON.stringify(central));
+      setMotors(central);
       return;
     }
 
@@ -320,8 +335,7 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const sanitized = parsed.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5');
-          setMotors(sanitized.length > 0 ? sanitized : DEFAULT_LOCAL_MOTORS);
+          setMotors(parsed);
           return;
         }
       } catch {}

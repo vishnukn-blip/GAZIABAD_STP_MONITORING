@@ -9,7 +9,6 @@ interface ElectricalParametersProps {
   deviceId?: string;
   deviceName?: string;
   layout?: any;
-  plantTelemetry?: any;
   isWaterQualityUser?: boolean;
 }
 
@@ -17,7 +16,6 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   deviceId = "350435032683868",
   deviceName = "VASUNDHARA SECTOR 7 , 8MLD PLANT",
   layout,
-  plantTelemetry,
   isWaterQualityUser: _isWaterQualityUser
 }) => {
   const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
@@ -37,15 +35,15 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     const targetMotorIndex = !isNaN(meterNum) && meterNum >= 2 ? (meterNum - 2) : 0;
 
     if (layout?.tanks) {
+      let counter = 0;
       for (const tank of layout.tanks) {
         if (tank.motors && tank.motors.length > 0) {
-          for (let idx = 0; idx < tank.motors.length; idx++) {
-            const m = tank.motors[idx];
-            const motorMeterId = (m as any).meter_id ? String((m as any).meter_id) : String(idx + 2);
-            if (motorMeterId === mId || idx === targetMotorIndex) {
-              const name = m.name || (m as any).motor_name || (m as any).label;
+          for (const m of tank.motors) {
+            if (m.meter_id === mId || counter === targetMotorIndex) {
+              const name = m.name || m.motor_name || m.label;
               if (name) return name;
             }
+            counter++;
           }
         }
       }
@@ -68,13 +66,11 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
     const v_ll = isSector19 ? 412.4 : isSector6 ? 405.6 : isSector7 ? 415.2 : 408.5;
     const v_ln = Math.round((v_ll / 1.732) * 10) / 10;
-    const isSector7Running = isSector7 && mNum === 2;
-    const isRunning = isSector6 ? false : (isSector7 ? isSector7Running : (mNum === 2));
-    const i_avg = isRunning ? (mNum === 2 ? 25.4 : 24.1) : 0.0;
-    const total_kw = isRunning ? (mNum === 2 ? 18.2 : 17.5) : 0.0;
-    const pf_avg = isRunning ? 0.895 : 0.0;
-    const total_kvar = isRunning ? 9.32 : 0.0;
-    const total_kva = isRunning ? 20.45 : 0.0;
+    const i_avg = isSector6 ? 0.0 : (mNum === 2 ? 25.4 : mNum === 3 ? 24.1 : 18.5);
+    const total_kw = isSector6 ? 0.0 : (mNum === 2 ? 18.2 : mNum === 3 ? 17.5 : 12.8);
+    const pf_avg = isSector6 ? 0.0 : 0.895;
+    const total_kvar = isSector6 ? 0.0 : 9.32;
+    const total_kva = isSector6 ? 0.0 : 20.45;
     const kwh = isSector19 ? 18450.0 : isSector6 ? 12980.0 : isSector7 ? 24100.0 : 14650.0;
 
     return {
@@ -208,18 +204,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       "98203928": ["1"]
     };
 
-    let dynamicMeters: string[] = [];
-    if (layout?.tanks) {
-      const allMotors = layout.tanks.flatMap((t: any) => t.motors || []);
-      if (allMotors.length > 0) {
-        dynamicMeters = allMotors.map((m: any, idx: number) =>
-          m.meter_id ? String(m.meter_id) : String(idx + 2)
-        );
-      }
-    }
-    const allowedMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
-    const filteredMeters = dynamicMeters.filter(m => allowedMeters.includes(m));
-    const validMeters = filteredMeters.length > 0 ? filteredMeters : allowedMeters;
+    const validMeters = plantMetersMap[deviceId] || availableMeters || ["2", "3"];
     setAvailableMeters(validMeters);
 
     let activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
@@ -227,13 +212,10 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       setSelectedMeter(activeMeter);
     }
 
-    // Async background check for additional meters list (strictly validated against configured meters)
+    // Async background check for additional meters list (non-blocking)
     getElectricalMeters(deviceId).then(metersList => {
-      if (metersList && Array.isArray(metersList) && metersList.length > 0) {
-        const filtered = metersList.filter((m: string) => allowedMeters.includes(m));
-        if (filtered.length > 0 && JSON.stringify(filtered) !== JSON.stringify(validMeters)) {
-          setAvailableMeters(filtered);
-        }
+      if (metersList && metersList.length > 0 && JSON.stringify(metersList) !== JSON.stringify(validMeters)) {
+        setAvailableMeters(metersList);
       }
     }).catch(() => {});
 
@@ -290,40 +272,6 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
     }
 
     if (mergedData) {
-      // Dynamic synchronization with live motor telemetry running state
-      const targetMotorIndex = parseInt(activeMeter, 10) >= 2 ? (parseInt(activeMeter, 10) - 2) : 0;
-      const ms = plantTelemetry?.tanks?.[0]?.motors?.[targetMotorIndex];
-      let isMotorRunning = Boolean(ms?.is_running);
-      if (!isMotorRunning && deviceId === "350435032680674" && (activeMeter === "2" || activeMeter === "3")) {
-        isMotorRunning = true;
-      }
-
-      const hpRatingsMap: Record<string, Record<string, number>> = {
-        "350435032683868": { "2": 60, "3": 75, "4": 60 },
-        "350435032680674": { "2": 40, "3": 30 },
-        "350435032689659": { "2": 50, "3": 50 },
-        "350435032681912": { "2": 30, "3": 25 },
-      };
-      const hp = (deviceId && hpRatingsMap[deviceId] && hpRatingsMap[deviceId][activeMeter]) || 30;
-      const motorLoadScale = 1.0 + ((parseInt(activeMeter, 10) % 3) * 0.12 - 0.06);
-      const dynamicRatedKw = Number((hp * 0.746 * motorLoadScale).toFixed(2));
-
-      if (isMotorRunning && (!mergedData.total_kw || mergedData.total_kw === 0)) {
-        mergedData.total_kw = dynamicRatedKw;
-        mergedData.kw1 = Number((dynamicRatedKw / 3).toFixed(2));
-        mergedData.kw2 = Number((dynamicRatedKw / 3).toFixed(2));
-        mergedData.kw3 = Number((dynamicRatedKw / 3).toFixed(2));
-      }
-
-      const calculatedAmp = (mergedData.total_kw > 0) ? Number(((mergedData.total_kw * 1000) / (1.732 * (mergedData.v_ll || 410) * Math.abs(mergedData.pf_avg || 0.88))).toFixed(1)) : 0;
-      if (isMotorRunning && (!mergedData.i_avg || mergedData.i_avg < 0.05)) {
-        mergedData.i_avg = calculatedAmp;
-        mergedData.i1 = Number((calculatedAmp * 0.99).toFixed(1));
-        mergedData.i2 = Number((calculatedAmp * 1.01).toFixed(1));
-        mergedData.i3 = calculatedAmp;
-        if (!mergedData.pf_avg) mergedData.pf_avg = 0.88;
-      }
-
       setTelemetry(mergedData);
       let timeOnly = dataAtTime;
       let formattedFull = lastUpdated;
@@ -385,18 +333,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
       "98203928": ["1"]
     };
 
-    let dynamicMeters: string[] = [];
-    if (layout?.tanks) {
-      const allMotors = layout.tanks.flatMap((t: any) => t.motors || []);
-      if (allMotors.length > 0) {
-        dynamicMeters = allMotors.map((m: any, idx: number) =>
-          m.meter_id ? String(m.meter_id) : String(idx + 2)
-        );
-      }
-    }
-    const allowedMeters = plantMetersMap[deviceId] || (isUtl ? ["1"] : ["2", "3"]);
-    const filteredMeters = dynamicMeters.filter(m => allowedMeters.includes(m));
-    const validMeters = filteredMeters.length > 0 ? filteredMeters : allowedMeters;
+    const validMeters = plantMetersMap[deviceId] || ["2", "3"];
     setAvailableMeters(validMeters);
     const activeMeter = validMeters.includes(selectedMeter) ? selectedMeter : validMeters[0];
     if (activeMeter !== selectedMeter) {
@@ -415,10 +352,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           setTelemetry(cached.telemetry);
           if (cached.allMetersTelemetry) setAllMetersTelemetry(cached.allMetersTelemetry);
           if (cached.availableMeters && cached.availableMeters.length > 0) {
-            const cleanCached = cached.availableMeters.filter((m: string) => allowedMeters.includes(m));
-            if (cleanCached.length > 0) {
-              setAvailableMeters(cleanCached);
-            }
+            setAvailableMeters(cached.availableMeters);
           }
           if (cached.lastUpdated) setLastUpdated(cached.lastUpdated);
           if (cached.dataAtTime) setDataAtTime(cached.dataAtTime);
@@ -458,41 +392,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
   // Breakdown for every active meter/motor
   const metersBreakdown = availableMeters.map((mId) => {
     const t = allMetersTelemetry[mId] || {};
-    const targetMotorIndex = parseInt(mId, 10) >= 2 ? (parseInt(mId, 10) - 2) : 0;
-    const ms = plantTelemetry?.tanks?.[0]?.motors?.[targetMotorIndex];
-    let isMotorRunning = Boolean(ms?.is_running);
-    if (!isMotorRunning && deviceId === "350435032680674" && (mId === "2" || mId === "3")) {
-      isMotorRunning = true;
-    }
-
-    const hpRatingsMap: Record<string, Record<string, number>> = {
-      "350435032683868": { "2": 60, "3": 75, "4": 60 },
-      "350435032680674": { "2": 40, "3": 30 },
-      "350435032689659": { "2": 50, "3": 50 },
-      "350435032681912": { "2": 30, "3": 25 },
-    };
-    const hp = (deviceId && hpRatingsMap[deviceId] && hpRatingsMap[deviceId][mId]) || 30;
-    const motorLoadScale = 1.0 + ((parseInt(mId, 10) % 3) * 0.12 - 0.06);
-    const dynamicRatedKw = Number((hp * 0.746 * motorLoadScale).toFixed(2));
-
-    let rawKw = Math.abs(t.total_kw || ((t.kw1 || 0) + (t.kw2 || 0) + (t.kw3 || 0)) || 0);
-    if (isMotorRunning && rawKw === 0) {
-      rawKw = dynamicRatedKw;
-      t.total_kw = rawKw;
-      t.kw1 = Number((rawKw / 3).toFixed(2));
-      t.kw2 = Number((rawKw / 3).toFixed(2));
-      t.kw3 = Number((rawKw / 3).toFixed(2));
-    }
-
-    const calculatedAmp = (rawKw > 0) ? Number(((rawKw * 1000) / (1.732 * (t.v_ll || 410) * Math.abs(t.pf_avg || 0.88))).toFixed(1)) : 0;
-    if (isMotorRunning && (!t.i_avg || t.i_avg < 0.05)) {
-      t.i_avg = calculatedAmp;
-      t.i1 = Number((calculatedAmp * 0.99).toFixed(1));
-      t.i2 = Number((calculatedAmp * 1.01).toFixed(1));
-      t.i3 = calculatedAmp;
-      if (!t.pf_avg) t.pf_avg = 0.88;
-    }
-
+    const rawKw = Math.abs(t.total_kw || ((t.kw1 || 0) + (t.kw2 || 0) + (t.kw3 || 0)) || 0);
     const kwLoad = rawKw || (t.i_avg && t.v_ll ? (t.i_avg * t.v_ll * 1.732 * Math.abs(t.pf_avg || 0.9)) / 1000 : 0);
     const actualKwh = Math.abs(t.kwh || 0);
 
