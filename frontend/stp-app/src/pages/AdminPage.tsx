@@ -105,15 +105,9 @@ const AdminPage: React.FC = () => {
     } catch {}
 
     const centralUsers = await getCentralUsers();
-    if (centralUsers && centralUsers.length > 0) {
-      const merged = [...centralUsers];
-      DEFAULT_LOCAL_USERS.forEach(u => {
-        if (!merged.some(m => m.email === u.email || m.name === u.name)) {
-          merged.push(u);
-        }
-      });
-      localStorage.setItem('stp_local_users', JSON.stringify(merged));
-      setUsers(merged);
+    if (centralUsers && Array.isArray(centralUsers) && centralUsers.length > 0) {
+      localStorage.setItem('stp_local_users', JSON.stringify(centralUsers));
+      setUsers(centralUsers);
       return;
     }
 
@@ -122,19 +116,11 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(localUsersStr);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const merged = [...parsed];
-          DEFAULT_LOCAL_USERS.forEach(u => {
-            if (!merged.some(m => m.email === u.email || m.name === u.name)) {
-              merged.push(u);
-            }
-          });
-          localStorage.setItem('stp_local_users', JSON.stringify(merged));
-          setUsers(merged);
+          setUsers(parsed);
           return;
         }
       } catch {}
     }
-    localStorage.setItem('stp_local_users', JSON.stringify(DEFAULT_LOCAL_USERS));
     setUsers(DEFAULT_LOCAL_USERS);
   };
 
@@ -158,7 +144,7 @@ const AdminPage: React.FC = () => {
       }
     } catch (err: any) {}
 
-    const localUsers = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
+    const currentUsers = users.length > 0 ? [...users] : (await getCentralUsers() || DEFAULT_LOCAL_USERS);
     const fullNameStr = `${userForm.first_name} ${userForm.last_name}`.trim() || userForm.email;
     const newUserObj = {
       name: userForm.email,
@@ -167,11 +153,11 @@ const AdminPage: React.FC = () => {
       first_name: userForm.first_name || userForm.email.split('@')[0],
       enabled: 1
     };
-    const updated = localUsers.some((u: any) => u.email === userForm.email)
-      ? localUsers.map((u: any) => u.email === userForm.email ? { ...u, ...newUserObj } : u)
-      : [...localUsers, newUserObj];
+    const updated = currentUsers.some((u: any) => u.email === userForm.email)
+      ? currentUsers.map((u: any) => u.email === userForm.email ? { ...u, ...newUserObj } : u)
+      : [...currentUsers, newUserObj];
+    await saveCentralUsers(updated);
     localStorage.setItem('stp_local_users', JSON.stringify(updated));
-    saveCentralUsers(updated);
     setUsers(updated);
     setUserForm({ email: '', first_name: '', last_name: '', password: '', role: 'System User' });
     setEditingUser(null);
@@ -189,27 +175,16 @@ const AdminPage: React.FC = () => {
       const data = await frappeGetList('STP Device',
         ['name', 'device_name', 'device_id', 'api_key', 'assigned_user', 'is_active']);
       if (data && data.length > 0) {
-        const merged = [...data];
-        DEFAULT_LOCAL_DEVICES.forEach(d => {
-          if (!merged.some(m => m.device_id === d.device_id)) {
-            merged.push(d);
-          }
-        });
-        setDevices(merged);
+        setDevices(data);
+        localStorage.setItem('stp_local_devices', JSON.stringify(data));
         return;
       }
     } catch {}
 
     const central = await getCentralDevices();
-    if (central && central.length > 0) {
-      const merged = [...central];
-      DEFAULT_LOCAL_DEVICES.forEach(d => {
-        if (!merged.some(m => m.device_id === d.device_id)) {
-          merged.push(d);
-        }
-      });
-      localStorage.setItem('stp_local_devices', JSON.stringify(merged));
-      setDevices(merged);
+    if (central && Array.isArray(central) && central.length > 0) {
+      localStorage.setItem('stp_local_devices', JSON.stringify(central));
+      setDevices(central);
       return;
     }
 
@@ -218,24 +193,11 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const merged = [...parsed];
-          DEFAULT_LOCAL_DEVICES.forEach(d => {
-            const idx = merged.findIndex(m => m.device_id === d.device_id);
-            if (idx >= 0) {
-              merged[idx] = { ...merged[idx], assigned_user: d.assigned_user };
-            } else {
-              merged.push(d);
-            }
-          });
-          localStorage.setItem('stp_local_devices', JSON.stringify(merged));
-          saveCentralDevices(merged);
-          setDevices(merged);
+          setDevices(parsed);
           return;
         }
       } catch {}
     }
-    localStorage.setItem('stp_local_devices', JSON.stringify(DEFAULT_LOCAL_DEVICES));
-    saveCentralDevices(DEFAULT_LOCAL_DEVICES);
     setDevices(DEFAULT_LOCAL_DEVICES);
   };
 
@@ -248,16 +210,20 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
-    const currentList = JSON.parse(localStorage.getItem('stp_local_devices') || JSON.stringify(DEFAULT_LOCAL_DEVICES));
+    const currentList = devices.length > 0 ? [...devices] : (await getCentralDevices() || DEFAULT_LOCAL_DEVICES);
     let updatedList = [...currentList];
     const devName = deviceForm.device_name || `STP-DEV-${Date.now()}`;
     if (editingDevice) {
-      updatedList = updatedList.map(d => d.name === editingDevice.name ? { ...d, name: deviceForm.device_name || d.name, ...deviceForm } : d);
+      updatedList = updatedList.map(d =>
+        (d.name === editingDevice.name || d.device_id === editingDevice.device_id)
+          ? { ...d, name: deviceForm.device_name || d.name, ...deviceForm }
+          : d
+      );
     } else {
       updatedList.push({ name: devName, ...deviceForm });
     }
+    await saveCentralDevices(updatedList);
     localStorage.setItem('stp_local_devices', JSON.stringify(updatedList));
-    saveCentralDevices(updatedList);
     setDevices(updatedList);
     setDeviceForm({ device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1 });
     setEditingDevice(null);
@@ -276,12 +242,13 @@ const AdminPage: React.FC = () => {
         ['name', 'tank_name', 'device', 'variant', 'capacity_liters', 'depth_meters', 'display_order']);
       if (data && data.length > 0) {
         setTanks(data);
+        localStorage.setItem('stp_local_tanks', JSON.stringify(data));
         return;
       }
     } catch {}
 
     const central = await getCentralTanks();
-    if (central && central.length > 0) {
+    if (central && Array.isArray(central) && central.length > 0) {
       localStorage.setItem('stp_local_tanks', JSON.stringify(central));
       setTanks(central);
       return;
@@ -291,23 +258,13 @@ const AdminPage: React.FC = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (parsed.some((t: any) => t.capacity_liters === 10000 || t.device === '12345' || t.name === 'TANK-002' || t.device === '350435032683869')) {
-          localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
-          saveCentralTanks(DEFAULT_LOCAL_TANKS);
-          setTanks(DEFAULT_LOCAL_TANKS);
-        } else {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           setTanks(parsed);
+          return;
         }
-      } catch {
-        localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
-        saveCentralTanks(DEFAULT_LOCAL_TANKS);
-        setTanks(DEFAULT_LOCAL_TANKS);
-      }
-    } else {
-      localStorage.setItem('stp_local_tanks', JSON.stringify(DEFAULT_LOCAL_TANKS));
-      saveCentralTanks(DEFAULT_LOCAL_TANKS);
-      setTanks(DEFAULT_LOCAL_TANKS);
+      } catch {}
     }
+    setTanks(DEFAULT_LOCAL_TANKS);
   };
 
   const saveTank = async () => {
@@ -319,7 +276,7 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
-    const currentList = JSON.parse(localStorage.getItem('stp_local_tanks') || JSON.stringify(DEFAULT_LOCAL_TANKS));
+    const currentList = tanks.length > 0 ? [...tanks] : (await getCentralTanks() || DEFAULT_LOCAL_TANKS);
     let updatedList = [...currentList];
     const tankName = tankForm.tank_name || `TANK-${Date.now()}`;
     if (editingTank) {
@@ -327,8 +284,8 @@ const AdminPage: React.FC = () => {
     } else {
       updatedList.push({ name: tankName, ...tankForm });
     }
+    await saveCentralTanks(updatedList);
     localStorage.setItem('stp_local_tanks', JSON.stringify(updatedList));
-    saveCentralTanks(updatedList);
     setTanks(updatedList);
     setTankForm({ tank_name: '', device: '', variant: 'main', capacity_liters: 8000000, depth_meters: 10.0, display_order: 1 });
     setEditingTank(null);
@@ -347,12 +304,13 @@ const AdminPage: React.FC = () => {
         ['name', 'motor_name', 'tank', 'run_param_key', 'trip_param_key', 'display_order']);
       if (data && data.length > 0) {
         setMotors(data);
+        localStorage.setItem('stp_local_motors', JSON.stringify(data));
         return;
       }
     } catch {}
 
     const central = await getCentralMotors();
-    if (central && central.length > 0) {
+    if (central && Array.isArray(central) && central.length > 0) {
       localStorage.setItem('stp_local_motors', JSON.stringify(central));
       setMotors(central);
       return;
@@ -362,23 +320,13 @@ const AdminPage: React.FC = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (parsed.some((m: any) => m.tank === 'TANK-002' || m.name === 'MOTOR-007' || m.name === 'MOTOR-008' || m.motor_name === 'MOTOR_D_1')) {
-          localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
-          saveCentralMotors(DEFAULT_LOCAL_MOTORS);
-          setMotors(DEFAULT_LOCAL_MOTORS);
-        } else {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           setMotors(parsed);
+          return;
         }
-      } catch {
-        localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
-        saveCentralMotors(DEFAULT_LOCAL_MOTORS);
-        setMotors(DEFAULT_LOCAL_MOTORS);
-      }
-    } else {
-      localStorage.setItem('stp_local_motors', JSON.stringify(DEFAULT_LOCAL_MOTORS));
-      saveCentralMotors(DEFAULT_LOCAL_MOTORS);
-      setMotors(DEFAULT_LOCAL_MOTORS);
+      } catch {}
     }
+    setMotors(DEFAULT_LOCAL_MOTORS);
   };
 
   const saveMotor = async () => {
@@ -390,7 +338,7 @@ const AdminPage: React.FC = () => {
       }
     } catch {}
 
-    const currentList = JSON.parse(localStorage.getItem('stp_local_motors') || JSON.stringify(DEFAULT_LOCAL_MOTORS));
+    const currentList = motors.length > 0 ? [...motors] : (await getCentralMotors() || DEFAULT_LOCAL_MOTORS);
     let updatedList = [...currentList];
     const mName = motorForm.motor_name || `MOTOR-${Date.now()}`;
     if (editingMotor) {
@@ -398,8 +346,8 @@ const AdminPage: React.FC = () => {
     } else {
       updatedList.push({ name: mName, ...motorForm });
     }
+    await saveCentralMotors(updatedList);
     localStorage.setItem('stp_local_motors', JSON.stringify(updatedList));
-    saveCentralMotors(updatedList);
     setMotors(updatedList);
     setMotorForm({ motor_name: '', tank: '', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 });
     setEditingMotor(null);
@@ -797,39 +745,39 @@ const AdminPage: React.FC = () => {
       </main>
 
       {/* Confirm Modals */}
-      {confirmUser && <ConfirmModal msg={`Disable/Delete user "${confirmUser.full_name}" in Frappe?`} onYes={async () => {
+      {confirmUser && <ConfirmModal msg={`Disable/Delete user "${confirmUser.full_name}"?`} onYes={async () => {
         try { await frappeDelete('User', confirmUser.name); } catch {}
-        const current = JSON.parse(localStorage.getItem('stp_local_users') || JSON.stringify(DEFAULT_LOCAL_USERS));
-        const updated = current.filter((u: any) => u.name !== confirmUser.name && u.email !== confirmUser.email);
+        const currentList = users.length > 0 ? [...users] : (await getCentralUsers() || DEFAULT_LOCAL_USERS);
+        const updated = currentList.filter((u: any) => u.name !== confirmUser.name && u.email !== confirmUser.email);
+        await saveCentralUsers(updated);
         localStorage.setItem('stp_local_users', JSON.stringify(updated));
-        saveCentralUsers(updated);
         setUsers(updated);
         setConfirmUser(null);
       }} onNo={() => setConfirmUser(null)} />}
-      {confirmDevice && <ConfirmModal msg={`Delete device "${confirmDevice.device_name}" from Frappe?`} onYes={async () => {
+      {confirmDevice && <ConfirmModal msg={`Delete device "${confirmDevice.device_name}"?`} onYes={async () => {
         try { await frappeDelete('STP Device', confirmDevice.name); } catch {}
-        const current = JSON.parse(localStorage.getItem('stp_local_devices') || JSON.stringify(DEFAULT_LOCAL_DEVICES));
-        const updated = current.filter((d: any) => d.name !== confirmDevice.name);
+        const currentList = devices.length > 0 ? [...devices] : (await getCentralDevices() || DEFAULT_LOCAL_DEVICES);
+        const updated = currentList.filter((d: any) => d.name !== confirmDevice.name && d.device_id !== confirmDevice.device_id);
+        await saveCentralDevices(updated);
         localStorage.setItem('stp_local_devices', JSON.stringify(updated));
-        saveCentralDevices(updated);
         setDevices(updated);
         setConfirmDevice(null);
       }} onNo={() => setConfirmDevice(null)} />}
-      {confirmTank && <ConfirmModal msg={`Delete tank "${confirmTank.tank_name}" from Frappe?`} onYes={async () => {
+      {confirmTank && <ConfirmModal msg={`Delete tank "${confirmTank.tank_name}"?`} onYes={async () => {
         try { await frappeDelete('STP Tank', confirmTank.name); } catch {}
-        const current = JSON.parse(localStorage.getItem('stp_local_tanks') || JSON.stringify(DEFAULT_LOCAL_TANKS));
-        const updated = current.filter((t: any) => t.name !== confirmTank.name);
+        const currentList = tanks.length > 0 ? [...tanks] : (await getCentralTanks() || DEFAULT_LOCAL_TANKS);
+        const updated = currentList.filter((t: any) => t.name !== confirmTank.name);
+        await saveCentralTanks(updated);
         localStorage.setItem('stp_local_tanks', JSON.stringify(updated));
-        saveCentralTanks(updated);
         setTanks(updated);
         setConfirmTank(null);
       }} onNo={() => setConfirmTank(null)} />}
-      {confirmMotor && <ConfirmModal msg={`Delete motor "${confirmMotor.motor_name}" from Frappe?`} onYes={async () => {
+      {confirmMotor && <ConfirmModal msg={`Delete motor "${confirmMotor.motor_name}"?`} onYes={async () => {
         try { await frappeDelete('STP Motor', confirmMotor.name); } catch {}
-        const current = JSON.parse(localStorage.getItem('stp_local_motors') || JSON.stringify(DEFAULT_LOCAL_MOTORS));
-        const updated = current.filter((m: any) => m.name !== confirmMotor.name);
+        const currentList = motors.length > 0 ? [...motors] : (await getCentralMotors() || DEFAULT_LOCAL_MOTORS);
+        const updated = currentList.filter((m: any) => m.name !== confirmMotor.name);
+        await saveCentralMotors(updated);
         localStorage.setItem('stp_local_motors', JSON.stringify(updated));
-        saveCentralMotors(updated);
         setMotors(updated);
         setConfirmMotor(null);
       }} onNo={() => setConfirmMotor(null)} />}

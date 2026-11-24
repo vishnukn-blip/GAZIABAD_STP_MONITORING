@@ -894,17 +894,36 @@ def save_persistent_data(key: str, data: list):
 init_persistent_db()
 
 
+_FRAPPE_AVAILABLE = None
+_LAST_FRAPPE_CHECK_TIME = 0.0
+
+async def _check_frappe_online() -> bool:
+    global _FRAPPE_AVAILABLE, _LAST_FRAPPE_CHECK_TIME
+    now = time.time()
+    if _FRAPPE_AVAILABLE is not None and (now - _LAST_FRAPPE_CHECK_TIME) < 15.0:
+        return _FRAPPE_AVAILABLE
+    _LAST_FRAPPE_CHECK_TIME = now
+    try:
+        async with httpx.AsyncClient(timeout=0.3) as client:
+            resp = await client.get(f"{FRAPPE_BASE_URL}/api/method/version")
+            _FRAPPE_AVAILABLE = (resp.status_code == 200)
+    except Exception:
+        _FRAPPE_AVAILABLE = False
+    return _FRAPPE_AVAILABLE
+
+
 @app.get("/api/config/devices")
 async def get_config_devices():
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Device?fields=[\"*\"]&limit_page_length=200")
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                if data:
-                    return data
-    except Exception:
-        pass
+    if await _check_frappe_online():
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Device?fields=[\"*\"]&limit_page_length=200")
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    if data:
+                        return data
+        except Exception:
+            pass
     return get_persistent_data("devices", DEFAULT_CENTRAL_DEVICES)
 
 
@@ -916,15 +935,16 @@ async def save_config_devices(devices: list[dict]):
 
 @app.get("/api/config/tanks")
 async def get_config_tanks():
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Tank?fields=[\"*\"]&limit_page_length=200")
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                if data:
-                    return data
-    except Exception:
-        pass
+    if await _check_frappe_online():
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Tank?fields=[\"*\"]&limit_page_length=200")
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    if data:
+                        return data
+        except Exception:
+            pass
     return get_persistent_data("tanks", DEFAULT_CENTRAL_TANKS)
 
 
@@ -936,15 +956,16 @@ async def save_config_tanks(tanks: list[dict]):
 
 @app.get("/api/config/motors")
 async def get_config_motors():
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Motor?fields=[\"*\"]&limit_page_length=200")
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                if data:
-                    return data
-    except Exception:
-        pass
+    if await _check_frappe_online():
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/STP%20Motor?fields=[\"*\"]&limit_page_length=200")
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    if data:
+                        return data
+        except Exception:
+            pass
     return get_persistent_data("motors", DEFAULT_CENTRAL_MOTORS)
 
 
@@ -956,15 +977,16 @@ async def save_config_motors(motors: list[dict]):
 
 @app.get("/api/config/users")
 async def get_config_users():
-    try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/User?fields=[\"name\",\"email\",\"full_name\",\"first_name\",\"enabled\"]&limit_page_length=200")
-            if resp.status_code == 200:
-                data = resp.json().get("data", [])
-                if data:
-                    return data
-    except Exception:
-        pass
+    if await _check_frappe_online():
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{FRAPPE_BASE_URL}/api/resource/User?fields=[\"name\",\"email\",\"full_name\",\"first_name\",\"enabled\"]&limit_page_length=200")
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    if data:
+                        return data
+        except Exception:
+            pass
     return get_persistent_data("users", DEFAULT_CENTRAL_USERS)
 
 

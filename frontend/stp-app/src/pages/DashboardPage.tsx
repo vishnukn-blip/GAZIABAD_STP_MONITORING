@@ -331,7 +331,7 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
   );
 };
 
-const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
+const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTanks?: any[], customMotors?: any[]): DeviceLayout => {
   const defaultDevs = [
     { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
     { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
@@ -339,7 +339,9 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
     { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
-  const allDevs = localDevsStr ? JSON.parse(localDevsStr) : defaultDevs;
+  const allDevs = (customDevs && customDevs.length > 0)
+    ? customDevs
+    : (localDevsStr ? JSON.parse(localDevsStr) : defaultDevs);
   const currentDev = allDevs.find((d: any) =>
     d.device_id === devId ||
     d.name === devId ||
@@ -360,7 +362,9 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
   ];
   const localTanksStr = localStorage.getItem('stp_local_tanks');
   let allTanks = defaultTanks;
-  if (localTanksStr) {
+  if (customTanks && customTanks.length > 0) {
+    allTanks = customTanks;
+  } else if (localTanksStr) {
     try {
       const parsed = JSON.parse(localTanksStr);
       if (parsed.some((t: any) => t.capacity_liters === 10000 || !t.capacity_liters || t.capacity_liters < 100000)) {
@@ -418,7 +422,9 @@ const buildDeviceLayoutFromLocal = (devId: string): DeviceLayout => {
     { name: 'MOTOR_D_5', motor_name: 'MOTOR_D_5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
   ];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
-  const allMotors = localMotorsStr ? JSON.parse(localMotorsStr) : defaultMotors;
+  const allMotors = (customMotors && customMotors.length > 0)
+    ? customMotors
+    : (localMotorsStr ? JSON.parse(localMotorsStr) : defaultMotors);
 
   const compiledTanks = tanksToUse.map((t: any, tIdx: number) => {
     const matchedMotors = allMotors.filter((m: any) =>
@@ -741,8 +747,12 @@ const DashboardPage: React.FC = () => {
       }
     } catch { }
 
+    let cTanks: any = null;
+    let cMotors: any = null;
     try {
-      const [cTanks, cMotors] = await Promise.all([getCentralTanks(), getCentralMotors()]);
+      const [tRes, mRes] = await Promise.all([getCentralTanks(), getCentralMotors()]);
+      cTanks = tRes;
+      cMotors = mRes;
       if (cTanks && cTanks.length > 0) {
         localStorage.setItem('stp_local_tanks', JSON.stringify(cTanks));
       }
@@ -751,7 +761,7 @@ const DashboardPage: React.FC = () => {
       }
     } catch { }
 
-    const dynamicLayout = buildDeviceLayoutFromLocal(devId);
+    const dynamicLayout = buildDeviceLayoutFromLocal(devId, undefined, cTanks, cMotors);
     setLayout(dynamicLayout);
   };
 

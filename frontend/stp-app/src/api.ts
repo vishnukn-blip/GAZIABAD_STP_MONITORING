@@ -4,11 +4,12 @@ import axios from 'axios';
 const getApiBaseUrl = (port: string) => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return `http://localhost:${port}`;
+    // When accessing via standard web ports (80 / 443) behind a reverse proxy (e.g. Nginx):
+    if (!window.location.port || window.location.port === '80' || window.location.port === '443') {
+      return '';
     }
-    // Route via Vite/Nginx proxy on current host & port
-    return '';
+    // Dynamically target the host PC's backend port (e.g. http://192.168.0.120:8001 or http://localhost:8001)
+    return `http://${hostname}:${port}`;
   }
   return `http://localhost:${port}`;
 };
