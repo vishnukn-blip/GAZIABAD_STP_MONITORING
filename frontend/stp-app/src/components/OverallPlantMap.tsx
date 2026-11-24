@@ -49,7 +49,7 @@ const defaultPlantsList = [
   },
   {
     device_id: '350435032689659',
-    device_name: 'STP PLANT C',
+    device_name: 'SPS_SANJAY_PLANT',
     latitude: 28.672000,
     longitude: 77.442000,
     location_address: 'Raj Nagar Extension, Ghaziabad, UP',

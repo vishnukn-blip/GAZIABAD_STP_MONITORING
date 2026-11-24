@@ -41,7 +41,7 @@ const DEFAULT_LOCAL_USERS = [
 export const DEFAULT_LOCAL_DEVICES = [
   { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
-  { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
+  { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io', is_active: 1 },
   { name: 'UTL WATER MONITORING PLANT #98203928', device_name: 'UTL WATER MONITORING PLANT #98203928', device_id: '98203928', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 12.9698, longitude: 77.7500, assigned_user: 'utl@nimblevision.io', is_active: 1 }
 ];
@@ -81,7 +81,7 @@ const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'users' | 'devices' | 'tanks' | 'motors' | 'desk'>('users');
 
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>(DEFAULT_LOCAL_USERS);
   const [userForm, setUserForm] = useState({
     email: '', first_name: '', last_name: '', password: '', role: 'System User'
   });
@@ -106,8 +106,14 @@ const AdminPage: React.FC = () => {
 
     const centralUsers = await getCentralUsers();
     if (centralUsers && Array.isArray(centralUsers) && centralUsers.length > 0) {
-      localStorage.setItem('stp_local_users', JSON.stringify(centralUsers));
-      setUsers(centralUsers);
+      const merged = [...centralUsers];
+      DEFAULT_LOCAL_USERS.forEach(u => {
+        if (!merged.some(m => m.email === u.email || m.name === u.name)) {
+          merged.push(u);
+        }
+      });
+      localStorage.setItem('stp_local_users', JSON.stringify(merged));
+      setUsers(merged);
       return;
     }
 
@@ -163,7 +169,7 @@ const AdminPage: React.FC = () => {
     setEditingUser(null);
   };
 
-  const [devices, setDevices] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>(DEFAULT_LOCAL_DEVICES);
   const [deviceForm, setDeviceForm] = useState({
     device_name: '', device_id: '', api_key: 'chinnu', api_token: '257bbec888a81696529ee979804cca59', latitude: 28.6685, longitude: 77.4390, assigned_user: '', is_active: 1
   });
@@ -175,16 +181,18 @@ const AdminPage: React.FC = () => {
       const data = await frappeGetList('STP Device',
         ['name', 'device_name', 'device_id', 'api_key', 'assigned_user', 'is_active']);
       if (data && data.length > 0) {
-        setDevices(data);
-        localStorage.setItem('stp_local_devices', JSON.stringify(data));
+        const norm = data.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
+        setDevices(norm);
+        localStorage.setItem('stp_local_devices', JSON.stringify(norm));
         return;
       }
     } catch {}
 
     const central = await getCentralDevices();
     if (central && Array.isArray(central) && central.length > 0) {
-      localStorage.setItem('stp_local_devices', JSON.stringify(central));
-      setDevices(central);
+      const norm = central.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
+      localStorage.setItem('stp_local_devices', JSON.stringify(norm));
+      setDevices(norm);
       return;
     }
 
@@ -193,7 +201,8 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setDevices(parsed);
+          const norm = parsed.map((d: any) => (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) ? { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' } : d);
+          setDevices(norm);
           return;
         }
       } catch {}

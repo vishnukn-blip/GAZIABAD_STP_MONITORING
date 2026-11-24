@@ -521,10 +521,11 @@ async def get_telemetry_direct(
 
 # ── Centralized Store Endpoints (Cross-Browser Syncing) ────────────────────────
 DEFAULT_CENTRAL_DEVICES = [
-    {"name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_id": "350435032683868", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.657521, "longitude": 77.376303, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
-    {"name": "VASUNDHARA SECTOR 19", "device_name": "VASUNDHARA SECTOR 19", "device_id": "350435032680674", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.667200, "longitude": 77.371100, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
-    {"name": "STP PLANT C", "device_name": "STP PLANT C", "device_id": "350435032689659", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.672000, "longitude": 77.442000, "assigned_user": "wabag@nimblevision.io", "is_active": 1},
-    {"name": "VAISHALI SECTOR 6", "device_name": "VAISHALI SECTOR 6", "device_id": "350435032681912", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.648000, "longitude": 77.382000, "assigned_user": "wabag@nimblevision.io", "is_active": 1}
+    {"name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_name": "VASUNDHARA SECTOR 7 , 8MLD PLANT", "device_id": "350435032683868", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.657521, "longitude": 77.376303, "assigned_user": "wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io", "is_active": 1},
+    {"name": "VASUNDHARA SECTOR 19", "device_name": "VASUNDHARA SECTOR 19", "device_id": "350435032680674", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.667200, "longitude": 77.371100, "assigned_user": "wabag@nimblevision.io, vishnuwabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io", "is_active": 1},
+    {"name": "SPS_SANJAY_PLANT", "device_name": "SPS_SANJAY_PLANT", "device_id": "350435032689659", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.672000, "longitude": 77.442000, "assigned_user": "wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io", "is_active": 1},
+    {"name": "VAISHALI SECTOR 6", "device_name": "VAISHALI SECTOR 6", "device_id": "350435032681912", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 28.648000, "longitude": 77.382000, "assigned_user": "wabag@nimblevision.io, mayankwabag@nimblevision.io, manikandanwabag@nimblevision.io", "is_active": 1},
+    {"name": "UTL WATER MONITORING PLANT #98203928", "device_name": "UTL WATER MONITORING PLANT #98203928", "device_id": "98203928", "api_key": "chinnu", "api_token": "257bbec888a81696529ee979804cca59", "latitude": 12.9698, "longitude": 77.7500, "assigned_user": "utl@nimblevision.io", "is_active": 1}
 ]
 
 DEFAULT_CENTRAL_TANKS = [
@@ -558,7 +559,12 @@ DEFAULT_CENTRAL_MOTORS = [
 ]
 
 DEFAULT_CENTRAL_USERS = [
-    {"name": "wabag@nimblevision.io", "email": "wabag@nimblevision.io", "full_name": "Wabag User", "first_name": "Wabag", "enabled": 1}
+    {"name": "wabag@nimblevision.io", "email": "wabag@nimblevision.io", "full_name": "Wabag User", "first_name": "Wabag", "enabled": 1},
+    {"name": "vishnuwabag@nimblevision.io", "email": "vishnuwabag@nimblevision.io", "full_name": "vishnu", "first_name": "vishnu", "enabled": 1},
+    {"name": "tarunwabag@nimblevision.io", "email": "tarunwabag@nimblevision.io", "full_name": "tarun", "first_name": "tarun", "enabled": 1},
+    {"name": "mayankwabag@nimblevision.io", "email": "mayankwabag@nimblevision.io", "full_name": "mayank", "first_name": "mayank", "enabled": 1},
+    {"name": "manikandanwabag@nimblevision.io", "email": "manikandanwabag@nimblevision.io", "full_name": "manikandan", "first_name": "manikandan", "enabled": 1},
+    {"name": "utl@nimblevision.io", "email": "utl@nimblevision.io", "full_name": "UTL User", "first_name": "UTL User", "enabled": 1}
 ]
 
 CENTRAL_DEVICES = list(DEFAULT_CENTRAL_DEVICES)
@@ -664,7 +670,24 @@ def init_persistent_db():
         except Exception as err:
             print(f"Migration check for electrical_telemetry: {err}")
 
-        cursor.execute("INSERT OR REPLACE INTO config_store (key, json_data) VALUES ('devices', ?)", (json.dumps(DEFAULT_CENTRAL_DEVICES),))
+        # Update or initialize devices
+        cursor.execute("SELECT json_data FROM config_store WHERE key = 'devices'")
+        d_row = cursor.fetchone()
+        if not d_row:
+            cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('devices', ?)", (json.dumps(DEFAULT_CENTRAL_DEVICES),))
+        else:
+            try:
+                curr_devs = json.loads(d_row[0])
+                dev_updated = False
+                for d in curr_devs:
+                    if d.get("device_id") == "350435032689659" and "STP PLANT C" in d.get("device_name", ""):
+                        d["device_name"] = "SPS_SANJAY_PLANT"
+                        d["name"] = "SPS_SANJAY_PLANT"
+                        dev_updated = True
+                if dev_updated:
+                    cursor.execute("UPDATE config_store SET json_data = ? WHERE key = 'devices'", (json.dumps(curr_devs),))
+            except Exception:
+                pass
 
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'tanks'")
         if not cursor.fetchone():
@@ -674,9 +697,22 @@ def init_persistent_db():
         if not cursor.fetchone():
             cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('motors', ?)", (json.dumps(DEFAULT_CENTRAL_MOTORS),))
 
+        # Merge standard users into config_store so all standard logins are always present
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'users'")
-        if not cursor.fetchone():
+        u_row = cursor.fetchone()
+        if not u_row:
             cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('users', ?)", (json.dumps(DEFAULT_CENTRAL_USERS),))
+        else:
+            try:
+                curr_users = json.loads(u_row[0])
+                user_emails = {u.get("email") or u.get("name") for u in curr_users}
+                merged = list(curr_users)
+                for u in DEFAULT_CENTRAL_USERS:
+                    if u["email"] not in user_emails:
+                        merged.append(u)
+                cursor.execute("UPDATE config_store SET json_data = ? WHERE key = 'users'", (json.dumps(merged),))
+            except Exception:
+                pass
 
         # Always re-seed telemetry_postings on startup to ensure historical log includes current time
         cursor.execute("DELETE FROM telemetry_postings")
@@ -709,12 +745,12 @@ def seed_historical_postings(cursor):
             elif dev_id == "350435032680674":
                 base_kwh, base_lvl, base_curr = 8400.0, 62.0, 21.0
             elif dev_id == "350435032689659":
-                base_kwh, base_lvl, base_curr = 0.0, 0.0, 0.0
+                base_kwh, base_lvl, base_curr = 9500.0, 65.0, 24.0
             else:
                 base_kwh, base_lvl, base_curr = 5200.0, 45.0, 14.0
 
             motors_list = motor_names_map.get(dev_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-            num_mfms = 3 if dev_id == "350435032683868" else (0 if dev_id == "350435032689659" else 2)
+            num_mfms = 3 if dev_id == "350435032683868" else 2
             
             # Generate timestamps covering past 365 days
             timestamps = []
@@ -760,16 +796,11 @@ def seed_historical_postings(cursor):
                 m_statuses = {}
                 
                 if dev_id == "350435032689659":
-                    op_mode = "STANDBY"
-                    motors_running = 0
+                    op_mode = "AUTO"
+                    motors_running = 2
                     motors_tripped = 0
-                    i_avg = 0.0
-                    total_kw = 0.0
-                    level_pct = 0.0
-                    depth_m = 0.0
-                    vol_l = 0
-                    for m_name in motors_list:
-                        m_statuses[m_name] = "OFF"
+                    for idx_m, m_name in enumerate(motors_list):
+                        m_statuses[m_name] = "ON" if idx_m < 2 else "OFF"
                 elif dev_id == "350435032681912":
                     op_mode = "AUTO"
                     motors_running = 2
@@ -1358,20 +1389,6 @@ async def startup_event():
 
 @app.get("/api/telemetry/electrical/{device_id}")
 async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = None):
-    if "350435032689659" in str(device_id):
-        no_dev_data = {
-            "device_id": "350435032689659", "meter_id": meter_id or "1",
-            "v1n": 0.0, "v2n": 0.0, "v3n": 0.0, "v_ln": 0.0,
-            "v12": 0.0, "v23": 0.0, "v31": 0.0, "v_ll": 0.0,
-            "i1": 0.0, "i2": 0.0, "i3": 0.0, "i_avg": 0.0,
-            "kw1": 0.0, "kw2": 0.0, "kw3": 0.0, "total_kw": 0.0,
-            "kvar1": 0.0, "kvar2": 0.0, "kvar3": 0.0, "total_kvar": 0.0,
-            "kva1": 0.0, "kva2": 0.0, "kva3": 0.0, "total_kva": 0.0,
-            "pf1": 0.0, "pf2": 0.0, "pf3": 0.0, "pf_avg": 0.0,
-            "freq": 0.0, "kwh": 0.0, "has_data": False, "timestamp": "--"
-        }
-        return {"status": "success", "device_id": device_id, "meter_id": meter_id or "1", "has_data": False, "data": no_dev_data}
-
     cache_key = f"elec_{device_id}_{meter_id or '1'}"
     now_ts = time.time()
     if cache_key in PROXY_CACHE:
@@ -1579,15 +1596,12 @@ PLANT_DEFAULT_METERS = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
     "350435032681912": ["2", "3"],
-    "350435032689659": [],
+    "350435032689659": ["2", "3"],
     "98203928": ["1"]
 }
 
 @app.get("/api/telemetry/electrical/{device_id}/meters")
 async def get_device_electrical_meters(device_id: str):
-    if "350435032689659" in str(device_id):
-        return {"status": "success", "device_id": device_id, "meters": []}
-
     if "98203928" in device_id:
         return {"status": "success", "device_id": device_id, "meters": ["1"]}
 

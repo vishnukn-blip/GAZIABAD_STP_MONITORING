@@ -335,7 +335,7 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
   const defaultDevs = [
     { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', latitude: 28.657521, longitude: 77.376303, assigned_user: 'wabag@nimblevision.io' },
     { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', latitude: 28.668500, longitude: 77.439000, assigned_user: 'wabag@nimblevision.io' },
-    { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
+    { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', latitude: 28.672000, longitude: 77.442000, assigned_user: 'wabag@nimblevision.io' },
     { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', latitude: 28.675000, longitude: 77.445000, assigned_user: 'wabag@nimblevision.io' }
   ];
   const localDevsStr = localStorage.getItem('stp_local_devices');
@@ -610,18 +610,6 @@ const DashboardPage: React.FC = () => {
     await Promise.all(
       devices.map(async (d) => {
         try {
-          if (d.device_id === '350435032689659') {
-            statusMap[d.device_id] = {
-              activeMotors: 0,
-              trippedMotors: 0,
-              currentAmperes: 0,
-              hasElectricalAmpere: false,
-              operatingMode: 'STANDBY',
-              meterAmperesMap: {}
-            };
-            return;
-          }
-
           const telemetryRes = await TelemetryAPI.get('/api/telemetry', { params: { device_id: d.device_id } }).catch(() => ({ data: null }));
           let data = telemetryRes?.data;
           if (!data) {
@@ -687,7 +675,7 @@ const DashboardPage: React.FC = () => {
     const defaultDevs = [
       { name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_name: 'VASUNDHARA SECTOR 7 , 8MLD PLANT', device_id: '350435032683868', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VASUNDHARA SECTOR 19', device_name: 'VASUNDHARA SECTOR 19', device_id: '350435032680674', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
-      { name: 'STP PLANT C', device_name: 'STP PLANT C', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
+      { name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT', device_id: '350435032689659', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' },
       { name: 'VAISHALI SECTOR 6', device_name: 'VAISHALI SECTOR 6', device_id: '350435032681912', api_key: 'chinnu', assigned_user: 'wabag@nimblevision.io' }
     ];
 
@@ -718,6 +706,15 @@ const DashboardPage: React.FC = () => {
           }
         } catch { }
       }
+    }
+
+    if (allDevices && Array.isArray(allDevices)) {
+      allDevices = allDevices.map((d: any) => {
+        if (d.device_id === '350435032689659' && (!d.device_name || d.device_name === 'STP PLANT C')) {
+          return { ...d, name: 'SPS_SANJAY_PLANT', device_name: 'SPS_SANJAY_PLANT' };
+        }
+        return d;
+      });
     }
 
     const isUserAssigned = (d: any) => {
@@ -824,18 +821,14 @@ const DashboardPage: React.FC = () => {
           const totalActiveMotors = Math.max(act, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'STANDBY';
-          if (devId === '350435032689659') {
-            operatingMode = 'STANDBY';
-          } else if (trip > 0) operatingMode = 'TRIP';
-          else if (act > 0 || devId === '350435032681912' || devId === '350435032680674') operatingMode = 'AUTO';
+          if (trip > 0) operatingMode = 'TRIP';
+          else if (act > 0) operatingMode = 'AUTO';
           else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
           else operatingMode = 'STANDBY';
 
           setDeviceStatusMap(prev => ({
             ...prev,
-            [devId]: devId === '350435032689659'
-              ? { activeMotors: 0, trippedMotors: 0, currentAmperes: 0, hasElectricalAmpere: false, operatingMode: 'STANDBY', meterAmperesMap: {} }
-              : { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
+            [devId]: { activeMotors: totalActiveMotors, trippedMotors: trip, currentAmperes: maxAmpere, hasElectricalAmpere: hasAmpere, operatingMode, meterAmperesMap }
           }));
         } catch (innerErr) {
           console.warn('Electrical status parsing error:', innerErr);
