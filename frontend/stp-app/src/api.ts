@@ -223,7 +223,7 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   const hpRatings: Record<string, Record<string, number>> = {
     "350435032683868": { "2": 60, "3": 75, "4": 60 },
     "350435032680674": { "2": 40, "3": 30 },
-    "350435032689659": { "2": 50, "3": 50, "4": 30 },
+    "350435032689659": { "2": 50, "3": 50 },
     "350435032681912": { "2": 30, "3": 25 },
   };
 
@@ -247,9 +247,24 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   const v23 = Number((v_ll + 0.6).toFixed(1));
   const v31 = Number((v_ll - 0.3).toFixed(1));
 
-  // In Sector 7, only meter 2 is currently running in baseline telemetry; meters 3 & 4 are standby/off
-  const isSector7 = deviceId === "350435032683868";
-  const isRunning = isSector7 ? (mIdStr === "2") : false;
+  // Dynamic running state detection based on live motor state
+  let isRunning = false;
+  try {
+    const cachedTel = localStorage.getItem(`stp_telemetry_${deviceId}`);
+    if (cachedTel) {
+      const parsed = JSON.parse(cachedTel);
+      const motorIdx = (mNum >= 2) ? (mNum - 2) : 0;
+      const mState = parsed?.tanks?.[0]?.motors?.[motorIdx];
+      if (mState && mState.is_running) {
+        isRunning = true;
+      }
+    }
+  } catch {}
+
+  // Live fallback: Sector 19 currently has both motors running in live telemetry
+  if (!isRunning && deviceId === "350435032680674" && (mIdStr === "2" || mIdStr === "3")) {
+    isRunning = true;
+  }
 
   const pf_avg = isRunning ? Number((basePf + ((mNum % 2) * 0.012 - 0.006)).toFixed(3)) : 0.0;
   const freq = isRunning ? 49.94 : 50.0;
@@ -303,7 +318,7 @@ export const getElectricalMeters = async (deviceId: string): Promise<any> => {
   const plantMetersMap: Record<string, string[]> = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
-    "350435032689659": ["2", "3", "4"],
+    "350435032689659": ["2", "3"],
     "350435032681912": ["2", "3"],
     "98203928": ["1"]
   };

@@ -87,8 +87,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
   const DEFAULT_PLANT_MOTORS: Record<string, string[]> = {
     '350435032683868': ['M1_60_HP', 'M2_75_HP', 'M3_60_HP', 'M4', 'M5'],
     '350435032680674': ['M1_40_HP', 'M2_30_HP', 'M3', 'M4', 'M5'],
-    '350435032689659': ['M1_50_HP', 'M2_50_HP', 'M3_30_HP', 'M4', 'M5'],
-    '350435032681912': ['M1_30_HP', 'M2_30_HP', 'M3', 'M4', 'M5']
+    '350435032689659': ['M1_50_HP', 'M2_50_HP'],
+    '350435032681912': ['M1_30_HP', 'M2_30_HP']
   };
 
   const generateFallbackReportData = () => {
@@ -97,8 +97,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
     const isMonthly = period === 'monthly';
     const count = isDaily ? 24 : isWeekly ? 28 : isMonthly ? 30 : 52;
 
-    const plantMotors = DEFAULT_PLANT_MOTORS[selectedDevice] || ['M1_40_HP', 'M2_30_HP', 'M3', 'M4', 'M5'];
-    const numMfms = selectedDevice === '350435032683868' || selectedDevice === '350435032689659' ? 3 : 2;
+    const plantMotors = DEFAULT_PLANT_MOTORS[selectedDevice] || ['M1_40_HP', 'M2_30_HP'];
+    const numMfms = selectedDevice === '350435032683868' ? 3 : 2;
 
     const postings: any[] = [];
     const now = new Date();

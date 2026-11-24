@@ -403,16 +403,15 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
     { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
 
-    // TANK_C (STP PLANT C - SPS Sanjay: 3 motors installed)
+    // TANK_C (STP PLANT C - SPS Sanjay: 2 motors installed)
     { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
     { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_C_3', motor_name: 'M3_30_HP', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
 
     // TANK_D (STP PLANT D - Vaishali Sector 6: 2 motors installed)
     { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
     { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
   ];
-  const PHANTOM_MOTORS = ['MOTOR_A_4', 'MOTOR_A_5', 'MOTOR_B_3', 'MOTOR_B_4', 'MOTOR_B_5', 'MOTOR_C_4', 'MOTOR_C_5', 'MOTOR_D_3', 'MOTOR_D_4', 'MOTOR_D_5'];
+  const PHANTOM_MOTORS = ['MOTOR_A_4', 'MOTOR_A_5', 'MOTOR_B_3', 'MOTOR_B_4', 'MOTOR_B_5', 'MOTOR_C_3', 'MOTOR_C_4', 'MOTOR_C_5', 'MOTOR_D_3', 'MOTOR_D_4', 'MOTOR_D_5'];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
   let parsedLocalMotors: any[] | null = null;
   if (localMotorsStr) {
@@ -566,12 +565,12 @@ const DashboardPage: React.FC = () => {
       const m5_r = isStale ? false : (parseRun(raw.low_pressure) && !m5_t);
 
       const m_map: Record<string, string[]> = {
-        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-        "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-        "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-        "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+        "350435032680674": ["M1_40_HP", "M2_30_HP"],
+        "350435032689659": ["M1_50_HP", "M2_50_HP"],
+        "350435032681912": ["M1_30_HP", "M2_30_HP"]
       };
-      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"];
+      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP"];
 
       return {
         device_id: devId,
@@ -642,11 +641,12 @@ const DashboardPage: React.FC = () => {
           const trip = data?.tanks ? data.tanks.flatMap((t: any) => t.motors || []).filter((m: any) => m.is_tripped).length : 0;
 
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
-          const totalActiveMotors = Math.max(autoAct, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
           if (trip > 0) {
             operatingMode = 'TRIP';
+          } else if (autoAct > 0) {
+            operatingMode = 'AUTO';
           } else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) {
             operatingMode = 'MANUAL';
           } else if (data) {
@@ -654,6 +654,8 @@ const DashboardPage: React.FC = () => {
           } else {
             operatingMode = 'STANDBY';
           }
+
+          const totalActiveMotors = operatingMode === 'MANUAL' ? manualActiveMotors : autoAct;
 
           statusMap[d.device_id] = {
             activeMotors: totalActiveMotors,
@@ -817,13 +819,15 @@ const DashboardPage: React.FC = () => {
           });
 
           const manualActiveMotors = Object.values(meterAmperesMap).filter((amp: any) => amp > 0.05).length;
-          const totalActiveMotors = Math.max(act, manualActiveMotors);
 
           let operatingMode: 'AUTO' | 'MANUAL' | 'STANDBY' | 'TRIP' = 'AUTO';
           if (trip > 0) operatingMode = 'TRIP';
+          else if (act > 0) operatingMode = 'AUTO';
           else if (hasAmpere || maxAmpere > 0.05 || manualActiveMotors > 0) operatingMode = 'MANUAL';
           else if (data) operatingMode = 'AUTO';
           else operatingMode = 'STANDBY';
+
+          const totalActiveMotors = operatingMode === 'MANUAL' ? manualActiveMotors : act;
 
           setDeviceStatusMap(prev => ({
             ...prev,
@@ -1473,7 +1477,7 @@ const DashboardPage: React.FC = () => {
           {!loading && isWaterQualityUser && (
             <>
               {activeTab === 'electrical' ? (
-                <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} isWaterQualityUser={true} />
+                <ElectricalParameters deviceId="98203928" deviceName="UTL Plant #98203928" layout={layout} plantTelemetry={telemetry} isWaterQualityUser={true} />
               ) : activeTab === 'digital_twin' ? (
                 <OverallPlantMap userDevices={userDevices} deviceStatusMap={deviceStatusMap} onSelectDevice={handleDeviceChange} isWaterQualityUser={true} />
               ) : activeTab === 'camera' || activeTab === 'photos' ? (
@@ -1508,7 +1512,7 @@ const DashboardPage: React.FC = () => {
               ) : activeTab === 'camera' ? (
                 <CameraMonitoring deviceId={selectedDeviceId} deviceName={layout.device_name} isWaterQualityUser={false} />
               ) : activeTab === 'electrical' ? (
-                <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} />
+                <ElectricalParameters deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} plantTelemetry={telemetry} />
               ) : activeTab === 'maintenance' ? (
                 <MotorMaintenanceView deviceId={selectedDeviceId} deviceName={layout.device_name} layout={layout} telemetry={telemetry} history={accumulatedHistory} />
               ) : activeTab === 'replacements' ? (

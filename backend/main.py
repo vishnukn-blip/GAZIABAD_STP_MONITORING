@@ -355,7 +355,7 @@ async def get_telemetry(
         m_map = {
             "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
             "350435032680674": ["M1_40_HP", "M2_30_HP"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP"],
             "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
         m_list = m_map.get(target_device_id, ["M1_60_HP", "M2_75_HP", "M3_60_HP"])
@@ -388,7 +388,7 @@ async def get_telemetry(
             m_map = {
                 "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
                 "350435032680674": ["M1_40_HP", "M2_30_HP"],
-                "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+                "350435032689659": ["M1_50_HP", "M2_50_HP"],
                 "350435032681912": ["M1_30_HP", "M2_30_HP"]
             }
             m_list = m_map.get(target_device_id, ["M1_60_HP", "M2_75_HP", "M3_60_HP"])
@@ -529,7 +529,6 @@ DEFAULT_CENTRAL_MOTORS = [
     {"name": "MOTOR_B_2", "motor_name": "M2_30_HP", "tank": "TANK_B", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
     {"name": "MOTOR_C_1", "motor_name": "M1_50_HP", "tank": "TANK_C", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_C_2", "motor_name": "M2_50_HP", "tank": "TANK_C", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_C_3", "motor_name": "M3_30_HP", "tank": "TANK_C", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
     {"name": "MOTOR_D_1", "motor_name": "M1_30_HP", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2}
 ]
@@ -688,7 +687,7 @@ def init_persistent_db():
             cursor.execute("DELETE FROM electrical_telemetry WHERE updated_at < date('now', '-1 day')")
             cursor.execute("DELETE FROM electrical_telemetry WHERE meter_id NOT IN ('1', '2', '3', '4')")
             cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032683868%' AND meter_id = '1'")
-            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032689659%' AND meter_id NOT IN ('2', '3', '4')")
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032689659%' AND meter_id NOT IN ('2', '3')")
             cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032680674%' AND meter_id NOT IN ('2', '3')")
             cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032681912%' AND meter_id NOT IN ('2', '3')")
         except Exception:
@@ -730,7 +729,7 @@ def seed_historical_postings(cursor):
         motor_names_map = {
             "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
             "350435032680674": ["M1_40_HP", "M2_30_HP"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP"],
             "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
         
@@ -1508,7 +1507,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
     hp_ratings = {
         "350435032683868": {"2": 60, "3": 75, "4": 60},
         "350435032680674": {"2": 40, "3": 30},
-        "350435032689659": {"2": 50, "3": 50, "4": 30},
+        "350435032689659": {"2": 50, "3": 50},
         "350435032681912": {"2": 30, "3": 25},
     }
     plant_hp_map = hp_ratings.get(device_id, {})
@@ -1541,20 +1540,30 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
         m_num_val = int(m_id_str) if m_id_str.isdigit() else 2
         motor_idx = (m_num_val - 1) if m_num_val >= 2 else 1
         param_key = f"current_{motor_idx}"
+
+        if device_id not in HISTORY_BUFFER or not HISTORY_BUFFER[device_id]:
+            try:
+                await get_telemetry(device_id=device_id)
+            except Exception:
+                pass
+
         if device_id in HISTORY_BUFFER and HISTORY_BUFFER[device_id]:
             latest_pt = HISTORY_BUFFER[device_id][-1]
             is_motor_running = getattr(latest_pt, param_key, 0) == 1
-        else:
-            tel_cache = PROXY_CACHE.get(f"tel_{device_id}")
+
+        if not is_motor_running and f"tel_{device_id}" in PROXY_CACHE:
+            tel_cache = PROXY_CACHE[f"tel_{device_id}"]
             if tel_cache and tel_cache[0]:
                 c_data = tel_cache[0]
-                tanks = c_data.get("tanks", [])
-                if tanks and len(tanks) > 0:
-                    motors = tanks[0].get("motors", [])
+                tanks = getattr(c_data, "tanks", []) if hasattr(c_data, "tanks") else (c_data.get("tanks", []) if isinstance(c_data, dict) else [])
+                if tanks:
+                    first_tank = tanks[0]
+                    motors = getattr(first_tank, "motors", []) if hasattr(first_tank, "motors") else (first_tank.get("motors", []) if isinstance(first_tank, dict) else [])
                     if len(motors) >= motor_idx:
-                        is_motor_running = bool(motors[motor_idx - 1].get("is_running"))
-    except Exception:
-        pass
+                        target_m = motors[motor_idx - 1]
+                        is_motor_running = getattr(target_m, "is_running", False) if hasattr(target_m, "is_running") else bool(target_m.get("is_running", False))
+    except Exception as e:
+        print(f"Error determining is_motor_running: {e}")
 
     pf_avg = round(base_pf + ((m_num % 2) * 0.012 - 0.006), 3) if is_motor_running else 0.00
     freq = 49.98 if is_motor_running else 50.0
@@ -1612,7 +1621,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
 PLANT_DEFAULT_METERS = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
-    "350435032689659": ["2", "3", "4"],
+    "350435032689659": ["2", "3"],
     "350435032681912": ["2", "3"],
     "98203928": ["1"]
 }
@@ -1798,7 +1807,7 @@ async def get_telemetry_reports(
         motor_names_map = {
             "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
             "350435032680674": ["M1_40_HP", "M2_30_HP"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP"],
             "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
 
@@ -1819,7 +1828,7 @@ async def get_telemetry_reports(
             dev_id = r[1]
             if not mfm_meters:
                 motors_list = motor_names_map.get(dev_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-                num_mfms = 3 if dev_id in ["350435032683868", "350435032689659"] else 2
+                num_mfms = 3 if dev_id == "350435032683868" else 2
                 v_val = r[7] if r[7] else 405.0
                 i_val = r[8] if r[8] else 25.0
                 kw_val = r[9] if r[9] else 18.0
