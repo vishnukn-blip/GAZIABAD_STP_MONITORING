@@ -221,7 +221,7 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   // Dynamic live electrical parameter calculations per meter ID & motor HP rating
   const nowStr = new Date().toISOString();
   const hpRatings: Record<string, Record<string, number>> = {
-    "350435032683868": { "2": 60, "3": 75, "4": 60 },
+    "350435032683868": { "1": 60, "2": 60, "3": 75, "4": 60 },
     "350435032680674": { "2": 40, "3": 30 },
     "350435032689659": { "2": 50, "3": 50 },
     "350435032681912": { "2": 30, "3": 25 },

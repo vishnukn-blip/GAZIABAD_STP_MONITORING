@@ -1593,7 +1593,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
 
 
 PLANT_DEFAULT_METERS = {
-    "350435032683868": ["2", "3", "4"],
+    "350435032683868": ["1", "2", "3", "4"],
     "350435032680674": ["2", "3"],
     "350435032681912": ["2", "3"],
     "350435032689659": ["2", "3"],
@@ -1623,7 +1623,9 @@ async def get_device_electrical_meters(device_id: str):
             if m_rows:
                 m_list = [str(r[0]) for r in m_rows if r[0]]
                 if m_list:
-                    res_m = {"status": "success", "device_id": device_id, "meters": m_list}
+                    def_list = PLANT_DEFAULT_METERS.get(device_id, ["2", "3"])
+                    combined = list(dict.fromkeys(m_list + def_list))
+                    res_m = {"status": "success", "device_id": device_id, "meters": combined}
                     PROXY_CACHE[cache_key] = (res_m, now_ts)
                     return res_m
         except Exception:

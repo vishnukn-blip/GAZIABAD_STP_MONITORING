@@ -337,8 +337,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             if (mObj.meter_id && meterAmperesMap[String(mObj.meter_id)] !== undefined) {
               motorAmpere = meterAmperesMap[String(mObj.meter_id)];
             } else {
-              const primaryMeterId = String(idx + 2);
-              motorAmpere = meterAmperesMap[primaryMeterId] ?? 0;
+              const mId2 = String(idx + 2);
+              const mId1 = String(idx + 1);
+              motorAmpere = meterAmperesMap[mId2] ?? meterAmperesMap[mId1] ?? 0;
+              if (!motorAmpere && _operatingMode === 'MANUAL') {
+                const activeAmps = Object.entries(meterAmperesMap).filter(([_, a]) => Number(a) > 0.05);
+                if (activeAmps[idx]) {
+                  motorAmpere = Number(activeAmps[idx][1]);
+                }
+              }
             }
 
             const latestPtVal = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint];

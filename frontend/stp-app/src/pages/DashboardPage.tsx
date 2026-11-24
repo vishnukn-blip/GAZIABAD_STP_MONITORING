@@ -275,8 +275,21 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
           const isAutoRunning = (ms?.is_running === true) || (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
           const isTripped = ms?.is_tripped ?? false;
 
-          const mId = String(mi + 2);
-          const motorAmp = selectedStatus?.meterAmperesMap?.[mId] ?? 0;
+          const mId2 = String(mi + 2);
+          const mId1 = String(mi + 1);
+          let motorAmp = selectedStatus?.meterAmperesMap?.[mId2] ?? selectedStatus?.meterAmperesMap?.[mId1] ?? 0;
+
+          // If manual mode is active and this motor corresponds to an active load
+          if (!motorAmp && selectedStatus?.operatingMode === 'MANUAL') {
+            const activeMeters = Object.entries(selectedStatus?.meterAmperesMap || {})
+              .filter(([_, amp]: any) => Number(amp) > 0.05);
+            if (activeMeters[mi]) {
+              motorAmp = Number(activeMeters[mi][1]);
+            } else if (mi === 0 && selectedStatus?.currentAmperes && selectedStatus.currentAmperes > 0.05) {
+              motorAmp = selectedStatus.currentAmperes;
+            }
+          }
+
           const isManualRunning = !isAutoRunning && !isTripped && motorAmp > 0.05;
           const isRunning = isAutoRunning || isManualRunning;
           const motorObj = { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped };

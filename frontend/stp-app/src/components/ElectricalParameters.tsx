@@ -20,7 +20,7 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 }) => {
   const getMotorNameForMeter = (mId: string, telemetryData?: any) => {
     const plantMap: Record<string, Record<string, string>> = {
-      "350435032683868": { "2": "M1_60_HP", "3": "M2_75_HP", "4": "M3_60_HP" },
+      "350435032683868": { "1": "M1_60_HP", "2": "M1_60_HP", "3": "M2_75_HP", "4": "M3_60_HP" },
       "350435032680674": { "2": "M1_40_HP", "3": "M2_30_HP" },
       "350435032689659": { "2": "M1_50_HP", "3": "M2_50_HP" },
       "350435032681912": { "2": "M1_30_HP", "3": "M2_30_HP" },
