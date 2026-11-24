@@ -1,15 +1,12 @@
 import axios from 'axios';
 
-// Dynamic Host Resolution (Uses main server IP when running locally, or current host when deployed)
+// Dynamic Host Resolution:
+// Both Docker Nginx and Vite dev server already proxy '/api' to the backend container/service!
+// Returning '' (relative path) ensures all requests use the proxy, avoiding host port conflicts
+// (such as host port 8001 being occupied by other services).
 const getApiBaseUrl = (port: string) => {
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    // When accessing via standard web ports (80 / 443) behind a reverse proxy (e.g. Nginx):
-    if (!window.location.port || window.location.port === '80' || window.location.port === '443') {
-      return '';
-    }
-    // Dynamically target the host PC's backend port (e.g. http://192.168.0.120:8001 or http://localhost:8001)
-    return `http://${hostname}:${port}`;
+    return '';
   }
   return `http://localhost:${port}`;
 };
