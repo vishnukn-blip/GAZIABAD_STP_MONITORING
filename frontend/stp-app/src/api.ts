@@ -221,9 +221,9 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   // Dynamic live electrical parameter calculations per meter ID & motor HP rating
   const nowStr = new Date().toISOString();
   const hpRatings: Record<string, Record<string, number>> = {
-    "350435032683868": { "1": 60, "2": 60, "3": 75, "4": 60 },
+    "350435032683868": { "2": 60, "3": 75, "4": 60 },
     "350435032680674": { "2": 40, "3": 30 },
-    "350435032689659": { "2": 50, "3": 50 },
+    "350435032689659": { "2": 50, "3": 50, "4": 30 },
     "350435032681912": { "2": 30, "3": 25 },
   };
 
@@ -247,22 +247,26 @@ export const getElectricalTelemetry = async (deviceId: string, meterId?: string)
   const v23 = Number((v_ll + 0.6).toFixed(1));
   const v31 = Number((v_ll - 0.3).toFixed(1));
 
-  const pf_avg = Number((basePf + ((mNum % 2) * 0.012 - 0.006)).toFixed(3));
-  const freq = 49.94;
+  // In Sector 7, only meter 2 is currently running in baseline telemetry; meters 3 & 4 are standby/off
+  const isSector7 = deviceId === "350435032683868";
+  const isRunning = isSector7 ? (mIdStr === "2") : false;
 
-  const total_kw = Number((hp * 0.746 * meterLoadScale).toFixed(2));
+  const pf_avg = isRunning ? Number((basePf + ((mNum % 2) * 0.012 - 0.006)).toFixed(3)) : 0.0;
+  const freq = isRunning ? 49.94 : 50.0;
+
+  const total_kw = isRunning ? Number((hp * 0.746 * meterLoadScale).toFixed(2)) : 0.0;
   const kw1 = Number((total_kw / 3).toFixed(2));
   const kw2 = Number((total_kw / 3).toFixed(2));
   const kw3 = Number((total_kw / 3).toFixed(2));
 
-  const total_amp = Number(((total_kw * 1000) / (1.732 * v_ll * pf_avg)).toFixed(1));
+  const total_amp = (isRunning && pf_avg > 0) ? Number(((total_kw * 1000) / (1.732 * v_ll * pf_avg)).toFixed(1)) : 0.0;
   const i1 = Number((total_amp * 0.99).toFixed(1));
   const i2 = Number((total_amp * 1.01).toFixed(1));
   const i3 = Number((total_amp * 1.00).toFixed(1));
   const i_avg = total_amp;
 
-  const total_kva = Number((total_kw / pf_avg).toFixed(2));
-  const total_kvar = Number(Math.sqrt(Math.max(0, total_kva * total_kva - total_kw * total_kw)).toFixed(2));
+  const total_kva = (isRunning && pf_avg > 0) ? Number((total_kw / pf_avg).toFixed(2)) : 0.0;
+  const total_kvar = (isRunning && total_kva > 0) ? Number(Math.sqrt(Math.max(0, total_kva * total_kva - total_kw * total_kw)).toFixed(2)) : 0.0;
   const kwh = Number((baseKwh + (mNum * 1420.5) + (hp * 14.2 * meterLoadScale)).toFixed(2));
 
   return {
@@ -299,7 +303,7 @@ export const getElectricalMeters = async (deviceId: string): Promise<any> => {
   const plantMetersMap: Record<string, string[]> = {
     "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
-    "350435032689659": ["2", "3"],
+    "350435032689659": ["2", "3", "4"],
     "350435032681912": ["2", "3"],
     "98203928": ["1"]
   };

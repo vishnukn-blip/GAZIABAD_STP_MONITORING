@@ -272,23 +272,11 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
         {tankLayout.motors.map((motor, mi) => {
           const ms = telemetry?.motors.find(m => m.run_param_key === motor.run_param_key) || telemetry?.motors[mi];
           const motorDisplayName = motor.name || (motor as any).motor_name || `Motor ${mi + 1}`;
-          const isAutoRunning = (ms?.is_running === true) || (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
+          const isAutoRunning = ms?.is_running === true;
           const isTripped = ms?.is_tripped ?? false;
 
-          const mId2 = String(mi + 2);
-          const mId1 = String(mi + 1);
-          let motorAmp = selectedStatus?.meterAmperesMap?.[mId2] ?? selectedStatus?.meterAmperesMap?.[mId1] ?? 0;
-
-          // If manual mode is active and this motor corresponds to an active load
-          if (!motorAmp && selectedStatus?.operatingMode === 'MANUAL') {
-            const activeMeters = Object.entries(selectedStatus?.meterAmperesMap || {})
-              .filter(([_, amp]: any) => Number(amp) > 0.05);
-            if (activeMeters[mi]) {
-              motorAmp = Number(activeMeters[mi][1]);
-            } else if (mi === 0 && selectedStatus?.currentAmperes && selectedStatus.currentAmperes > 0.05) {
-              motorAmp = selectedStatus.currentAmperes;
-            }
-          }
+          const mId = (motor as any).meter_id ? String((motor as any).meter_id) : String(mi + 2);
+          const motorAmp = Number(selectedStatus?.meterAmperesMap?.[mId] ?? 0);
 
           const isManualRunning = !isAutoRunning && !isTripped && motorAmp > 0.05;
           const isRunning = isAutoRunning || isManualRunning;
@@ -406,38 +394,36 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     { name: 'MOTOR-004', motor_name: 'Motor_4', tank: 'TANK-001', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
     { name: 'MOTOR-005', motor_name: 'Motor_5', tank: 'TANK-001', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
-    // TANK_A (STP PLANT A)
-    { name: 'MOTOR_A_1', motor_name: 'MOTOR_A_1', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_A_2', motor_name: 'MOTOR_A_2', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_A_3', motor_name: 'MOTOR_A_3', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_A_4', motor_name: 'MOTOR_A_4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_A_5', motor_name: 'MOTOR_A_5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+    // TANK_A (STP PLANT A - Vasundhara Sector 7, 8MLD: Strictly 3 motors installed)
+    { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
 
-    // TANK_B (STP PLANT B)
-    { name: 'MOTOR_B_1', motor_name: 'MOTOR_B_1', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_B_2', motor_name: 'MOTOR_B_2', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_B_3', motor_name: 'MOTOR_B_3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_B_4', motor_name: 'MOTOR_B_4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_B_5', motor_name: 'MOTOR_B_5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+    // TANK_B (STP PLANT B - Vasundhara Sector 19: 2 motors installed)
+    { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
 
-    // TANK_C (STP PLANT C)
-    { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+    // TANK_C (STP PLANT C - SPS Sanjay: 3 motors installed)
+    { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+    { name: 'MOTOR_C_3', motor_name: 'M3_30_HP', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
 
-    // TANK_D (STP PLANT D)
-    { name: 'MOTOR_D_1', motor_name: 'MOTOR_D_1', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_D_2', motor_name: 'MOTOR_D_2', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_D_3', motor_name: 'MOTOR_D_3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_D_4', motor_name: 'MOTOR_D_4', tank: 'TANK_D', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_D_5', motor_name: 'MOTOR_D_5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
+    // TANK_D (STP PLANT D - Vaishali Sector 6: 2 motors installed)
+    { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
   ];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
+  let parsedLocalMotors: any[] | null = null;
+  if (localMotorsStr) {
+    try {
+      parsedLocalMotors = JSON.parse(localMotorsStr).filter(
+        (m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5'
+      );
+    } catch { }
+  }
   const allMotors = (customMotors && customMotors.length > 0)
-    ? customMotors
-    : (localMotorsStr ? JSON.parse(localMotorsStr) : defaultMotors);
+    ? customMotors.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5')
+    : (parsedLocalMotors && parsedLocalMotors.length > 0 ? parsedLocalMotors : defaultMotors);
 
   const compiledTanks = tanksToUse.map((t: any, tIdx: number) => {
     const matchedMotors = allMotors.filter((m: any) =>
@@ -447,11 +433,9 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     );
 
     const motorsToUse = matchedMotors.length > 0 ? matchedMotors : [
-      { name: `MOTOR-1`, motor_name: 'Motor 1', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-      { name: `MOTOR-2`, motor_name: 'Motor 2', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-      { name: `MOTOR-3`, motor_name: 'Motor 3', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-      { name: `MOTOR-4`, motor_name: 'Motor 4', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-      { name: `MOTOR-5`, motor_name: 'Motor 5', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
+      { name: `MOTOR-1`, motor_name: 'M1_60_HP', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+      { name: `MOTOR-2`, motor_name: 'M2_75_HP', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+      { name: `MOTOR-3`, motor_name: 'M3_60_HP', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 }
     ];
 
     return {
@@ -991,8 +975,7 @@ const DashboardPage: React.FC = () => {
   const activeMotors = Math.max(
     selectedStatus?.activeMotors ?? 0,
     autoActiveMotors,
-    manualActiveMeters,
-    selectedStatus?.operatingMode === 'MANUAL' ? 1 : 0
+    manualActiveMeters
   );
   const trippedMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_tripped).length ?? 0;
   const avgLevel = layout?.tanks.length

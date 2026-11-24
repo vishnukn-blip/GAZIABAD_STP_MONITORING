@@ -57,23 +57,13 @@ export const DEFAULT_LOCAL_MOTORS = [
   { name: 'MOTOR_A_1', motor_name: 'M1_60_HP', tank: 'TANK_A', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_A_2', motor_name: 'M2_75_HP', tank: 'TANK_A', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
   { name: 'MOTOR_A_3', motor_name: 'M3_60_HP', tank: 'TANK_A', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_A_4', motor_name: 'M4', tank: 'TANK_A', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_A_5', motor_name: 'M5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
   { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
   { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_B_3', motor_name: 'M3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_B_4', motor_name: 'M4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_B_5', motor_name: 'M5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
-  { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+  { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+  { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
+  { name: 'MOTOR_C_3', motor_name: 'M3_30_HP', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
   { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-  { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-  { name: 'MOTOR_D_3', motor_name: 'M3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-  { name: 'MOTOR_D_4', motor_name: 'M4', tank: 'TANK_D', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-  { name: 'MOTOR_D_5', motor_name: 'M5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
+  { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
 ];
 
 const AdminPage: React.FC = () => {
@@ -320,8 +310,9 @@ const AdminPage: React.FC = () => {
 
     const central = await getCentralMotors();
     if (central && Array.isArray(central) && central.length > 0) {
-      localStorage.setItem('stp_local_motors', JSON.stringify(central));
-      setMotors(central);
+      const sanitized = central.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5');
+      localStorage.setItem('stp_local_motors', JSON.stringify(sanitized));
+      setMotors(sanitized);
       return;
     }
 
@@ -330,7 +321,8 @@ const AdminPage: React.FC = () => {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMotors(parsed);
+          const sanitized = parsed.filter((m: any) => m.name !== 'MOTOR_A_4' && m.name !== 'MOTOR_A_5' && m.name !== 'MOTOR_B_3' && m.name !== 'MOTOR_B_4' && m.name !== 'MOTOR_B_5');
+          setMotors(sanitized.length > 0 ? sanitized : DEFAULT_LOCAL_MOTORS);
           return;
         }
       } catch {}

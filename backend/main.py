@@ -353,27 +353,19 @@ async def get_telemetry(
             ))
     else:
         m_map = {
-            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-            "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-            "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+            "350435032680674": ["M1_40_HP", "M2_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
-        m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-        
-        m1_t = False if is_stale else parse_trip(raw.get("voltage_4"))
-        m1_r = False if is_stale else (parse_run(raw.get("current_1")) and not m1_t)
-        
-        m2_t = False if is_stale else parse_trip(raw.get("voltage_5"))
-        m2_r = False if is_stale else (parse_run(raw.get("current_2")) and not m2_t)
-        
-        m3_t = False if is_stale else parse_trip(raw.get("voltage_6"))
-        m3_r = False if is_stale else (parse_run(raw.get("current_3")) and not m3_t)
-        
-        m4_t = False if is_stale else parse_trip(raw.get("voltage_7"))
-        m4_r = False if is_stale else (parse_run(raw.get("current_4")) and not m4_t)
-        
-        m5_t = False if is_stale else parse_trip(raw.get("voltage_8"))
-        m5_r = False if is_stale else (parse_run(raw.get("low_pressure")) and not m5_t)
+        m_list = m_map.get(target_device_id, ["M1_60_HP", "M2_75_HP", "M3_60_HP"])
+        motors_out = []
+        for m_idx, m_name in enumerate(m_list):
+            r_key = f"current_{m_idx + 1}"
+            t_key = f"voltage_{m_idx + 4}"
+            t_flag = False if is_stale else parse_trip(raw.get(t_key))
+            r_flag = False if is_stale else (parse_run(raw.get(r_key)) and not t_flag)
+            motors_out.append(MotorTelemetry(motor_name=m_name, run_param_key=r_key, trip_param_key=t_key, is_running=r_flag, is_tripped=t_flag))
 
         tanks_out.append(TankTelemetry(
             tank_id=1,
@@ -382,13 +374,7 @@ async def get_telemetry(
             capacity_liters=8000000,
             water_level_percent=water_level_pct,
             current_volume_liters=round((water_level_pct / 100) * 8000000, 0),
-            motors=[
-                MotorTelemetry(motor_name=m_list[0], run_param_key="current_1", trip_param_key="voltage_4", is_running=m1_r, is_tripped=m1_t),
-                MotorTelemetry(motor_name=m_list[1], run_param_key="current_2", trip_param_key="voltage_5", is_running=m2_r, is_tripped=m2_t),
-                MotorTelemetry(motor_name=m_list[2], run_param_key="current_3", trip_param_key="voltage_6", is_running=m3_r, is_tripped=m3_t),
-                MotorTelemetry(motor_name=m_list[3], run_param_key="current_4", trip_param_key="voltage_7", is_running=m4_r, is_tripped=m4_t),
-                MotorTelemetry(motor_name=m_list[4] if len(m_list) > 4 else "M5", run_param_key="low_pressure", trip_param_key="voltage_8", is_running=m5_r, is_tripped=m5_t),
-            ]
+            motors=motors_out
         ))
 
     # Auto-log real-time telemetry snapshot to persistent database table
@@ -400,13 +386,13 @@ async def get_telemetry(
         c.execute("SELECT COUNT(*) FROM telemetry_postings WHERE device_id = ? AND timestamp LIKE ?", (target_device_id, f"{minute_prefix}%"))
         if c.fetchone()[0] == 0:
             m_map = {
-                "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-                "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-                "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-                "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+                "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+                "350435032680674": ["M1_40_HP", "M2_30_HP"],
+                "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+                "350435032681912": ["M1_30_HP", "M2_30_HP"]
             }
-            m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-            num_m = 3 if target_device_id in ["350435032683868", "350435032680674", "350435032689659"] else 2
+            m_list = m_map.get(target_device_id, ["M1_60_HP", "M2_75_HP", "M3_60_HP"])
+            num_m = len(m_list)
             
             live_m_statuses = {}
             for tank in tanks_out:
@@ -539,23 +525,13 @@ DEFAULT_CENTRAL_MOTORS = [
     {"name": "MOTOR_A_1", "motor_name": "M1_60_HP", "tank": "TANK_A", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_A_2", "motor_name": "M2_75_HP", "tank": "TANK_A", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
     {"name": "MOTOR_A_3", "motor_name": "M3_60_HP", "tank": "TANK_A", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_A_4", "motor_name": "M4", "tank": "TANK_A", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_A_5", "motor_name": "M5", "tank": "TANK_A", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_B_1", "motor_name": "M1_40_HP", "tank": "TANK_B", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_B_2", "motor_name": "M2_30_HP", "tank": "TANK_B", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_B_3", "motor_name": "M3", "tank": "TANK_B", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_B_4", "motor_name": "M4", "tank": "TANK_B", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_B_5", "motor_name": "M5", "tank": "TANK_B", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_C_1", "motor_name": "M1_50_HP", "tank": "TANK_C", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_C_2", "motor_name": "M2_50_HP", "tank": "TANK_C", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
     {"name": "MOTOR_C_3", "motor_name": "M3_30_HP", "tank": "TANK_C", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_C_4", "motor_name": "M4", "tank": "TANK_C", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_C_5", "motor_name": "M5", "tank": "TANK_C", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_D_1", "motor_name": "M1_30_HP", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
-    {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_D_3", "motor_name": "M3", "tank": "TANK_D", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_D_4", "motor_name": "M4", "tank": "TANK_D", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_D_5", "motor_name": "M5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
+    {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2}
 ]
 
 DEFAULT_CENTRAL_USERS = [
@@ -694,8 +670,24 @@ def init_persistent_db():
             cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('tanks', ?)", (json.dumps(DEFAULT_CENTRAL_TANKS),))
 
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'motors'")
-        if not cursor.fetchone():
+        m_row = cursor.fetchone()
+        if not m_row:
             cursor.execute("INSERT INTO config_store (key, json_data) VALUES ('motors', ?)", (json.dumps(DEFAULT_CENTRAL_MOTORS),))
+        else:
+            try:
+                curr_m = json.loads(m_row[0])
+                # Remove obsolete dummy motors M4 and M5 for TANK_A
+                filtered_m = [m for m in curr_m if not (m.get("tank") == "TANK_A" and m.get("motor_name") in ["M4", "M5"])]
+                if len(filtered_m) != len(curr_m):
+                    cursor.execute("UPDATE config_store SET json_data = ? WHERE key = 'motors'", (json.dumps(filtered_m),))
+            except Exception:
+                pass
+
+        # Clean up stale/test electrical records for Sector 7 with meter_id not in ('2', '3', '4')
+        try:
+            cursor.execute("DELETE FROM electrical_telemetry WHERE device_id LIKE '%350435032683868%' AND meter_id NOT IN ('2', '3', '4')")
+        except Exception:
+            pass
 
         # Merge standard users into config_store so all standard logins are always present
         cursor.execute("SELECT json_data FROM config_store WHERE key = 'users'")
@@ -731,10 +723,10 @@ def seed_historical_postings(cursor):
         now = get_local_now()
         
         motor_names_map = {
-            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-            "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-            "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+            "350435032680674": ["M1_40_HP", "M2_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
         
         postings = []
@@ -815,10 +807,10 @@ def seed_historical_postings(cursor):
                         m_statuses[m_name] = "ON" if idx_m < 2 else "OFF"
                 elif dev_id == "350435032683868":
                     op_mode = "MANUAL"
-                    motors_running = 3
+                    motors_running = 1
                     motors_tripped = 0
                     for idx_m, m_name in enumerate(motors_list):
-                        m_statuses[m_name] = "ON" if idx_m < 3 else "OFF"
+                        m_statuses[m_name] = "ON" if idx_m == 0 else "OFF"
                 elif mode_rand < 0.70:
                     op_mode = "AUTO"
                     motors_running = min(len(motors_list), random.choice([2, 3, 4]))
@@ -1528,16 +1520,15 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
 
     is_motor_running = False
     try:
+        # Determine target motor index from meter ID: Meter 2 -> Motor 1 (current_1), Meter 3 -> Motor 2 (current_2), Meter 4 -> Motor 3 (current_3)
+        m_num_val = int(m_id_str) if m_id_str.isdigit() else 2
+        motor_idx = (m_num_val - 1) if m_num_val >= 2 else 1
+        param_key = f"current_{motor_idx}"
         if device_id in HISTORY_BUFFER and HISTORY_BUFFER[device_id]:
             latest_pt = HISTORY_BUFFER[device_id][-1]
-            param_key = f"current_{m_id_str}"
             is_motor_running = getattr(latest_pt, param_key, 0) == 1
     except Exception:
         pass
-
-    # Treat active meters with detected current as running
-    if not is_motor_running and m_id_str in ["1", "2", "3", "4"]:
-        is_motor_running = True
 
     pf_avg = round(base_pf + ((m_num % 2) * 0.012 - 0.006), 3) if is_motor_running else 0.00
     freq = 49.98 if is_motor_running else 50.0
@@ -1593,7 +1584,7 @@ async def get_electrical_telemetry(device_id: str, meter_id: Optional[str] = Non
 
 
 PLANT_DEFAULT_METERS = {
-    "350435032683868": ["1", "2", "3", "4"],
+    "350435032683868": ["2", "3", "4"],
     "350435032680674": ["2", "3"],
     "350435032681912": ["2", "3"],
     "350435032689659": ["2", "3"],
@@ -1605,6 +1596,7 @@ async def get_device_electrical_meters(device_id: str):
     if "98203928" in device_id:
         return {"status": "success", "device_id": device_id, "meters": ["1"]}
 
+    default_meters = PLANT_DEFAULT_METERS.get(device_id, ["2", "3"])
     cache_key = f"meters_{device_id}"
     now_ts = time.time()
     if cache_key in PROXY_CACHE:
@@ -1621,17 +1613,16 @@ async def get_device_electrical_meters(device_id: str):
             m_rows = cursor.fetchall()
             conn.close()
             if m_rows:
-                m_list = [str(r[0]) for r in m_rows if r[0]]
+                valid_set = set(default_meters)
+                m_list = [str(r[0]) for r in m_rows if r[0] and str(r[0]) in valid_set]
                 if m_list:
-                    def_list = PLANT_DEFAULT_METERS.get(device_id, ["2", "3"])
-                    combined = list(dict.fromkeys(m_list + def_list))
+                    combined = list(dict.fromkeys(m_list + [m for m in default_meters if m not in m_list]))
                     res_m = {"status": "success", "device_id": device_id, "meters": combined}
                     PROXY_CACHE[cache_key] = (res_m, now_ts)
                     return res_m
         except Exception:
             pass
 
-    default_meters = PLANT_DEFAULT_METERS.get(device_id, ["2", "3"])
     res_def = {"status": "success", "device_id": device_id, "meters": default_meters}
     PROXY_CACHE[cache_key] = (res_def, now_ts)
     return res_def
@@ -1779,10 +1770,10 @@ async def get_telemetry_reports(
         mfm_stats_map = {}
 
         motor_names_map = {
-            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-            "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-            "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+            "350435032680674": ["M1_40_HP", "M2_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP"],
+            "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
 
         for r in rows:
