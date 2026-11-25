@@ -158,8 +158,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   history, 
   motors, 
   tankName,
-  currentAmperes: _currentAmperes = 0,
-  operatingMode: _operatingMode = 'STANDBY',
+  currentAmperes = 0,
+  operatingMode = 'STANDBY',
   meterAmperesMap = {},
   liveWaterLevel = 0,
   deviceId = "350435032683868"
@@ -342,10 +342,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             }
 
             const latestPtVal = data[data.length - 1]?.[m.key as keyof TelemetryHistoryPoint];
-            const isSectorAutoPlant = deviceId === '350435032681912' || deviceId === '350435032680674';
-            const isAutoRunning = parseRunVal(latestPtVal) || (motors && motors[idx] && parseRunVal(motors[idx].is_running) && !motors[idx].is_tripped) || (isSectorAutoPlant && idx < 2);
-            const isManualRunning = !isAutoRunning && motorAmpere > 0.05;
-            const isMotorActive = isAutoRunning || isManualRunning;
+            const rawRunning = parseRunVal(latestPtVal) || (motors && motors[idx] && parseRunVal(motors[idx].is_running));
+            const isTripped = (motors && motors[idx] && motors[idx].is_tripped) || false;
+
+            const isPlantManual = operatingMode === 'MANUAL';
+            const isMotorActive = !isTripped && (rawRunning || motorAmpere > 0.05 || (isPlantManual && idx < 2 && currentAmperes > 0.05));
+            const isManualRunning = isMotorActive && (isPlantManual || motorAmpere > 0.05);
+            const isAutoRunning = isMotorActive && !isManualRunning;
 
             // Transform history data for full 24-Hour graph rendering
             const totalPts = data.length;
@@ -357,14 +360,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               
               let plottedVal = 0;
 
-              if (mStatus === 'ON' || mStatus === 'AUTO' || ptAuto) {
-                plottedVal = 1.0;
-              } else if (mStatus === 'MANUAL' || mStatus === 'MANUAL ON') {
+              if (mStatus === 'MANUAL' || mStatus === 'MANUAL ON' || ((pt as any).operating_mode === 'MANUAL' && isMotorActive && idx < 3)) {
                 plottedVal = 0.5;
+              } else if (isPlantManual && isMotorActive) {
+                plottedVal = 0.5;
+              } else if (mStatus === 'ON' || mStatus === 'AUTO' || ptAuto) {
+                plottedVal = 1.0;
               } else if ((pt as any).operating_mode === 'AUTO' && idx < ((pt as any).motors_running_count ?? 1)) {
                 plottedVal = 1.0;
-              } else if ((pt as any).operating_mode === 'MANUAL' && isMotorActive && idx < 3) {
-                plottedVal = 0.5;
               } else if (isMotorActive) {
                 // Generate full 24-hour historical operational duty cycle
                 const hourNum = parseInt(pt.time_short?.slice(0, 2) || '0', 10);
@@ -375,7 +378,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 const isShiftActive = ((hourNum + mSeed * 2 + devSeed) % 7) < 5;
                 
                 if (ptIdx >= totalPts - 4 || isShiftActive) {
-                  plottedVal = isAutoRunning ? 1.0 : (isManualRunning ? 0.5 : 0);
+                  plottedVal = isManualRunning ? 0.5 : (isAutoRunning ? 1.0 : 0);
                 }
               }
 
