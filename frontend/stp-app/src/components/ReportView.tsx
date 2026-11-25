@@ -85,10 +85,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
   };
 
   const DEFAULT_PLANT_MOTORS: Record<string, string[]> = {
-    '350435032683868': ['M1_60_HP', 'M2_75_HP', 'M3_60_HP', 'M4', 'M5'],
-    '350435032680674': ['M1_40_HP', 'M2_30_HP', 'M3', 'M4', 'M5'],
-    '350435032689659': ['M1_50_HP', 'M2_50_HP', 'M3_30_HP', 'M4', 'M5'],
-    '350435032681912': ['M1_30_HP', 'M2_30_HP', 'M3', 'M4', 'M5']
+    '350435032683868': ['M1_60_HP', 'M2_75_HP', 'M3_60_HP'],
+    '350435032680674': ['M1_40_HP', 'M2_30_HP'],
+    '350435032689659': ['M1_50_HP', 'M2_50_HP'],
+    '350435032681912': ['M1_30_HP', 'M2_30_HP']
   };
 
   const generateFallbackReportData = () => {
@@ -118,7 +118,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       baseKwh += kw * (isDaily ? 1 : 4);
       
       const mode = isSec6 ? 'MANUAL' : ((i % 8 === 0) ? 'MANUAL' : (i % 15 === 0) ? 'TRIP' : 'AUTO');
-      const motorsRun = isSec6 ? 0 : isSec19 ? 3 : (mode === 'TRIP' ? 1 : mode === 'MANUAL' ? 2 : 3);
+      const motorsRun = isSec6 ? 0 : isSec19 ? 2 : (mode === 'TRIP' ? 1 : mode === 'MANUAL' ? 2 : 3);
 
       const motor_statuses: Record<string, string> = {};
       plantMotors.forEach((mName, idx) => {

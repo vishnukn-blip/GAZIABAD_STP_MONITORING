@@ -403,25 +403,16 @@ const buildDeviceLayoutFromLocal = (devId: string, customDevs?: any[], customTan
     { name: 'MOTOR_A_5', motor_name: 'MOTOR_A_5', tank: 'TANK_A', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
 
     // TANK_B (STP PLANT B)
-    { name: 'MOTOR_B_1', motor_name: 'MOTOR_B_1', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_B_2', motor_name: 'MOTOR_B_2', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_B_3', motor_name: 'MOTOR_B_3', tank: 'TANK_B', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_B_4', motor_name: 'MOTOR_B_4', tank: 'TANK_B', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_B_5', motor_name: 'MOTOR_B_5', tank: 'TANK_B', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+    { name: 'MOTOR_B_1', motor_name: 'M1_40_HP', tank: 'TANK_B', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_B_2', motor_name: 'M2_30_HP', tank: 'TANK_B', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
 
     // TANK_C (STP PLANT C)
-    { name: 'MOTOR_C_1', motor_name: 'MOTOR_C_1', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_C_2', motor_name: 'MOTOR_C_2', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_C_3', motor_name: 'MOTOR_C_3', tank: 'TANK_C', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_C_4', motor_name: 'MOTOR_C_4', tank: 'TANK_C', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_C_5', motor_name: 'MOTOR_C_5', tank: 'TANK_C', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 },
+    { name: 'MOTOR_C_1', motor_name: 'M1_50_HP', tank: 'TANK_C', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_C_2', motor_name: 'M2_50_HP', tank: 'TANK_C', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
 
     // TANK_D (STP PLANT D)
-    { name: 'MOTOR_D_1', motor_name: 'MOTOR_D_1', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
-    { name: 'MOTOR_D_2', motor_name: 'MOTOR_D_2', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 },
-    { name: 'MOTOR_D_3', motor_name: 'MOTOR_D_3', tank: 'TANK_D', run_param_key: 'current_3', trip_param_key: 'voltage_6', display_order: 3 },
-    { name: 'MOTOR_D_4', motor_name: 'MOTOR_D_4', tank: 'TANK_D', run_param_key: 'current_4', trip_param_key: 'voltage_7', display_order: 4 },
-    { name: 'MOTOR_D_5', motor_name: 'MOTOR_D_5', tank: 'TANK_D', run_param_key: 'low_pressure', trip_param_key: 'voltage_8', display_order: 5 }
+    { name: 'MOTOR_D_1', motor_name: 'M1_30_HP', tank: 'TANK_D', run_param_key: 'current_1', trip_param_key: 'voltage_4', display_order: 1 },
+    { name: 'MOTOR_D_2', motor_name: 'M2_30_HP', tank: 'TANK_D', run_param_key: 'current_2', trip_param_key: 'voltage_5', display_order: 2 }
   ];
   const localMotorsStr = localStorage.getItem('stp_local_motors');
   const allMotors = (customMotors && customMotors.length > 0)
@@ -570,12 +561,27 @@ const DashboardPage: React.FC = () => {
       const m5_r = isStale ? false : (parseRun(raw.low_pressure) && !m5_t);
 
       const m_map: Record<string, string[]> = {
-        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-        "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-        "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-        "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+        "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+        "350435032680674": ["M1_40_HP", "M2_30_HP"],
+        "350435032689659": ["M1_50_HP", "M2_50_HP"],
+        "350435032681912": ["M1_30_HP", "M2_30_HP"]
       };
-      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"];
+      const m_list = m_map[devId] || ["M1_40_HP", "M2_30_HP"];
+
+      const rawMotors = [
+        { run_param_key: "current_1", trip_param_key: "voltage_4", is_running: m1_r, is_tripped: m1_t },
+        { run_param_key: "current_2", trip_param_key: "voltage_5", is_running: m2_r, is_tripped: m2_t },
+        { run_param_key: "current_3", trip_param_key: "voltage_6", is_running: m3_r, is_tripped: m3_t },
+        { run_param_key: "current_4", trip_param_key: "voltage_7", is_running: m4_r, is_tripped: m4_t },
+        { run_param_key: "low_pressure", trip_param_key: "voltage_8", is_running: m5_r, is_tripped: m5_t }
+      ];
+      const motorsOut = m_list.map((mName, idx) => ({
+        motor_name: mName,
+        run_param_key: rawMotors[idx]?.run_param_key || `current_${idx + 1}`,
+        trip_param_key: rawMotors[idx]?.trip_param_key || `voltage_${idx + 4}`,
+        is_running: rawMotors[idx]?.is_running || false,
+        is_tripped: rawMotors[idx]?.is_tripped || false
+      }));
 
       return {
         device_id: devId,
@@ -589,13 +595,7 @@ const DashboardPage: React.FC = () => {
             capacity_liters: 8000000,
             water_level_percent: waterLevelPct,
             current_volume_liters: Math.round((waterLevelPct / 100) * 8000000),
-            motors: [
-              { motor_name: m_list[0], run_param_key: "current_1", trip_param_key: "voltage_4", is_running: m1_r, is_tripped: m1_t },
-              { motor_name: m_list[1], run_param_key: "current_2", trip_param_key: "voltage_5", is_running: m2_r, is_tripped: m2_t },
-              { motor_name: m_list[2], run_param_key: "current_3", trip_param_key: "voltage_6", is_running: m3_r, is_tripped: m3_t },
-              { motor_name: m_list[3], run_param_key: "current_4", trip_param_key: "voltage_7", is_running: m4_r, is_tripped: m4_t },
-              { motor_name: m_list[4] || "M5", run_param_key: "low_pressure", trip_param_key: "voltage_8", is_running: m5_r, is_tripped: m5_t }
-            ]
+            motors: motorsOut
           }
         ],
         raw_params: raw
@@ -992,16 +992,25 @@ const DashboardPage: React.FC = () => {
   const handleLogout = () => { logout(); navigate('/'); };
 
   const selectedStatus = deviceStatusMap[selectedDeviceId];
-  const autoActiveMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_running).length ?? 0;
+  const validMotorNames = new Set(
+    layout?.tanks?.flatMap(t => t.motors || []).map(m => m.name || (m as any).motor_name) || []
+  );
+  const autoActiveMotors = telemetry?.tanks
+    ?.flatMap(t => t.motors || [])
+    .filter(m => m.is_running && (validMotorNames.size === 0 || validMotorNames.has(m.motor_name))).length ?? 0;
   const manualActiveMeters = selectedStatus?.meterAmperesMap
     ? Object.values(selectedStatus.meterAmperesMap).filter(amp => Number(amp) > 0.05).length
     : 0;
 
-  const activeMotors = Math.max(
-    selectedStatus?.activeMotors ?? 0,
-    autoActiveMotors,
-    manualActiveMeters,
-    selectedStatus?.operatingMode === 'MANUAL' ? 1 : 0
+  const maxConfiguredMotors = layout?.tanks?.flatMap(t => t.motors || []).length || 5;
+  const activeMotors = Math.min(
+    maxConfiguredMotors,
+    Math.max(
+      selectedStatus?.activeMotors ?? 0,
+      autoActiveMotors,
+      manualActiveMeters,
+      selectedStatus?.operatingMode === 'MANUAL' ? 1 : 0
+    )
   );
   const trippedMotors = telemetry?.tanks.flatMap(t => t.motors).filter(m => m.is_tripped).length ?? 0;
   const avgLevel = layout?.tanks.length

@@ -353,27 +353,32 @@ async def get_telemetry(
             ))
     else:
         m_map = {
-            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-            "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-            "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-            "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+            "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+            "350435032680674": ["M1_40_HP", "M2_30_HP"],
+            "350435032689659": ["M1_50_HP", "M2_50_HP"],
+            "350435032681912": ["M1_30_HP", "M2_30_HP"]
         }
-        m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
+        m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP"])
         
-        m1_t = False if is_stale else parse_trip(raw.get("voltage_4"))
-        m1_r = False if is_stale else (parse_run(raw.get("current_1")) and not m1_t)
-        
-        m2_t = False if is_stale else parse_trip(raw.get("voltage_5"))
-        m2_r = False if is_stale else (parse_run(raw.get("current_2")) and not m2_t)
-        
-        m3_t = False if is_stale else parse_trip(raw.get("voltage_6"))
-        m3_r = False if is_stale else (parse_run(raw.get("current_3")) and not m3_t)
-        
-        m4_t = False if is_stale else parse_trip(raw.get("voltage_7"))
-        m4_r = False if is_stale else (parse_run(raw.get("current_4")) and not m4_t)
-        
-        m5_t = False if is_stale else parse_trip(raw.get("voltage_8"))
-        m5_r = False if is_stale else (parse_run(raw.get("low_pressure")) and not m5_t)
+        param_pairs = [
+            ("current_1", "voltage_4"),
+            ("current_2", "voltage_5"),
+            ("current_3", "voltage_6"),
+            ("current_4", "voltage_7"),
+            ("low_pressure", "voltage_8"),
+        ]
+        motors_fallback = []
+        for idx, m_name in enumerate(m_list):
+            run_key, trip_key = param_pairs[idx] if idx < len(param_pairs) else (f"current_{idx+1}", f"voltage_{idx+4}")
+            m_t = False if is_stale else parse_trip(raw.get(trip_key))
+            m_r = False if is_stale else (parse_run(raw.get(run_key)) and not m_t)
+            motors_fallback.append(MotorTelemetry(
+                motor_name=m_name,
+                run_param_key=run_key,
+                trip_param_key=trip_key,
+                is_running=m_r,
+                is_tripped=m_t,
+            ))
 
         tanks_out.append(TankTelemetry(
             tank_id=1,
@@ -382,13 +387,7 @@ async def get_telemetry(
             capacity_liters=8000000,
             water_level_percent=water_level_pct,
             current_volume_liters=round((water_level_pct / 100) * 8000000, 0),
-            motors=[
-                MotorTelemetry(motor_name=m_list[0], run_param_key="current_1", trip_param_key="voltage_4", is_running=m1_r, is_tripped=m1_t),
-                MotorTelemetry(motor_name=m_list[1], run_param_key="current_2", trip_param_key="voltage_5", is_running=m2_r, is_tripped=m2_t),
-                MotorTelemetry(motor_name=m_list[2], run_param_key="current_3", trip_param_key="voltage_6", is_running=m3_r, is_tripped=m3_t),
-                MotorTelemetry(motor_name=m_list[3], run_param_key="current_4", trip_param_key="voltage_7", is_running=m4_r, is_tripped=m4_t),
-                MotorTelemetry(motor_name=m_list[4] if len(m_list) > 4 else "M5", run_param_key="low_pressure", trip_param_key="voltage_8", is_running=m5_r, is_tripped=m5_t),
-            ]
+            motors=motors_fallback
         ))
 
     # Auto-log real-time telemetry snapshot to persistent database table
@@ -400,13 +399,13 @@ async def get_telemetry(
         c.execute("SELECT COUNT(*) FROM telemetry_postings WHERE device_id = ? AND timestamp LIKE ?", (target_device_id, f"{minute_prefix}%"))
         if c.fetchone()[0] == 0:
             m_map = {
-                "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP", "M4", "M5"],
-                "350435032680674": ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"],
-                "350435032689659": ["M1_50_HP", "M2_50_HP", "M3_30_HP", "M4", "M5"],
-                "350435032681912": ["M1_30_HP", "M2_30_HP", "M3", "M4", "M5"]
+                "350435032683868": ["M1_60_HP", "M2_75_HP", "M3_60_HP"],
+                "350435032680674": ["M1_40_HP", "M2_30_HP"],
+                "350435032689659": ["M1_50_HP", "M2_50_HP"],
+                "350435032681912": ["M1_30_HP", "M2_30_HP"]
             }
-            m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP", "M3", "M4", "M5"])
-            num_m = 3 if target_device_id in ["350435032683868", "350435032680674", "350435032689659"] else 2
+            m_list = m_map.get(target_device_id, ["M1_40_HP", "M2_30_HP"])
+            num_m = len(m_list)
             
             live_m_statuses = {}
             for tank in tanks_out:
@@ -542,19 +541,10 @@ DEFAULT_CENTRAL_MOTORS = [
     {"name": "MOTOR_A_5", "motor_name": "M5", "tank": "TANK_A", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_B_1", "motor_name": "M1_40_HP", "tank": "TANK_B", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_B_2", "motor_name": "M2_30_HP", "tank": "TANK_B", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_B_3", "motor_name": "M3", "tank": "TANK_B", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_B_4", "motor_name": "M4", "tank": "TANK_B", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_B_5", "motor_name": "M5", "tank": "TANK_B", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_C_1", "motor_name": "M1_50_HP", "tank": "TANK_C", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
     {"name": "MOTOR_C_2", "motor_name": "M2_50_HP", "tank": "TANK_C", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_C_3", "motor_name": "M3_30_HP", "tank": "TANK_C", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_C_4", "motor_name": "M4", "tank": "TANK_C", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_C_5", "motor_name": "M5", "tank": "TANK_C", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5},
     {"name": "MOTOR_D_1", "motor_name": "M1_30_HP", "tank": "TANK_D", "run_param_key": "current_1", "trip_param_key": "voltage_4", "display_order": 1},
-    {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2},
-    {"name": "MOTOR_D_3", "motor_name": "M3", "tank": "TANK_D", "run_param_key": "current_3", "trip_param_key": "voltage_6", "display_order": 3},
-    {"name": "MOTOR_D_4", "motor_name": "M4", "tank": "TANK_D", "run_param_key": "current_4", "trip_param_key": "voltage_7", "display_order": 4},
-    {"name": "MOTOR_D_5", "motor_name": "M5", "tank": "TANK_D", "run_param_key": "low_pressure", "trip_param_key": "voltage_8", "display_order": 5}
+    {"name": "MOTOR_D_2", "motor_name": "M2_30_HP", "tank": "TANK_D", "run_param_key": "current_2", "trip_param_key": "voltage_5", "display_order": 2}
 ]
 
 DEFAULT_CENTRAL_USERS = [
