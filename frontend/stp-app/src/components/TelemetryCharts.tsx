@@ -347,7 +347,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             const isPlantManual = operatingMode === 'MANUAL';
             const isMotorActive = !isTripped && (rawRunning || motorAmpere > 0.05 || (isPlantManual && idx < 2 && currentAmperes > 0.05));
-            const isManualRunning = isMotorActive && (isPlantManual || motorAmpere > 0.05);
+            const isManualRunning = isMotorActive && (isPlantManual || (!rawRunning && motorAmpere > 0.05));
             const isAutoRunning = isMotorActive && !isManualRunning;
 
             // Transform history data for full 24-Hour graph rendering

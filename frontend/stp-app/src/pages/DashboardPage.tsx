@@ -278,7 +278,7 @@ const TankCard: React.FC<TankCardProps> = ({ tankLayout, telemetry, index, onSel
           const isPlantManual = selectedStatus?.operatingMode === 'MANUAL';
           const isRawRunning = (ms?.is_running === true) || (selectedStatus?.operatingMode === 'AUTO' && mi < 2);
           const isMotorActive = !isTripped && (isRawRunning || motorAmp > 0.05 || (isPlantManual && mi < 2 && (selectedStatus?.currentAmperes || 0) > 0.05));
-          const isManualRunning = isMotorActive && (isPlantManual || motorAmp > 0.05);
+          const isManualRunning = isMotorActive && (isPlantManual || (!isRawRunning && motorAmp > 0.05));
           const isAutoRunning = isMotorActive && !isManualRunning;
           const isRunning = isAutoRunning || isManualRunning;
           const motorObj = { ...motor, motor_name: motorDisplayName, is_running: isRunning, is_tripped: isTripped };
