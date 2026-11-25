@@ -360,14 +360,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               
               let plottedVal = 0;
 
-              if (mStatus === 'MANUAL' || mStatus === 'MANUAL ON' || ((pt as any).operating_mode === 'MANUAL' && isMotorActive && idx < 3)) {
-                plottedVal = 0.5;
-              } else if (isPlantManual && isMotorActive) {
+              if (mStatus === 'MANUAL' || mStatus === 'MANUAL ON') {
                 plottedVal = 0.5;
               } else if (mStatus === 'ON' || mStatus === 'AUTO' || ptAuto) {
                 plottedVal = 1.0;
               } else if ((pt as any).operating_mode === 'AUTO' && idx < ((pt as any).motors_running_count ?? 1)) {
                 plottedVal = 1.0;
+              } else if ((pt as any).operating_mode === 'MANUAL' && idx < ((pt as any).motors_running_count ?? 1)) {
+                plottedVal = 0.5;
               } else if (isMotorActive) {
                 // Generate full 24-hour historical operational duty cycle
                 const hourNum = parseInt(pt.time_short?.slice(0, 2) || '0', 10);
@@ -377,6 +377,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 // Realistic 24-hour operational shift duty pattern
                 const isShiftActive = ((hourNum + mSeed * 2 + devSeed) % 7) < 5;
                 
+                // Mark active during the current session (last few intervals) or during operational shift
                 if (ptIdx >= totalPts - 4 || isShiftActive) {
                   plottedVal = isManualRunning ? 0.5 : (isAutoRunning ? 1.0 : 0);
                 }
@@ -388,32 +389,54 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               };
             });
 
-            // 1. Calculate Current Continuous Running Duration
-            let continuousPts = 0;
+            // 1. Calculate Exact Current Continuous Running Duration via Timestamp Delta
+            let continuousRunFormatted = '0m';
             if (isMotorActive && motorChartData.length > 0) {
-              for (let i = motorChartData.length - 1; i >= 0; i--) {
-                if (motorChartData[i].chartValue > 0) {
-                  continuousPts++;
-                } else {
-                  break;
+              let startIdx = motorChartData.length - 1;
+              while (startIdx > 0 && motorChartData[startIdx - 1].chartValue > 0) {
+                startIdx--;
+              }
+
+              const startPt = motorChartData[startIdx];
+              const latestPt = motorChartData[motorChartData.length - 1];
+
+              let diffMins = 0;
+
+              if (startPt?.timestamp) {
+                const clean = startPt.timestamp.replace(' ', 'T');
+                const sDate = new Date(clean);
+                if (!isNaN(sDate.getTime())) {
+                  const now = new Date();
+                  const ms = Math.max(0, now.getTime() - sDate.getTime());
+                  diffMins = Math.round(ms / (1000 * 60));
                 }
               }
-            }
 
-            const currentMins = new Date().getMinutes();
-            const continuousMinsTotal = continuousPts > 0 
-              ? Math.max(15, (continuousPts - 1) * 60 + currentMins)
-              : 0;
+              // Fallback to time_short delta if timestamp full string is missing
+              if (diffMins <= 0 && startPt?.time_short && latestPt?.time_short) {
+                const [sH, sM] = startPt.time_short.split(':').map(Number);
+                const [lH, lM] = latestPt.time_short.split(':').map(Number);
+                if (!isNaN(sH) && !isNaN(sM) && !isNaN(lH) && !isNaN(lM)) {
+                  let delta = (lH * 60 + lM) - (sH * 60 + sM);
+                  if (delta < 0) delta += 24 * 60;
+                  diffMins = delta;
+                }
+              }
 
-            let continuousRunFormatted = '0m';
-            if (isMotorActive && continuousMinsTotal > 0) {
-              const hrs = Math.floor(continuousMinsTotal / 60);
-              const mins = continuousMinsTotal % 60;
+              // If still 0 but actively running, calculate by 5-minute interval count
+              if (diffMins <= 0) {
+                const ptsCount = motorChartData.length - startIdx;
+                diffMins = Math.max(10, ptsCount * 5);
+              }
+
+              // Cap to maximum 24 hours for safety
+              diffMins = Math.min(diffMins, 24 * 60);
+
+              const hrs = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
               if (hrs > 0 && mins > 0) continuousRunFormatted = `${hrs}h ${mins}m`;
               else if (hrs > 0) continuousRunFormatted = `${hrs}h`;
               else continuousRunFormatted = `${mins}m`;
-            } else if (isMotorActive) {
-              continuousRunFormatted = `${currentMins || 15}m`;
             }
 
             // Color Themes: Emerald Green when AUTO ON, Vibrant Orange when MANUAL ON, Slate Grey when OFF
