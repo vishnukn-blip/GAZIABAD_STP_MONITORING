@@ -278,11 +278,11 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
 
       const rawTimestamp = mergedData.timestamp;
       if (mergedData.has_data && rawTimestamp) {
-        let rawStr = rawTimestamp;
-        if (!rawStr.endsWith('Z') && !rawStr.includes('+')) {
-          rawStr += 'Z';
-        }
-        const d = new Date(rawStr);
+        // Parse local timestamp directly without appending 'Z' to prevent double UTC (+5:30) shift
+        const d = (rawTimestamp.includes('Z') || rawTimestamp.includes('+'))
+          ? new Date(rawTimestamp)
+          : new Date(rawTimestamp.replace(' ', 'T'));
+
         if (!isNaN(d.getTime())) {
           const day = String(d.getDate()).padStart(2, '0');
           const monthShort = d.toLocaleString('default', { month: 'short' }).toUpperCase();
@@ -296,12 +296,13 @@ export const ElectricalParameters: React.FC<ElectricalParametersProps> = ({
           setDataAtTime(timeOnly);
           setLastUpdated(formattedFull);
         } else {
-          const parts = rawTimestamp.replace('T', ' ').split('.')[0].split(' ');
+          const clean = rawTimestamp.replace('T', ' ').split('.')[0];
+          const parts = clean.split(' ');
           if (parts.length > 1) {
             timeOnly = parts[1];
             setDataAtTime(parts[1]);
           }
-          formattedFull = rawTimestamp.replace('T', ' ').split('.')[0];
+          formattedFull = clean;
           setLastUpdated(formattedFull);
         }
       }
